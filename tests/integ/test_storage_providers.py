@@ -18,8 +18,9 @@ import shutil
 import tempfile
 from typing import Set
 
+import pytest
 from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.providers import S3StorageProvider, AIStoreStorageProvider
+from multistorageclient.providers import S3StorageProvider, AIStoreStorageProvider, GoogleStorageProvider
 
 MB = 1024 * 1024
 
@@ -31,6 +32,10 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
 
     body = b"A" * (64 * MB)
     text = '{"text":"✅ Unicode Test ✅"}'
+
+    # use a smaller file for GCS because emulator does not support large files.
+    if isinstance(config.storage_provider, GoogleStorageProvider):
+        body = b"A" * 1024
 
     # cleanup
     for object in storage_client.list(f"{prefix}"):
@@ -76,10 +81,12 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         assert info.type == "directory"
 
     # verify directories
-    flat_list = list(storage_client.list(f"{prefix}/", include_directories=True))
-    assert len(flat_list) == 1
-    assert flat_list[0].type == "directory"
-    assert flat_list[0].key == dirname.rstrip("/")
+    # TODO enable directory listing when it is supported for GCS provider.
+    if not isinstance(config.storage_provider, GoogleStorageProvider):
+        flat_list = list(storage_client.list(f"{prefix}/", include_directories=True))
+        assert len(flat_list) == 1
+        assert flat_list[0].type == "directory"
+        assert flat_list[0].key == dirname.rstrip("/")
 
     # upload
     temp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -116,35 +123,37 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
     storage_client.delete(filename)
     assert len(list(storage_client.list(f"{prefix}"))) == 0
 
-    # large file
-    body_large = b"*" * (550 * MB)
-    with storage_client.open(filename, "wb") as fp:
-        fp.write(body_large)
+    # GoogleStorageProvider simulator does not support large file uploads.
+    if not isinstance(config.storage_provider, GoogleStorageProvider):
+        # large file
+        body_large = b"*" * (550 * MB)
+        with storage_client.open(filename, "wb") as fp:
+            fp.write(body_large)
 
-    assert len(list(storage_client.list(f"{prefix}"))) == 1
+        assert len(list(storage_client.list(f"{prefix}"))) == 1
 
-    with storage_client.open(filename, "rb") as fp:
-        read_size = 128 * MB
-        content = fp.read(read_size)
-        assert len(content) == read_size
+        with storage_client.open(filename, "rb") as fp:
+            read_size = 128 * MB
+            content = fp.read(read_size)
+            assert len(content) == read_size
 
-        content += fp.read(read_size)
-        assert len(content) == 2 * read_size
+            content += fp.read(read_size)
+            assert len(content) == 2 * read_size
 
-        content += fp.read(read_size)
-        content += fp.read()
-        assert len(content) == len(body_large)
-        assert isinstance(content, bytes)
+            content += fp.read(read_size)
+            content += fp.read()
+            assert len(content) == len(body_large)
+            assert isinstance(content, bytes)
 
-    with storage_client.open(filename, "rb") as fp:
-        read_size = 128
-        buffer = bytearray(read_size)
-        assert read_size == fp.readinto(buffer)
-        assert b"*" * read_size == buffer
+        with storage_client.open(filename, "rb") as fp:
+            read_size = 128
+            buffer = bytearray(read_size)
+            assert read_size == fp.readinto(buffer)
+            assert b"*" * read_size == buffer
 
-    # delete file
-    storage_client.delete(filename)
-    assert len(list(storage_client.list(f"{prefix}"))) == 0
+        # delete file
+        storage_client.delete(filename)
+        assert len(list(storage_client.list(f"{prefix}"))) == 0
 
     # unicode file
     filename = f"{prefix}/testfile.txt"
@@ -340,3 +349,27 @@ def test_azure_local():
     verify_storage_provider_list_segment(config=config)
 
     client.delete_container(container_name)
+
+
+def test_gcs_local():
+    # Delete files in the cache directory
+    cache_dir = os.path.join(tempfile.gettempdir(), ".msc_cache")
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+
+    config = StorageClientConfig.from_dict(
+        {
+            "profiles": {
+                "gcs": {
+                    "storage_provider": {
+                        "type": "gcs",
+                        "options": {"project_id": "local-project-id", "base_path": "files"},
+                    }
+                }
+            }
+        },
+        profile="gcs",
+    )
+
+    verify_storage_provider(config=config)
+    verify_storage_provider_list_segment(config=config)

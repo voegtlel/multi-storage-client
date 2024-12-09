@@ -54,22 +54,32 @@ start-storage-systems:
     azurite --inMemoryPersistence --silent --skipApiVersionCheck &
     # Start MinIO.
     minio --quiet server .minio &
+
+    # Start FakeGCSServer.
+    docker run -p 4443:4443 fsouza/fake-gcs-server:1.52.1 -backend memory -scheme http &
+
     # Wait for Azurite.
     timeout 10s bash -c "until netcat --zero 127.0.0.1 10000; do sleep 1; done"
     # Wait for MinIO.
     timeout 10s bash -c "until curl --fail --silent http://127.0.0.1:9000/minio/health/live; do sleep 1; done"
 
+    # Create a "files" bucket in FakeGCSServer.
+    curl -X POST -H "Content-Type: application/json" -d '{"name":"files"}' "http://${FAKE_GCS_SERVER:-127.0.0.1}:4443/storage/v1/b?project=local-project-id"
+
 # Stop storage systems.
 stop-storage-systems:
-    # Azurite uses ports 10000-10002. MinIO uses port 9000.
-    for PID in $(lsof -i :9000,10000 -t); do kill $PID; done
+    # Ports used by storage systems:
+    # - Azurite => 10000-10002
+    # - MinIO   => 9000
+    # - GCS     => 4443
+    for PID in $(lsof -i :9000,10000,4443 -t); do kill $PID; done
     # Remove persisted data.
     rm -rf .minio __blobstorage__ __queuestorage__ __azurite_*__.json
 
 # Run integration tests.
 run-integration-tests: prepare-virtual-environment
     # Integration test.
-    poetry run pytest tests/integ
+    STORAGE_EMULATOR_HOST=http://${FAKE_GCS_SERVER:-127.0.0.1}:4443 poetry run pytest tests/integ
 
 # Run E2E tests.
 run-e2e-tests: prepare-virtual-environment

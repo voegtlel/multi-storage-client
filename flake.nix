@@ -104,6 +104,8 @@
                 # Storage systems.
                 azurite
                 minio
+                # Docker CLI.
+                docker
                 # JFrog CLI.
                 jfrog-cli
                 # OpenSSH.

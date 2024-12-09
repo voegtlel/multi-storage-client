@@ -218,13 +218,13 @@ class GoogleStorageProvider(BaseStorageProvider):
                     prefix=prefix,
                     # This is ≥ instead of >.
                     start_offset=start_after,
+                    delimiter="/",
                 )
             else:
                 blobs = bucket_obj.list_blobs(
                     prefix=prefix,
                     # This is ≥ instead of >.
                     start_offset=start_after,
-                    delimiter="/",
                 )
 
             if include_directories:

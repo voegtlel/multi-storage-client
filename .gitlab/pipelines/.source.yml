@@ -66,6 +66,17 @@ Build Documentation:
 Run Integration Tests:
   extends:
     - .default
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_IMAGE_VERSION: 25.0.3
+    DOCKER_TLS_CERTDIR: ""
+    FF_NETWORK_PER_BUILD: "true"
+    FAKE_GCS_SERVER_IMAGE_VERSION: 1.52.1
+  services:
+    - docker:${DOCKER_IMAGE_VERSION}-dind
+    - name: fsouza/fake-gcs-server:${FAKE_GCS_SERVER_IMAGE_VERSION}
+      alias: fake-gcs
+      command: ["-backend", "memory", "-scheme", "http"]
   parallel:
     matrix:
       # Excluding until we decide what to do with str.removeprefix() requiring Python 3.9+.
@@ -77,6 +88,7 @@ Run Integration Tests:
   script:
     - |
       nix develop --command bash -c "
+        export FAKE_GCS_SERVER="fake-gcs" &&
         just start-storage-systems &&
         just python-binary=${PYTHON_BINARY} run-integration-tests &&
         just stop-storage-systems
