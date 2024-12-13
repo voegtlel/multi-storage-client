@@ -1,0 +1,7 @@
+Indices
+=======
+
+.. toctree::
+
+   /genindex
+   /modindex

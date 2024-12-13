@@ -1,0 +1,100 @@
+[tool.poetry]
+name = "multi-storage-client"
+version = "0.12.1"
+description = "Storage client implementation for accessing different object stores."
+authors = ["NVIDIA Multi-Storage Client Team <nv-multi-storage-client@nvidia.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+packages = [
+    { include = "multistorageclient", from = "src" }
+]
+repository = "https://github.com/NVIDIA/multi-storage-client"
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+python-dateutil = "^2.7.0"
+numpy = [
+    { version = "<1.25.0", python = "~3.8" },
+    { version = ">=1.24.0", python = "^3.9" }
+]
+opentelemetry-api = "^1.24.0"
+opentelemetry-sdk = "^1.24.0"
+opentelemetry-exporter-otlp-proto-http = "^1.24.0"
+datasketches = "^5.1.0"
+filelock = "^3.14.0"
+jsonschema = "^4"
+pyyaml = "^6"
+
+aistore = { version = ">=1.8.1", optional = true }
+azure-storage-blob = { version = ">=12.0.0", optional = true }
+boto3 = { version = ">=1.28.17", optional = true }
+fsspec = { version = ">=2022.8.2", optional = true }
+google-cloud-storage = { version = ">=2.10.0", optional = true }
+oci = { version = ">=2.117.0", optional = true }
+torch = { version = "^2.0.0", optional = true }
+xarray = [
+    { version = "<=2023.1.0", python = "<3.9" },
+    { version = ">=2023.10.0", python = "^3.9" }
+]
+zarr = { version = ">=2.15.0", optional = true }
+
+[tool.poetry.extras]
+aistore = ["aistore"]
+azure-storage-blob = ["azure-storage-blob"]
+boto3 = ["boto3"]
+fsspec = ["fsspec"]
+google-cloud-storage = ["google-cloud-storage"]
+oci = ["oci"]
+torch = ["torch"]
+xarray = ["xarray"]
+zarr = ["zarr"]
+
+[tool.poetry.group.dev.dependencies]
+pip-licenses = [
+    { version = "^4", python = "<3.9" },
+    { version = "^5", python = "^3.9" }
+]
+autopep8 = "^2.3.1"
+flake8 = "^7"
+mypy = "^1.11.2"
+types-PyYAML = "^6"
+types-python-dateutil = ">=2.8.2"
+types-requests = "^2.31.0.3"
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+pytest-forked = "^1.6.0"
+sphinx = "^7"
+sphinx-copybutton = "^0"
+sphinx-pyproject = "^0"
+furo = ">=2024.5.6"
+
+[tool.poetry.plugins."fsspec.specs"]
+msc = "multistorageclient.contrib.async_fs.MultiAsyncFileSystem"
+
+[tool.poetry.scripts]
+msc-benchmark = "multistorageclient.commands.msc_benchmark:main"
+
+[tool.autopep8]
+aggressive = 2
+in-place = true
+max_line_length = 120
+recursive = true
+
+[tool.mypy]
+files = ["src/"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pip-licenses]
+format = "markdown"
+order = "license"
+output-file = ".licenses.md"
+with-urls = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

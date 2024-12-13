@@ -1,0 +1,36 @@
+#
+# GitLab CI configuration.
+#
+# https://docs.gitlab.com/ee/ci/yaml
+#
+
+stages:
+  - Pipeline
+
+default:
+  # This is a very minimal Linux with just Nix. It's not NixOS.
+  image: nixos/nix:latest
+
+variables:
+  # So we don't have to do `nix --experimental-features "nix-command flakes"` every time.
+  #
+  # https://nixos.org/manual/nix/stable/command-ref/env-common#env-NIX_CONFIG
+  NIX_CONFIG: |
+    experimental-features = nix-command flakes
+
+#
+# Jobs.
+#
+
+# Properties we can't set with `default`.
+.default:
+  stage: Pipeline
+
+Update Dependencies:
+  extends:
+    - .default
+  script:
+    - |
+      nix develop --command bash -c "
+        echo 'TODO: Add Renovate to auto-update dependencies and .licenses.'
+      "

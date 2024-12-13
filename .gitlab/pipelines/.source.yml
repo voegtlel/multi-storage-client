@@ -1,0 +1,83 @@
+#
+# GitLab CI configuration.
+#
+# https://docs.gitlab.com/ee/ci/yaml
+#
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "parent_pipeline"
+
+stages:
+  - Pipeline
+
+default:
+  # This is a very minimal Linux with just Nix. It's not NixOS.
+  image: nixos/nix:latest
+  interruptible: true
+
+variables:
+  # So we don't have to do `nix --experimental-features "nix-command flakes"` every time.
+  #
+  # https://nixos.org/manual/nix/stable/command-ref/env-common#env-NIX_CONFIG
+  NIX_CONFIG: |
+    experimental-features = nix-command flakes
+
+#
+# Jobs.
+#
+
+# Properties we can't set with `default`.
+.default:
+  stage: Pipeline
+
+Build Package:
+  extends:
+    - .default
+  parallel:
+    matrix:
+      # Excluding until we decide what to do with str.removeprefix() requiring Python 3.9+.
+      # - PYTHON_BINARY: python3.8
+      - PYTHON_BINARY: python3.9
+      - PYTHON_BINARY: python3.10
+      - PYTHON_BINARY: python3.11
+      - PYTHON_BINARY: python3.12
+  script:
+    - |
+      nix develop --command bash -c "
+        just python-binary=${PYTHON_BINARY} build
+      "
+  artifacts:
+    paths:
+      - dist
+
+Build Documentation:
+  extends:
+    - .default
+  script:
+    - |
+      nix develop --command bash -c "
+        just document
+      "
+  artifacts:
+    paths:
+      - docs/dist
+
+Run Integration Tests:
+  extends:
+    - .default
+  parallel:
+    matrix:
+      # Excluding until we decide what to do with str.removeprefix() requiring Python 3.9+.
+      # - PYTHON_BINARY: python3.8
+      - PYTHON_BINARY: python3.9
+      - PYTHON_BINARY: python3.10
+      - PYTHON_BINARY: python3.11
+      - PYTHON_BINARY: python3.12
+  script:
+    - |
+      nix develop --command bash -c "
+        just start-storage-systems &&
+        just python-binary=${PYTHON_BINARY} run-integration-tests &&
+        just stop-storage-systems
+      "

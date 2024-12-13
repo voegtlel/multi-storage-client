@@ -1,0 +1,70 @@
+#
+# GitHub Actions workflow configuration.
+#
+# https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions
+#
+
+name: Production
+on:
+  workflow_call:
+jobs:
+  get-tag-message:
+    name: Get Tag Message
+    outputs:
+      tag-message: ${{ steps.get-tag-message.outputs.tag-message }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/checkout@v4
+      - id: get-tag-message
+        run: |
+          nix develop --command bash -c "
+            git tag --list --format '%(contents)' ${{ github.ref_name }} | cat <(echo -n 'tag-message=') - >> $GITHUB_OUTPUT
+          "
+  publish-documentation:
+    name: Publish Documentation
+    needs:
+      - get-tag-message
+    # Only publish for latest releases, not backport releases.
+    if: ${{ needs.get-tag-message.outputs.tag-message }} == "latest"
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/checkout@v4
+      - run: |
+          nix develop --command bash -c "
+            just document
+          "
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/dist
+      - id: deploy-pages
+        uses: actions/deploy-pages@v4
+  publish-release:
+    name: Publish Release
+    needs:
+      - get-tag-message
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/checkout@v4
+      # Skip creation if a release for the tag already exists.
+      - run: |
+          nix develop --command bash -c "
+            gh release --repo ${{ github.repository }} view ${{ github.ref_name }} ||
+            gh release --repo ${{ github.repository }} create ${{ github.ref_name }} --latest=$([[ '${{ needs.get-tag-message.outputs.tag-message }}' == 'latest' ]] && echo true || echo false) --notes-file .release_notes/${{ github.ref_name }}.md --title ${{ github.ref_name }} --verify-tag
+          "

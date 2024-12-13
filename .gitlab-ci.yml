@@ -1,0 +1,125 @@
+#
+# GitLab CI configuration.
+#
+# https://docs.gitlab.com/ee/ci/yaml
+#
+
+#
+# This project has 2 main pipelines:
+#
+# - Supply
+# - Update
+#
+# The pipeline files are laid out like this:
+#
+# .
+# ├── .github/
+# │   └── workflows/
+# │       ├── .{child pipeline}.yml
+# │       └── {pipeline}.yml
+# ├── .gitlab/
+# │   └── pipelines/
+# │       ├── .{child pipeline}.yml
+# │       └── {pipeline}.yml
+# └── .gitlab-ci.yml
+#
+# ----------------------------------------------------------------------------------------------------
+# Supply
+# ----------------------------------------------------------------------------------------------------
+#
+# The supply pipeline builds and distributes the project's artifacts.
+#
+# Build is done in GitLab while distribution is split between GitLab and GitHub,
+# requiring the supply pipeline to span both.
+#
+# ○   GitLab (runs on push to merge request branches, the default branch, or tags)
+# │
+# ├── Source (stops here on push to merge request branches)
+# │   - Builds the package.
+# │   - Builds the documentation.
+# │   - Runs integration tests against local storage services.
+# │
+# ├── Beta (stops here on push to the default branch)
+# │   - Runs E2E tests against remote storage services.
+# │
+# ├── Production
+# │   - Publishes the package to PyPI indices.
+# │   - Pushes the tag to GitHub.
+# │
+# ◑   GitHub (runs on push to tags)
+# │
+# ├── Production
+# │   - Publishes the documentation to GitHub Pages.
+# │   - Publishes a GitHub release.
+# │
+# ●
+#
+# ----------------------------------------------------------------------------------------------------
+# Update
+# ----------------------------------------------------------------------------------------------------
+#
+# The update pipeline updates dependencies and the .licenses folder.
+#
+
+#
+# Dispatch.
+#
+# This is to split 1 file with 𝐍 pipelines (complex) into 𝐍 files with 1 pipeline (simple).
+#
+# Rules are the dispatch values for methods (pipelines).
+# A dispatch value defined in `workflow` should be associated with exactly 1 method in `include`.
+#
+
+# Dispatch values.
+workflow:
+  rules:
+    # Merge request push.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      auto_cancel:
+        on_new_commit: interruptible
+    # Default branch push.
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+      auto_cancel:
+        on_new_commit: none
+    # Tag push.
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != null
+      when: always
+      auto_cancel:
+        on_new_commit: none
+    # Scheduled pipeline with the `SCHEDULED_PIPELINE_METHOD` variable set to `update`.
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULED_PIPELINE_METHOD == "update"
+      when: always
+      auto_cancel:
+        on_new_commit: none
+
+# Methods.
+#
+# Note that methods should have their `workflow` defined with their dispatch values.
+# Child methods should have their `workflow` defined in their own files.
+include:
+  - local: .gitlab/pipelines/supply.yml
+    rules:
+      # Merge request push.
+      - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      # Default branch push.
+      - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      # Tag push.
+      - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != null
+  - local: .gitlab/pipelines/update.yml
+    rules:
+      # Scheduled pipeline with the `SCHEDULED_PIPELINE_METHOD` variable set to `update`.
+      - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULED_PIPELINE_METHOD == "update"
+
+#
+# Jobs.
+#
+
+# GitLab complains about no jobs otherwise.
+⛔️:
+  stage: .pre
+  rules:
+    - when: never
+  script:
+    - exit 1
