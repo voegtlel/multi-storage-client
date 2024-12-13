@@ -23,7 +23,7 @@ from ..types import MSC_PROTOCOL
 
 def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
     """
-    Adapt numpy.memmap.
+    Adapt ``numpy.memmap``.
     """
 
     if not args:
@@ -42,7 +42,7 @@ def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
 def load(*args: Any, **kwargs: Any
          ) -> Union[_np.ndarray, Dict[str, _np.ndarray], _np.lib.npyio.NpzFile]:
     """
-    Adapt numpy.load.
+    Adapt ``numpy.load``.
     """
 
     file = args[0] if args else kwargs.get('file')
@@ -71,7 +71,7 @@ def load(*args: Any, **kwargs: Any
 
 def save(*args: Any, **kwargs: Any) -> None:
     """
-    Adapt numpy.save.
+    Adapt ``numpy.save``.
     """
 
     file = args[0] if args else kwargs.get('file')

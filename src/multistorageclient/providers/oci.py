@@ -49,14 +49,14 @@ PROVIDER = "oci"
 
 class OracleStorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the StorageProvider for interacting with
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with
     Oracle Cloud Infrastructure (OCI) Object Storage.
     """
 
     def __init__(self, namespace: str, base_path: str = "",
                  credentials_provider: Optional[CredentialsProvider] = None, **kwargs: Any) -> None:
         """
-        Initializes the OracleStorageProvider with the region, compartment ID, and optional credentials provider.
+        Initializes the :py:class:`OracleStorageProvider` with the region, compartment ID, and optional credentials provider.
 
         :param region_name: The OCI region where the Object Storage is located.
         :param compartment_id: The OCI compartment ID for the Object Storage.

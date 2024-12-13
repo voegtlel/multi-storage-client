@@ -35,7 +35,7 @@ DEFAULT_LOCK_TIMEOUT = 600            # 10 minutes
 @dataclass
 class CacheConfig:
     """
-    Configuration for the CacheManager.
+    Configuration for the :py:class:`CacheManager`.
     """
     #: The directory where the cache is stored.
     location: str
@@ -120,7 +120,7 @@ class CacheManager:
 
     def use_etag(self) -> bool:
         """
-        Check if use_etag is set in the cache config.
+        Check if ``use_etag`` is set in the cache config.
         """
         return self._cache_config.use_etag
 
@@ -169,7 +169,7 @@ class CacheManager:
         Open a file from the cache and return the file object.
 
         :param key: The key corresponding to the file to be opened.
-        :param mode: The mode in which to open the file (default is "rb" for read binary).
+        :param mode: The mode in which to open the file (default is ``rb`` for read binary).
 
         :return: The file object if the file is found in the cache, otherwise None.
         """
@@ -307,7 +307,8 @@ class CacheManager:
 
     def refresh_cache(self) -> bool:
         """
-        Scan the cache directory and evict cache entries based on the last modification time. This method is protected by a FileLock that only allows a single process to evict the cached files.
+        Scan the cache directory and evict cache entries based on the last modification time.
+        This method is protected by a :py:class:`filelock.FileLock` that only allows a single process to evict the cached files.
         """
         try:
             # If the process acquires the lock, then proceed with the cache eviction
@@ -323,9 +324,9 @@ class CacheManager:
 
     def acquire_lock(self, key: str) -> FileLock:
         """
-        Create a FileLock object for a given key.
+        Create a :py:class:`filelock.FileLock` object for a given key.
 
-        :return: FileLock object.
+        :return: :py:class:`filelock.FileLock` object.
         """
         hashed_name = self._get_cache_key(key)
         lock_file = os.path.join(self._cache_dir, self._profile, f".{hashed_name}.lock")

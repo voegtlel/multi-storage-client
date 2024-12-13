@@ -50,7 +50,7 @@ PROVIDER = 's3'
 
 class StaticS3CredentialsProvider(CredentialsProvider):
     """
-    A concrete implementation of the CredentialsProvider that provides static S3 credentials.
+    A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static S3 credentials.
     """
     _access_key: str
     _secret_key: str
@@ -58,7 +58,7 @@ class StaticS3CredentialsProvider(CredentialsProvider):
 
     def __init__(self, access_key: str, secret_key: str, session_token: Optional[str] = None):
         """
-        Initializes the StaticS3CredentialsProvider with the provided access key, secret key, and optional
+        Initializes the :py:class:`StaticS3CredentialsProvider` with the provided access key, secret key, and optional
         session token.
 
         :param access_key: The access key for S3 authentication.
@@ -83,7 +83,7 @@ class StaticS3CredentialsProvider(CredentialsProvider):
 
 class S3StorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the StorageProvider for interacting with Amazon S3 or SwiftStack.
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Amazon S3 or SwiftStack.
     """
 
     def __init__(self,
@@ -93,7 +93,7 @@ class S3StorageProvider(BaseStorageProvider):
                  credentials_provider: Optional[CredentialsProvider] = None,
                  **kwargs: Any) -> None:
         """
-        Initializes the S3StorageProvider with the region, endpoint URL, and optional credentials provider.
+        Initializes the :py:class:`S3StorageProvider` with the region, endpoint URL, and optional credentials provider.
 
         :param region_name: The AWS region where the S3 bucket is located.
         :param endpoint_url: The custom endpoint URL for the S3 service.

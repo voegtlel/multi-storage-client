@@ -36,13 +36,13 @@ PROVIDER = "azure"
 
 class StaticAzureCredentialsProvider(CredentialsProvider):
     """
-    A concrete implementation of the CredentialsProvider that provides static Azure credentials.
+    A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static Azure credentials.
     """
     _connection: str
 
     def __init__(self, connection: str):
         """
-        Initializes the StaticAzureCredentialsProvider with the provided connection string.
+        Initializes the :py:class:`StaticAzureCredentialsProvider` with the provided connection string.
 
         :param connection: The connection string for Azure Blob Storage authentication.
         """
@@ -62,13 +62,13 @@ class StaticAzureCredentialsProvider(CredentialsProvider):
 
 class AzureBlobStorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the StorageProvider for interacting with Azure Blob Storage.
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Azure Blob Storage.
     """
 
     def __init__(self, endpoint_url: str, base_path: str = "",
                  credentials_provider: Optional[CredentialsProvider] = None):
         """
-        Initializes the AzureBlobStorageProvider with the endpoint URL and optional credentials provider.
+        Initializes the :py:class:`AzureBlobStorageProvider` with the endpoint URL and optional credentials provider.
 
         :param endpoint_url: The Azure storage account URL.
         :param base_path: The root prefix path within the container where all operations will be scoped.

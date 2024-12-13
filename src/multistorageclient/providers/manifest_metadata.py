@@ -108,7 +108,7 @@ class ManifestMetadataProvider(MetadataProvider):
                  manifest_path: str,
                  writable: bool = False) -> None:
         """
-        Creates a ManifestMetadataProvider.
+        Creates a :py:class:`ManifestMetadataProvider`.
 
         :param storage_provider: Storage provider.
         :param manifest_path: Main manifest file path.

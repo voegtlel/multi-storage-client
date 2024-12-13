@@ -40,7 +40,7 @@ PROVIDER = 'ais'
 
 class StaticAISCredentialProvider(CredentialsProvider):
     """
-    A concrete implementation of the CredentialsProvider that provides static S3 credentials.
+    A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static S3 credentials.
     """
     _username: Optional[str]
     _password: Optional[str]
@@ -58,14 +58,14 @@ class StaticAISCredentialProvider(CredentialsProvider):
             skip_verify: Optional[bool] = True,
             ca_cert: Optional[str] = None):
         """
-        Initializes the StaticAISCredentialProvider with the given credentials.
+        Initializes the :py:class:`StaticAISCredentialProvider` with the given credentials.
 
         :param username: The username for the AIStore authentication.
         :param password: The password for the AIStore authentication.
         :param authn_endpoint: The AIStore authentication endpoint.
         :param token: The AIStore authentication token. This is used for authentication if username,
                         password and authn_endpoint are not provided.
-        :param skip_verify: If true, skip SSL certificate verification. Defaults to True.
+        :param skip_verify: If true, skip SSL certificate verification.
         :param ca_cert: Path to a CA certificate file for SSL verification.
 
         """
@@ -100,13 +100,12 @@ class AIStoreStorageProvider(BaseStorageProvider):
         AIStore client for managing buckets, objects, and ETL jobs.
 
         :param endpoint: The AIStore endpoint.
-        :param skip_verify: If true, skip SSL certificate verification. Defaults to True.
+        :param skip_verify: Whether to skip SSL certificate verification.
         :param ca_cert: Path to a CA certificate file for SSL verification.
         :param timeout: Request timeout in seconds; a single float
-            for both connect/read timeouts (e.g., 5.0), a tuple for separate connect/read timeouts (e.g., (3.0, 10.0)),
-            or None to disable timeout.
-        :param token: Authorization token. If not provided, the 'AIS_AUTHN_TOKEN' environment variable
-            will be used. Defaults to None.
+            for both connect/read timeouts (e.g., ``5.0``), a tuple for separate connect/read
+            timeouts (e.g., ``(3.0, 10.0)``), or ``None`` to disable timeout.
+        :param token: Authorization token. If not provided, the ``AIS_AUTHN_TOKEN`` environment variable will be used.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         """
         super().__init__(base_path=base_path, provider_name=PROVIDER)
@@ -128,18 +127,19 @@ class AIStoreStorageProvider(BaseStorageProvider):
     def _collect_metrics(self, func: Callable, operation: str, bucket: str, key: str,
                          put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
         """
-        Collects and records performance metrics around object storage operations such as PUT, GET, DELETE, etc.
+        Collects and records performance metrics around object storage operations
+        such as ``PUT``, ``GET``, ``DELETE``, etc.
 
         This method wraps an object storage operation and measures the time it takes to complete, along with recording
         the size of the object if applicable. It handles errors like timeouts and client errors and ensures
         proper logging of duration and object size.
 
         :param func: The function that performs the actual object storage operation.
-        :param operation: The type of operation being performed (e.g., "PUT", "GET", "DELETE").
+        :param operation: The type of operation being performed (e.g., ``PUT``, ``GET``, ``DELETE``).
         :param bucket: The name of the object storage bucket involved in the operation.
         :param key: The key of the object within the object storage bucket.
-        :param put_object_size: The size of the object being uploaded, if applicable (for PUT operations).
-        :param get_object_size: The size of the object being downloaded, if applicable (for GET operations).
+        :param put_object_size: The size of the object being uploaded, if applicable (for ``PUT`` operations).
+        :param get_object_size: The size of the object being downloaded, if applicable (for ``GET`` operations).
 
         :return: The result of the object storage operation, typically the return value of the `func` callable.
         """

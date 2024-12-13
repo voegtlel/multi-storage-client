@@ -24,7 +24,7 @@ from ..types import MSC_PROTOCOL
 
 def load(f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
     """
-    Adapt torch.load()
+    Adapt ``torch.load``.
     """
     if isinstance(f, str) and f.startswith(MSC_PROTOCOL):
         with msc_open(f, "rb") as fp:
@@ -35,7 +35,7 @@ def load(f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
 
 def save(obj: object, f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
     """
-    Adapt torch.save()
+    Adapt ``torch.save``.
     """
     if isinstance(f, str) and f.startswith(MSC_PROTOCOL):
         with msc_open(f, "wb") as fp:

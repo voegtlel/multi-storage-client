@@ -10,7 +10,8 @@ from sphinx_pyproject import SphinxConfig
 #
 # Load `name`, `version`, `description`, and `authors` from the project's `pyproject.toml`.
 #
-# Prefer defining other configurations in this file instead of using `[tool.sphinx-pyproject]` in the project's `pyproject.toml`.
+# Prefer defining other configurations in this file instead of using
+# `[tool.sphinx-pyproject]` in the project's `pyproject.toml`.
 # config = SphinxConfig(
 #     "../../pyproject.toml",
 #     globalns=globals(),

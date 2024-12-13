@@ -80,10 +80,10 @@ def open(url: str, mode: str = "rb") -> Union[PosixFile, ObjectFile]:
     Open a file at the given URL using the specified mode.
 
     The function utilizes the :py:class:`multistorageclient.StorageClient` to open a file at the provided path.
-    The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    The URL is parsed, and the corresponding :py:class:`multistorageclient.StorageClient` is retrieved or built.
 
     :param url: The URL of the file to open. (example: ``msc://profile/prefix/dataset.tar``)
-    :param mode: The file mode to open the file in. Defaults to "rb" (read binary).
+    :param mode: The file mode to open the file in.
 
     :return: A file-like object that allows interaction with the file.
 
@@ -116,7 +116,8 @@ def upload_file(url: str, local_path: str) -> None:
     Upload a file to the given URL from a local path.
 
     The function utilizes the :py:class:`multistorageclient.StorageClient` to upload a file (object) to the
-    provided path. The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    provided path. The URL is parsed, and the corresponding :py:class:`multistorageclient.StorageClient`
+    is retrieved or built.
 
     :param url: The URL of the file. (example: ``msc://profile/prefix/dataset.tar``)
     :param local_path: The local path of the file.
@@ -132,7 +133,8 @@ def download_file(url: str, local_path: str) -> None:
     Download a file in a given remote_path to a local path
 
     The function utilizes the :py:class:`multistorageclient.StorageClient` to download a file (object) at the
-    provided path. The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    provided path. The URL is parsed, and the corresponding :py:class:`multistorageclient.StorageClient`
+    is retrieved or built.
 
     :param url: The URL of the file to download. (example: ``msc://profile/prefix/dataset.tar``)
     :param local_path: The local path where the file should be downloaded.
@@ -148,8 +150,7 @@ def is_empty(url: str) -> bool:
     Checks whether the specified URL contains any objects.
 
     :param url: The URL to check, typically pointing to a storage location.
-    :return: True if there are no objects/files under this URL, False otherwise.
-
+    :return: ``True`` if there are no objects/files under this URL, ``False`` otherwise.
 
     :raises ValueError: If the URL's protocol does not match the expected protocol ``msc``.
     """
@@ -162,7 +163,8 @@ def is_file(url: str) -> bool:
     Checks whether the specified url points to a file (rather than a directory or folder).
 
     The function utilizes the :py:class:`multistorageclient.StorageClient` to check if a file (object) exists
-    at the provided path. The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    at the provided path. The URL is parsed, and the corresponding :py:class:`multistorageclient.StorageClient`
+    is retrieved or built.
 
     :param url: The URL to check the existence of a file. (example: ``msc://profile/prefix/dataset.tar``)
     """

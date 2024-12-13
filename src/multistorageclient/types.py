@@ -60,7 +60,7 @@ class Credentials:
         """
         Checks if the credentials are expired based on the expiration time.
 
-        :return: True if the credentials are expired, False otherwise.
+        :return: ``True`` if the credentials are expired, ``False`` otherwise.
         """
         expiry = dateutil_parser(self.expiration) if self.expiration else None
         if expiry is None:
@@ -73,19 +73,18 @@ class ObjectMetadata:
     """
     A data class that represents the metadata associated with an object stored in a cloud storage service. This metadata
     includes both required and optional information about the object.
-
-    Attributes:
-        :key (str): Relative path of the object.
-        :content_length (int): The size of the object in bytes.
-        :last_modified (datetime): The timestamp indicating when the object was last modified.
-        :content_type (Optional[str]): The MIME type of the object.
-        :etag (Optional[str]): The entity tag (ETag) of the object.
     """
+
+    #: Relative path of the object.
     key: str
+    #: The size of the object in bytes.
     content_length: int
+    #: The timestamp indicating when the object was last modified.
     last_modified: datetime
     type: str = "file"
+    #: The MIME type of the object.
     content_type: Optional[str] = field(default=None)
+    #: The entity tag (ETag) of the object.
     etag: Optional[str] = field(default=None)
 
     @staticmethod
@@ -251,7 +250,7 @@ class StorageProvider(ABC):
 
         :param path: The path to check.
 
-        :return: True if the key points to a file, False if it points to a directory or folder.
+        :return: ``True`` if the key points to a file, ``False`` if it points to a directory or folder.
         """
         pass
 
@@ -301,8 +300,8 @@ class MetadataProvider(ABC):
     def realpath(self, path: str) -> Tuple[str, bool]:
         """
         Returns the canonical, full real physical path for use by a
-        StorageProvider. This provides translation from user-visible paths to
-        the canonical paths needed by a StorageProvider.
+        :py:class:`StorageProvider`. This provides translation from user-visible paths to
+        the canonical paths needed by a :py:class:`StorageProvider`.
 
         :param path: user-supplied virtual path
 
@@ -313,38 +312,36 @@ class MetadataProvider(ABC):
     @abstractmethod
     def add_file(self, path: str, metadata: ObjectMetadata) -> None:
         """
-        Add a file to be tracked by the MetadataProvider. Does not have to be
-        reflected in listing until a commit_updates forces a persist.
+        Add a file to be tracked by the :py:class:`MetadataProvider`. Does not have to be
+        reflected in listing until a :py:meth:`MetadataProvider.commit_updates` forces a persist.
 
-        Args:
-            :param path: User-supplied path
-            :param metadata: file metadata
+        :param path: User-supplied path
+        :param metadata: file metadata
         """
         pass
 
     @abstractmethod
     def remove_file(self, path: str) -> None:
         """
-        Remove a file tracked by the MetadataProvider. Does not have to be
-        reflected in listing until a commit_updates forces a persist.
+        Remove a file tracked by the :py:class:`MetadataProvider`. Does not have to be
+        reflected in listing until a :py:meth:`MetadataProvider.commit_updates` forces a persist.
 
-        Args:
-            :param path: User-supplied virtual path
+        :param path: User-supplied virtual path
         """
         pass
 
     @abstractmethod
     def commit_updates(self) -> None:
         """
-        Commit any newly adding files, used in conjunction with add_file.
-        MetadataProvider will persistently record any metadata changes.
+        Commit any newly adding files, used in conjunction with :py:meth:`MetadataProvider.add_file`.
+        :py:class:`MetadataProvider` will persistently record any metadata changes.
         """
         pass
 
     @abstractmethod
     def is_writable(self) -> bool:
         """
-        Returns True if the MetadataProvider supports writes else False.
+        Returns ``True`` if the :py:class:`MetadataProvider` supports writes else ``False``.
         """
         pass
 
@@ -355,7 +352,7 @@ class StorageProviderConfig:
     A data class that represents the configuration needed to initialize a storage provider.
     """
 
-    #: The name or type of the storage provider (e.g., 's3', 'gcs', 'oci', 'azure').
+    #: The name or type of the storage provider (e.g., ``s3``, ``gcs``, ``oci``, ``azure``).
     type: str
     #: Additional options required to configure the storage provider (e.g., endpoint URLs, region, etc.).
     options: Optional[Dict[str, Any]] = None
@@ -364,7 +361,7 @@ class StorageProviderConfig:
 class ProviderBundle(ABC):
     """
     Abstract base class that serves as a container for various providers (storage, credentials, and metadata)
-    that interact with a storage service. The `ProviderBundle` abstracts access to these providers, allowing for
+    that interact with a storage service. The :py:class:`ProviderBundle` abstracts access to these providers, allowing for
     flexible implementations of cloud storage solutions.
     """
 

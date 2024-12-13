@@ -23,11 +23,12 @@ from .zarr import LazyZarrStore
 
 def open_zarr(*args: Any, **kwargs: Any) -> _xarray.Dataset:
     """
-    Adapt xarray.open_zarr() to use LazyZarrStore when path matches the "msc" protocol.
+    Adapt ``xarray.open_zarr`` to use :py:class:`multistorageclient.contrib.zarr.LazyZarrStore`
+    when path matches the ``msc`` protocol.
 
-    If the path starts with the MSC protocol, it uses LazyZarrStore with a resolved
-    storage client and prefix, passing `msc_max_workers` if provided. Otherwise, it
-    directly calls xarray.open_zarr().
+    If the path starts with the MSC protocol, it uses :py:class:`multistorageclient.contrib.zarr.LazyZarrStore`
+    with a resolved storage client and prefix, passing ``msc_max_workers`` if provided. Otherwise, it
+    directly calls ``xarray.open_zarr``.
     """
     args_list = list(args)
     path = args_list[0] if args_list else kwargs.get('store')

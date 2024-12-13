@@ -1,103 +1,130 @@
 # Multi-Storage Client
 
-`multi-storage-client` is a Python package designed to provide seamless access to multiple object stores, including AWS S3, Google Cloud Storage, Oracle Cloud Infrastructure, and Azure. Its simple API allows for easy interaction with various storage services, making file operations like reading and writing efficient and straightforward.
+The Multi-Storage Client (MSC) is a unified high-performance Python client for object and file stores such as AWS S3, Google Cloud Storage (GCS), Oracle Cloud Infrastructure (OCI) Blog Storage, Azure Blob Storage, NVIDIA AIStore, POSIX file systems, and more.
 
-## Installation
+You can use the client's generic interface to interact with objects and files across various storage services.
 
-You can install multi-storage-client using one of following methods:
+See the [documentation](https://nvidia.github.io/multi-storage-client) to get started.
 
-**1. Clone the repository and install:**
+## Layout
 
-```
-git clone https://gitlab-master.nvidia.com/nsv-data-platform/multi-storage-client.git
-cd multi-storage-client
-pip install .
-```
+Important landmarks:
 
-**2. Install using pip directly from NVIDIA’s repository:**
+```text
+Key:
+🤖 = Generated
 
-```
-pip install --extra-index-url https://urm.nvidia.com/artifactory/api/pypi/sw-ngc-data-platform-pypi/simple multi-storage-client
-```
-
-**3. Install object storage SDKs:**
-
-You need to install object storage SDKs for the `multi-storage-client` to access the objects.
-
-```
-# S3
-pip install "multi-storage-client[boto3]"
-
-# Google Cloud Storage
-pip install "multi-storage-client[google-cloud-storage]"
-
-# OCI Object Storage
-pip install "multi-storage-client[oci]"
-
-# Azure Blob Store
-pip install "multi-storage-client[azure-storage-blob]"
-
-# AIStore
-pip install "multi-storage-client[aistore]"
-```
-
-## Usage
-
-`multi-storage-client` simplifies access to object storage services through an intuitive API, allowing you to read, write, and list files with ease.
-
-### Quick Start
-
-First, create a configuration file to define your storage providers. The default configuration file is located at `~/.msc_config.yaml`, but you can specify a different path using the `MSC_CONFIG` environment variable.
-
-```yaml
-profiles:
-  default:
-    storage_provider:
-      type: file
-      options:
-        base_path: /
-  swift-pdx:
-    storage_provider:
-      type: s3
-      options:
-        region_name: us-east-1
-        endpoint_url: https://pdx.s8k.io
-        base_path: my-bucket
-    credentials_provider:
-      type: S3Credentials
-      options:
-        access_key: ${S3_ACCESS_KEY}
-        secret_key: ${S3_SECRET_KEY}
-```
-
-Once your configuration is in place, you can access files using simple methods:
-
-```python
-import multistorageclient as msc
-
-# Open file
-# Note: The full path of this file is `my-bucket/dataset/webdataset.tar` on PDX.
-# Here, `my-bucket` is defined in the `base_path` of the configuration JSON file,
-# and `dataset/webdataset.tar` is the relative path within the bucket.
-with msc.open('msc://swift-pdx/dataset/webdataset.tar', 'rb') as fp:
-    fp.read()
-
-# The open function can also take a POSIX path, which uses the `default` profile.
-with msc.open('/usr/local/bin/python3') as fp:
-    fp.read()
-
-# List files
-files = msc.glob('msc://swift-pdx/dataset/**/*.tar')
-# files = ['msc://swift-pdx/dataset/webdataset.tar']
-
-# Open Zarr dataset
-zarr_group = msc.zarr.open_consolidated('msc://swift-pdx/my_zarr_datasets.zarr')
-# zarr_group = <zarr.hierarchy.Group '/'>
+.
+│   # GitHub templates and pipelines.
+├── .github/
+│   └── ...
+│
+│   # GitLab templates and pipelines.
+├── .gitlab/
+│   └── ...
+│
+│   # Release notes.
+├── .release_notes/
+│   └── ...
+│
+│   # Python package build outputs.
+├── dist/ 🤖
+│   └── ...
+│
+│   # Python documentation configuration.
+├── docs/
+│   │
+│   │   # Python documentation build outputs.
+│   ├── dist/ 🤖
+│   │   └── ...
+│   │
+│   │   # Python documentation source.
+│   ├── src/
+│   │   └── ...
+│   │
+│   │   # Python documentation configuration.
+│   └── conf.py
+│
+│   # Python package source.
+├── src/
+│   └── ...
+│
+│   # Python package test source.
+├── tests/
+│   │
+│   │   # Unit tests.
+│   ├── unit/
+│   │   └── ...
+│   │
+│   │   # Integration tests.
+│   ├── integration/
+│   │   └── ...
+│   │
+│   │   # End-to-end (E2E) tests.
+│   └── e2e/
+│       └── ...
+│
+│   # GitLab pipeline entrypoint.
+├── .gitlab-ci.yml
+│
+│   # Integration test containers.
+├── docker-compose.yml
+│
+│   # Reproducible shell configuration.
+├── flake.nix
+├── flake.lock 🤖
+│
+│   # Build recipes.
+├── justfile
+│
+│   # Python package configuration.
+├── pyproject.toml
+└── poetry.lock 🤖
 ```
 
-The custom URL format is `msc://{profile}/{path}`, where `path` can refer to a local file path or an object store location in the form of `{prefix}/{key}`.
+## Tools
 
-## Developer Guide
+### Nix
+
+[Nix](https://nixos.org) is a package manager and build system centered around reproducibility.
+
+For us, Nix's most useful feature is its ability to create reproducible + isolated CLI shells on the same machine which use different versions of the same package (e.g. Java 17 and 21). Shell configurations can be encapsulated in Nix configurations which can be shared across multiple computers.
+
+The best way to install Nix is with the [Determinate Nix Installer](https://github.com/DeterminateSystems/nix-installer) ([guide](https://zero-to-nix.com/start/install)).
+
+Once installed, running `nix develop` in a directory with a `flake.nix` will create a nested Bash shell defined by the flake.
+
+> If you're on a network with lots of GitHub traffic, you may get a rate limiting error. To work around this, you can either switch networks (e.g. turn off VPN) or add a GitHub personal access token (classic) to your `/etc/nix/nix.conf` (system) or `~/.config/nix/nix.conf` (user).
+>
+> ```text
+> # https://nixos.org/manual/nix/stable/command-ref/conf-file
+> access-tokens = github.com=ghp_{rest of token}
+> ```
+
+### direnv
+
+[direnv](https://direnv.net) ([🍺](https://formulae.brew.sh/formula/direnv)) is a shell extension which can automatically load and unload environment variables when you enter or leave a specific directory.
+
+It can automatically load and unload a Nix environment when we enter and leave a project directory.
+
+__Unlike `nix develop` which drops you in a nested Bash shell, direnv extracts the environment variables from the nested Bash shell into your current shell (e.g. Bash, Zsh, Fish).__
+
+Follow the [installation instructions on its website](https://direnv.net#basic-installation).
+
+#### Editor Plugins
+
+Plugins to add editor support for direnv. Note that these won't automatically reload the environment after you change Nix flakes unlike direnv itself so you need to manually trigger a reload.
+
+* Sublime Text
+    * [Direnv](https://packagecontrol.io/packages/Direnv) ([caveat](https://github.com/misuzu/direnv-subl#limitations))
+* JetBrains IDEs
+    * [Direnv integration](https://plugins.jetbrains.com/plugin/15285-direnv-integration) ([JetBrains feature request](https://youtrack.jetbrains.com/issue/IDEA-320397))
+* Visual Studio Code
+    * [direnv](https://marketplace.visualstudio.com/items?itemName=mkhl.direnv) ([caveat](https://github.com/direnv/direnv-vscode/issues/109))
+* Vim
+    * [direnv.vim](https://github.com/direnv/direnv.vim)
+
+## Developing
 
 Common recipes are provided as Just recipes. To list them, run:
 
@@ -121,7 +148,7 @@ just python-binary=python3.9 build
 
 ### Running Tests
 
-The project includes both unit and integration tests. Here’s how to run them:
+The project includes unit, integration, and end-to-end (E2E) tests. In most cases, you'll only run the unit and integration tests.
 
 #### Unit Tests
 
@@ -133,7 +160,7 @@ poetry run pytest tests/unit/
 
 #### Integration Tests
 
-Integration tests verify interactions between components and external services:
+Integration tests verify interactions between components and local storage services:
 
 ```shell
 just start-storage-systems
@@ -149,91 +176,13 @@ If you want to use a specific Python binary such as Python 3.9, run:
 just python-binary=python3.9 run-integration-tests
 ```
 
-### Configuration Schema
+## Notes
 
-The basic schema for configuring `multi-storage-client` includes settings for the storage provider and credentials provider. Each profile defines how the client will connect to a specific storage service, such as AWS S3, Google Cloud Storage (GCS), Oracle Cloud Infrastructure (OCI), and Azure.
+### Updating Flake Locks
 
-```yaml
-# The profiles section in the configuration file is used to define different storage configurations, allowing you to manage connections to multiple storage systems with ease.
-profiles:
-  # Define a profile named 'swift-pdx' for accessing a specific object storage.
-  swift-pdx:
-    storage_provider:
-      # Specify the type of storage provider. Supported types: s3, gcs, oci, azure, file.
-      type: s3
-      # Options for configuring the S3-compatible storage provider.
-      options:
-        region_name: us-east-1
-        endpoint_url: https://pdx.s8k.io
-        base_path: mybucket
-    
-    # Define the credentials provider used for authentication with the storage service.
-    # If not specified, the default configuration of the SDK will be used.
-    # Credentials can either be provided in environment variables (recommended),
-    # or hardcoded into this profile.
-    credentials_provider:
-      type: S3Credentials
-      options:
-        access_key: $S3_ACCESS_KEY
-        secret_key: $S3_SECRET_KEY
+The `flake.lock` file locks the inputs (e.g. the Nixpkgs revision) used to evaluate `flake.nix` files. To update the inputs (e.g. to get newer packages in a later Nixpkgs revision), you'll need to update your `flake.lock` file.
 
-# Configure the local cache for storing files for repeated access.
-cache:
-  location: /path/to/cache
-  size_mb: 50000
-
-# Configure OpenTelemetry integration for publishing metrics and traces.
-opentelemetry:
-  metrics:
-    exporter:
-      type: otlp
-      options:
-        endpoint: http://0.0.0.0:4318/v1/metrics
-  traces:
-    exporter:
-      type: otlp
-      options:
-        endpoint: http://0.0.0.0:4318/v1/traces
-```
-
-### Create Extensions
-
-#### Credentials Provider
-
-A `CredentialsProvider` dynamically supplies credentials for storage access. For example, when using temporary credentials, you can register a custom provider:
-
-```yaml
-profiles:
-  s3-iad:
-    storage_provider:
-      type: s3
-    credentials_provider:
-      type: mymodule.metadata.MyMetadataProvider
-      options: {}
-```
-
-#### Metadata Provider
-
-A `MetadataProvider` is necessary when metadata is stored separately. This can be useful for optimizing list operations or when metadata needs to be fetched from an external source.
-
-```yaml
-profiles:
-  s3-iad:
-    storage_provider:
-      type: s3
-    metadata_provider:
-      type: mymodule.metadata.MyMetadataProvider
-      options: {}
-```
-
-#### Provider Bundle
-
-When both metadata and credentials are managed by the same backend service, a `ProviderBundle` can be used to streamline the configuration.
-
-```yaml
-profiles:
-  s3-iad:
-    provider_bundle:
-      type: mymodule.metadata.MyProviderBundle
-      options: {}
+```shell
+# Update flake.lock.
+nix flake update
 ```

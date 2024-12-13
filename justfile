@@ -28,7 +28,7 @@ start-repl: prepare-virtual-environment
 build: prepare-virtual-environment
     # Remove package build artifacts.
     rm -rf dist
-    # Format + lint.
+    # Format.
     poetry run autopep8 src tests
     # Type check.
     poetry run mypy
@@ -41,6 +41,8 @@ build: prepare-virtual-environment
 document: prepare-virtual-environment
     # Remove documentation build artifacts.
     rm -rf docs/dist
+    # Format.
+    poetry run autopep8 docs/src
     # Build the documentation website.
     poetry run sphinx-build -b html docs/src docs/dist
 

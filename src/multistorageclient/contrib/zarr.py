@@ -28,11 +28,11 @@ if TYPE_CHECKING:
 
 def open_consolidated(*args: Any, **kwargs: Any) -> _zarr.hierarchy.Group:
     """
-    Adapt zarr.open_consolidated() to use LazyZarrStore when path matches the "msc" protocol.
+    Adapt ``zarr.open_consolidated`` to use :py:class:`LazyZarrStore` when path matches the ``msc`` protocol.
 
-    If the path starts with the MSC protocol, it uses LazyZarrStore with a resolved
-    storage client and prefix, passing `msc_max_workers` if provided. Otherwise, it
-    directly calls zarr.open_consolidated().
+    If the path starts with the MSC protocol, it uses :py:class:`LazyZarrStore` with a resolved
+    storage client and prefix, passing ``msc_max_workers`` if provided. Otherwise, it
+    directly calls ``zarr.open_consolidated``.
     """
     args_list = list(args)
     path = args_list[0] if args_list else kwargs.get('store')

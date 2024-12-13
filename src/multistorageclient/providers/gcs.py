@@ -32,13 +32,13 @@ PROVIDER = 'gcs'
 
 class GoogleStorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the StorageProvider for interacting with Google Cloud Storage.
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Google Cloud Storage.
     """
 
     def __init__(self, project_id: str, base_path: str = "",
                  credentials_provider: Optional[CredentialsProvider] = None):
         """
-        Initializes the GoogleStorageProvider with the project ID and optional credentials provider.
+        Initializes the :py:class:`GoogleStorageProvider` with the project ID and optional credentials provider.
 
         :param project_id: The Google Cloud project ID.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.

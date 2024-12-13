@@ -31,29 +31,26 @@ _global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv('MSC_MAX_WORK
 # pylint: disable=abstract-method
 class MultiAsyncFileSystem(AsyncFileSystem):
     """
-    Custom fsspec AsyncFileSystem implementation for MSC protocol (msc://).
-    Uses StorageClient for backend operations.
+    Custom :py:class:`fsspec.asyn.AsyncFileSystem` implementation for MSC protocol (``msc://``).
+    Uses :py:class:`multistorageclient.StorageClient` for backend operations.
     """
 
     def __init__(self, **kwargs: Any) -> None:
         """
-        Initializes the MultiAsyncFileSystem.
+        Initializes the :py:class:`MultiAsyncFileSystem`.
 
-        Args:
-            kwargs: Additional arguments for the fsspec.AsyncFileSystem.
+        :param kwargs: Additional arguments for the :py:class:`fsspec.asyn.AsyncFileSystem`.
         """
         super().__init__(**kwargs)
         self.protocol = MSC_PROTOCOL_NAME
 
     def resolve_path_and_storage_client(self, path: str) -> Tuple[StorageClient, str]:
         """
-        Resolves the path and retrieves the associated StorageClient.
+        Resolves the path and retrieves the associated :py:class:`multistorageclient.StorageClient`.
 
-        Args:
-            path: The file path to resolve.
+        :param path: The file path to resolve.
 
-        Returns:
-            A tuple containing the StorageClient and the resolved path.
+        :return: A tuple containing the :py:class:`multistorageclient.StorageClient` and the resolved path.
         """
         # Use unstrip_protocol to prepend our 'msc://' protocol only if it wasn't given in "path".
         return resolve_storage_client(self.unstrip_protocol(path))
@@ -63,13 +60,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Runs a synchronous function asynchronously using asyncio.
 
-        Args:
-            func: The synchronous function to be executed asynchronously.
-            *args: Positional arguments to pass to the function.
-            **kwargs: Keyword arguments to pass to the function.
+        :param func: The synchronous function to be executed asynchronously.
+        :param args: Positional arguments to pass to the function.
+        :param kwargs: Keyword arguments to pass to the function.
 
-        Returns:
-            The result of the asynchronous execution of the function.
+        :return: The result of the asynchronous execution of the function.
         """
         loop = asyncio.get_event_loop()
         return loop.run_in_executor(_global_thread_pool, partial(func, *args, **kwargs))
@@ -79,9 +74,8 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         Matches and retrieves a list of objects in the storage provider that
         match the specified pattern.
 
-        Args:
-            :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
-            :param maxdepth: maxdepth of the pattern match
+        :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
+        :param maxdepth: maxdepth of the pattern match
 
         Returns:
             A list of object paths that match the pattern.
@@ -94,12 +88,10 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         Asynchronously matches and retrieves a list of objects in the storage provider that
         match the specified pattern.
 
-        Args:
-            :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
-            :param maxdepth: maxdepth of the pattern match
+        :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
+        :param maxdepth: maxdepth of the pattern match
 
-        Returns:
-            A list of object paths that match the pattern.
+        :return: A list of object paths that match the pattern.
         """
         return await self.asynchronize_sync(self.glob, path, maxdepth, **kwargs)
 
@@ -107,13 +99,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Lists the contents of a directory.
 
-        Args:
-            path: The directory path to list.
-            detail: Whether to return detailed information for each file.
-            kwargs: Additional arguments for list functionality.
+        :param path: The directory path to list.
+        :param detail: Whether to return detailed information for each file.
+        :param kwargs: Additional arguments for list functionality.
 
-        Returns:
-            A list of file names or detailed information depending on the 'detail' argument.
+        :return: A list of file names or detailed information depending on the 'detail' argument.
         """
         storage_client, dir_path = self.resolve_path_and_storage_client(path)
         objects = storage_client.list(dir_path)
@@ -136,13 +126,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously lists the contents of a directory.
 
-        Args:
-            path: The directory path to list.
-            detail: Whether to return detailed information for each file.
-            kwargs: Additional arguments for list functionality.
+        :param path: The directory path to list.
+        :param detail: Whether to return detailed information for each file.
+        :param kwargs: Additional arguments for list functionality.
 
-        Returns:
-            A list of file names or detailed information depending on the 'detail' argument.
+        :return: A list of file names or detailed information depending on the 'detail' argument.
         """
         return await self.asynchronize_sync(self.ls, path, detail, **kwargs)
 
@@ -150,12 +138,10 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Retrieves metadata information for a file.
 
-        Args:
-            path: The file path to retrieve information for.
-            kwargs: Additional arguments for info functionality.
+        :param path: The file path to retrieve information for.
+        :param kwargs: Additional arguments for info functionality.
 
-        Returns:
-            A dictionary containing file metadata such as ETag, last modified, and size.
+        :return: A dictionary containing file metadata such as ETag, last modified, and size.
         """
         storage_client, file_path = self.resolve_path_and_storage_client(path)
         metadata = storage_client.info(file_path)
@@ -172,12 +158,10 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously retrieves metadata information for a file.
 
-        Args:
-            path: The file path to retrieve information for.
-            kwargs: Additional arguments for info functionality.
+        :param path: The file path to retrieve information for.
+        :param kwargs: Additional arguments for info functionality.
 
-        Returns:
-            A dictionary containing file metadata such as ETag, last modified, and size.
+        :return: A dictionary containing file metadata such as ETag, last modified, and size.
         """
         return await self.asynchronize_sync(self.info, path, **kwargs)
 
@@ -185,13 +169,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Removes a file or directory.
 
-        Args:
-            path: The file or directory path to remove.
-            recursive: If True, will remove directories and their contents recursively.
-            kwargs: Additional arguments for remove functionality.
+        :param path: The file or directory path to remove.
+        :param recursive: If True, will remove directories and their contents recursively.
+        :param kwargs: Additional arguments for remove functionality.
 
-        Raises:
-            IsADirectoryError: If the path is a directory and recursive is not set to True.
+        :raises IsADirectoryError: If the path is a directory and recursive is not set to True.
         """
         storage_client, path = self.resolve_path_and_storage_client(path)
         if recursive:
@@ -211,10 +193,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously removes a file or directory.
 
-        Args:
-            path: The file or directory path to remove.
-            recursive: If True, will remove directories and their contents recursively.
-            kwargs: Additional arguments for remove functionality.
+        :param path: The file or directory path to remove.
+        :param recursive: If True, will remove directories and their contents recursively.
+        :param kwargs: Additional arguments for remove functionality.
         """
         await self.asynchronize_sync(self.rm, path, recursive, **kwargs)
 
@@ -222,10 +203,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Downloads a file from the remote path to the local path.
 
-        Args:
-            rpath: The remote path of the file to download.
-            lpath: The local path to store the file.
-            kwargs: Additional arguments for file retrieval functionality.
+        :param rpath: The remote path of the file to download.
+        :param lpath: The local path to store the file.
+        :param kwargs: Additional arguments for file retrieval functionality.
         """
         storage_client, rpath = self.resolve_path_and_storage_client(rpath)
         storage_client.download_file(rpath, lpath)
@@ -234,10 +214,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously downloads a file from the remote path to the local path.
 
-        Args:
-            rpath: The remote path of the file to download.
-            lpath: The local path to store the file.
-            kwargs: Additional arguments for file retrieval functionality.
+        :param rpath: The remote path of the file to download.
+        :param lpath: The local path to store the file.
+        :param kwargs: Additional arguments for file retrieval functionality.
         """
         await self.asynchronize_sync(self.get_file, rpath, lpath, **kwargs)
 
@@ -245,10 +224,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Uploads a local file to the remote path.
 
-        Args:
-            lpath: The local path of the file to upload.
-            rpath: The remote path to store the file.
-            kwargs: Additional arguments for file upload functionality.
+        :param lpath: The local path of the file to upload.
+        :param rpath: The remote path to store the file.
+        :param kwargs: Additional arguments for file upload functionality.
         """
         storage_client, rpath = self.resolve_path_and_storage_client(rpath)
         storage_client.upload_file(rpath, lpath)
@@ -257,10 +235,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously uploads a local file to the remote path.
 
-        Args:
-            lpath: The local path of the file to upload.
-            rpath: The remote path to store the file.
-            kwargs: Additional arguments for file upload functionality.
+        :param lpath: The local path of the file to upload.
+        :param rpath: The remote path to store the file.
+        :param kwargs: Additional arguments for file upload functionality.
         """
         await self.asynchronize_sync(self.put_file, lpath, rpath, **kwargs)
 
@@ -268,13 +245,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Opens a file at the given path.
 
-        Args:
-            path: The file path to open.
-            mode: The mode in which to open the file (default: 'rb').
-            kwargs: Additional arguments for file opening.
+        :param path: The file path to open.
+        :param mode: The mode in which to open the file.
+        :param kwargs: Additional arguments for file opening.
 
-        Returns:
-            A ManagedFile object representing the opened file.
+        :return: A ManagedFile object representing the opened file.
         """
         storage_client, path = self.resolve_path_and_storage_client(path)
         return storage_client.open(path, mode)
@@ -283,13 +258,11 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously opens a file at the given path.
 
-        Args:
-            path: The file path to open.
-            mode: The mode in which to open the file (default: 'rb').
-            kwargs: Additional arguments for file opening.
+        :param path: The file path to open.
+        :param mode: The mode in which to open the file.
+        :param kwargs: Additional arguments for file opening.
 
-        Returns:
-            A ManagedFile object representing the opened file.
+        :return: A ManagedFile object representing the opened file.
         """
         return await self.asynchronize_sync(self.open, path, mode, **kwargs)
 
@@ -297,10 +270,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Writes a value (bytes) directly to a file at the given path.
 
-        Args:
-            path: The file path to write the value to.
-            value: The bytes to write to the file.
-            kwargs: Additional arguments for writing functionality.
+        :param path: The file path to write the value to.
+        :param value: The bytes to write to the file.
+        :param kwargs: Additional arguments for writing functionality.
         """
         storage_client, path = self.resolve_path_and_storage_client(path)
         storage_client.write(path, value)
@@ -309,10 +281,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously writes a value (bytes) directly to a file at the given path.
 
-        Args:
-            path: The file path to write the value to.
-            value: The bytes to write to the file.
-            kwargs: Additional arguments for writing functionality.
+        :param path: The file path to write the value to.
+        :param value: The bytes to write to the file.
+        :param kwargs: Additional arguments for writing functionality.
         """
         await self.asynchronize_sync(self.pipe_file, path, value, **kwargs)
 
@@ -320,12 +291,10 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Reads the contents of a file at the given path.
 
-        Args:
-            path: The file path to read from.
-            kwargs: Additional arguments for file reading functionality.
+        :param path: The file path to read from.
+        :param kwargs: Additional arguments for file reading functionality.
 
-        Returns:
-            The contents of the file as bytes.
+        :return: The contents of the file as bytes.
         """
         storage_client, path = self.resolve_path_and_storage_client(path)
         return storage_client.read(path)
@@ -334,11 +303,9 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         Asynchronously reads the contents of a file at the given path.
 
-        Args:
-            path: The file path to read from.
-            kwargs: Additional arguments for file reading functionality.
+        :param path: The file path to read from.
+        :param kwargs: Additional arguments for file reading functionality.
 
-        Returns:
-            The contents of the file as bytes.
+        :return: The contents of the file as bytes.
         """
         return await self.asynchronize_sync(self.cat_file, path, **kwargs)

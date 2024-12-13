@@ -34,7 +34,7 @@ class StorageClient:
 
     def __init__(self, config: StorageClientConfig):
         """
-        Initializes the StorageClient with the given configuration.
+        Initializes the :py:class:`StorageClient` with the given configuration.
 
         :param config: The configuration object for the storage client.
         """
@@ -197,7 +197,7 @@ class StorageClient:
         match the specified pattern.
 
         :param pattern: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
-        :param include_url_prefix: Whether to include the URL prefix ``msc://profile`` in the result. Defaults to False.
+        :param include_url_prefix: Whether to include the URL prefix ``msc://profile`` in the result.
 
         :return: A list of object paths that match the pattern.
         """
@@ -255,7 +255,7 @@ class StorageClient:
 
         :param path: The path to check.
 
-        :return: True if the path points to a file, False otherwise.
+        :return: ``True`` if the path points to a file, ``False`` otherwise.
         """
         if self._metadata_provider:
             _, exists = self._metadata_provider.realpath(path)
@@ -282,7 +282,7 @@ class StorageClient:
 
         :param path: The path to check. This is typically a prefix representing a directory or folder.
 
-        :return: True if no objects exist under the specified path prefix, False otherwise.
+        :return: ``True`` if no objects exist under the specified path prefix, ``False`` otherwise.
         """
         objects = self._storage_provider.list_objects(path)
         try:

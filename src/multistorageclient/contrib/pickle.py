@@ -28,17 +28,25 @@ def load(file: Union[str, IO[bytes]],
          buffers: Optional[Iterable[Any]] = None,
          ) -> Any:
     """
-    Adapt pickle.load.
+    Adapt ``pickle.load``.
 
     This function aims to provide additional flexibility for callers to load from files in the following ways:
-    - multistorageclient.pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
-    - multistorageclient.pickle.load(file_path_with_msc_protocol)
+
+    .. code-block:: python
+       :linenos:
+
+       multistorageclient.pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
+       multistorageclient.pickle.load(file_path_with_msc_protocol)
 
     User can also use native pickle function to achieve the same goal:
-    - pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
 
-    User, however, cannot directly pass the file object as the msc-prefixed file path cannot be used by native open()
-    i.e. multistorageclient.pickle.load(open(file_path_with_msc_protocol, "rb"))
+    .. code-block:: python
+       :linenos:
+
+        pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
+
+    User, however, cannot directly pass the file object as the msc-prefixed file path cannot be used by native
+    ``open()`` i.e. ``multistorageclient.pickle.load(open(file_path_with_msc_protocol, "rb"))``
     """
 
     if isinstance(file, str):
@@ -62,14 +70,22 @@ def dump(obj: Any,
          buffer_callback: Optional[Callable[[Any], None]] = None,
          ) -> None:
     """
-    Adapt pickle.dump.
+    Adapt ``pickle.dump``.
 
     This function can take only file path of the target file, it cannot take file-like object
-    - multistorageclient.pickle.dump(data, file_path_with_msc_protocol, ...)
+
+    .. code-block:: python
+       :linenos:
+
+       multistorageclient.pickle.dump(data, file_path_with_msc_protocol, ...)
 
     Alternatively, user can use native pickle dump, but need to close the file to proactively trigger file upload:
-    with multistorageclient.open(file_path_with_msc_protocol, "rb") as fp:
-        pickle.dump(data, fp, ....)
+
+    .. code-block:: python
+       :linenos:
+
+       with multistorageclient.open(file_path_with_msc_protocol, "rb") as fp:
+           pickle.dump(data, fp, ....)
     """
     if isinstance(file_path, str):
         if file_path.startswith(MSC_PROTOCOL):

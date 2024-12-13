@@ -102,13 +102,13 @@ class StorageClientConfigLoader:
                  profile: str = DEFAULT_POSIX_PROFILE_NAME,
                  provider_bundle: Optional[ProviderBundle] = None) -> None:
         """
-        Initializes a StorageClientConfigLoader to create a
-        StorageClientConfig. Components are built using the config_dct and
+        Initializes a :py:class:`StorageClientConfigLoader` to create a
+        StorageClientConfig. Components are built using the ``config_dict`` and
         profile, but a pre-built provider_bundle takes precedence.
 
         :param config_dict: Dictionary of configuration options.
-        :param profile: Name of profile in config_dict to use to build configuration.
-        :param provider_bundle: Optional pre-built ProviderBundle, takes precedence over config_dict.
+        :param profile: Name of profile in ``config_dict`` to use to build configuration.
+        :param provider_bundle: Optional pre-built :py:class:`multistorageclient.types.ProviderBundle`, takes precedence over ``config_dict``.
         """
         # ProviderBundle takes precedence
         self._provider_bundle = provider_bundle
@@ -309,7 +309,7 @@ class StorageClientConfigLoader:
 
 class StorageClientConfig:
     """
-    Configuration class for the StorageClient.
+    Configuration class for the :py:class:`multistorageclient.StorageClient`.
     """
     profile: str
     storage_provider: StorageProvider
