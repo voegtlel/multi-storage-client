@@ -20,7 +20,6 @@ import time
 
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool, Manager
-from multiprocessing.managers import ListProxy
 from typing import Any, Dict, List
 
 from multistorageclient import StorageClient, StorageClientConfig
@@ -41,8 +40,12 @@ RANDOM_DATA = {k: os.urandom(size_to_bytes(k)) for k in TESTS_MIXED.keys()}
 
 
 class PerformanceMetrics:
-    def __init__(self, start_times: ListProxy[Any], end_times: ListProxy[Any],
-                 response_times: ListProxy[Any], object_sizes: ListProxy[Any]) -> None:
+    def __init__(
+            self,
+            start_times: List[Any],
+            end_times: List[Any],
+            response_times: List[Any],
+            object_sizes: List[Any]) -> None:
         self.start_times = start_times
         self.end_times = end_times
         self.response_times = response_times
@@ -146,7 +149,7 @@ def run_test(storage_client: StorageClient, test_type: str, bucket: str,
         response_times = manager.list()
         object_sizes = manager.list()
 
-        metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)
+        metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)  # type: ignore
 
         # Split files into batches for each process
         batch_size = num_objects // processes + 1
@@ -164,7 +167,7 @@ def run_test(storage_client: StorageClient, test_type: str, bucket: str,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload/Download performance tests with nv storage client")
-    parser.add_argument('--bucket', type=str, required=True, help='The bucket name to use for the test')
+    parser.add_argument('--prefix', type=str, default='', help='The path prefix to use for the test')
     parser.add_argument('--profile', type=str, default='default',
                         help='The storage client profile to use for the test')
     args = parser.parse_args()
