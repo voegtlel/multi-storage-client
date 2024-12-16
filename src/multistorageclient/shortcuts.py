@@ -79,8 +79,8 @@ def open(url: str, mode: str = "rb") -> Union[PosixFile, ObjectFile]:
     """
     Open a file at the given URL using the specified mode.
 
-    The function utilizes the :py:class:`multistorageclient.StorageClient` to open a file at the provided path. The URL is parsed, and the
-    corresponding `StorageClient` is retrieved or built.
+    The function utilizes the :py:class:`multistorageclient.StorageClient` to open a file at the provided path.
+    The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
 
     :param url: The URL of the file to open. (example: ``msc://profile/prefix/dataset.tar``)
     :param mode: The file mode to open the file in. Defaults to "rb" (read binary).
@@ -98,7 +98,8 @@ def glob(pattern: str) -> List[str]:
     Return a list of files matching a pattern.
 
     This function supports glob-style patterns for matching multiple files within a storage system. The pattern is
-    parsed, and the associated :py:class:`multistorageclient.StorageClient` is used to retrieve the list of matching files.
+    parsed, and the associated :py:class:`multistorageclient.StorageClient` is used to retrieve the
+    list of matching files.
 
     :param pattern: The glob-style pattern to match files. (example: ``msc://profile/prefix/**/*.tar``)
 
@@ -114,8 +115,8 @@ def upload_file(url: str, local_path: str) -> None:
     """
     Upload a file to the given URL from a local path.
 
-    The function utilizes the :py:class:`multistorageclient.StorageClient` to upload a file (object) to the provided path.
-    The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    The function utilizes the :py:class:`multistorageclient.StorageClient` to upload a file (object) to the
+    provided path. The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
 
     :param url: The URL of the file. (example: ``msc://profile/prefix/dataset.tar``)
     :param local_path: The local path of the file.
@@ -130,8 +131,8 @@ def download_file(url: str, local_path: str) -> None:
     """
     Download a file in a given remote_path to a local path
 
-    The function utilizes the :py:class:`multistorageclient.StorageClient` to download a file (object) at the provided path.
-    The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
+    The function utilizes the :py:class:`multistorageclient.StorageClient` to download a file (object) at the
+    provided path. The URL is parsed, and the corresponding `StorageClient` is retrieved or built.
 
     :param url: The URL of the file to download. (example: ``msc://profile/prefix/dataset.tar``)
     :param local_path: The local path where the file should be downloaded.

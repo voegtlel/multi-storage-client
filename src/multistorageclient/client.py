@@ -73,7 +73,7 @@ class StorageClient:
         return isinstance(self._storage_provider, PosixFileStorageProvider)
 
     @retry
-    def read(self, path: str, range: Optional[Range] = None) -> bytes:
+    def read(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         """
         Reads an object from the storage provider at the specified path.
 
@@ -92,18 +92,18 @@ class StorageClient:
             data = self._cache_manager.read(cache_path)
 
             if data:
-                if range:
-                    return data[range.offset:range.size]
+                if byte_range:
+                    return data[byte_range.offset: byte_range.offset + byte_range.size]
                 else:
                     return data
             else:
                 # Only cache the entire file
-                if range is None:
-                    data = self._storage_provider.get_object(path, range=range)
+                if byte_range is None:
+                    data = self._storage_provider.get_object(path)
                     self._cache_manager.set(cache_path, data)
                     return data
 
-        return self._storage_provider.get_object(path, range=range)
+        return self._storage_provider.get_object(path, byte_range=byte_range)
 
     def info(self, path: str) -> ObjectMetadata:
         """
@@ -130,7 +130,7 @@ class StorageClient:
         if self._metadata_provider:
             real_path, exists = self._metadata_provider.realpath(remote_path)
             if not exists:
-                raise FileNotFoundError(f"The file at path '{remote_path}' was not found.")
+                raise FileNotFoundError(f"The file at path '{remote_path}' was not found by metadata provider.")
             metadata = self._metadata_provider.get_object_metadata(remote_path)
             self._storage_provider.download_file(real_path, local_path, metadata)
         else:
@@ -146,7 +146,8 @@ class StorageClient:
         if self._metadata_provider:
             remote_path, exists = self._metadata_provider.realpath(remote_path)
             if exists:
-                raise FileExistsError(f"The file at path '{remote_path}' already exists.")
+                raise FileExistsError(f"The file at path '{remote_path}' already exists; "
+                                      f"overwriting is not yet allowed when using a metadata provider.")
         self._storage_provider.upload_file(remote_path, local_path)
         if self._metadata_provider:
             metadata = self._storage_provider.get_object_metadata(remote_path)
@@ -162,7 +163,8 @@ class StorageClient:
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
             if exists:
-                raise FileExistsError(f"The file at path '{path}' already exists.")
+                raise FileExistsError(f"The file at path '{path}' already exists; "
+                                      f"overwriting is not yet allowed when using a metadata provider.")
         self._storage_provider.put_object(path, body)
         if self._metadata_provider:
             # TODO(NGCDP-3016): Handle eventual consistency of Swiftstack, without wait.
@@ -275,7 +277,8 @@ class StorageClient:
 
     def is_empty(self, path: str) -> bool:
         """
-        Checks whether the specified path is empty. A path is considered empty if there are no objects whose keys start with the given path as a prefix.
+        Checks whether the specified path is empty. A path is considered empty if there are no
+        objects whose keys start with the given path as a prefix.
 
         :param path: The path to check. This is typically a prefix representing a directory or folder.
 

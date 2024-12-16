@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
+import sys
+
 from types import ModuleType
 
 from .cache import CacheConfig
@@ -21,10 +24,10 @@ from .shortcuts import (
     download_file,
     glob,
     is_empty,
+    is_file,
     open,
     resolve_storage_client,
     upload_file,
-    is_file,
 )
 
 __all__ = [
@@ -34,17 +37,14 @@ __all__ = [
     "CacheConfig",
 
     # Shortcuts
-    "resolve_storage_client",
-    "open",
-    "glob",
-    "upload_file",
     "download_file",
+    "glob",
     "is_empty",
     "is_file",
+    "open",
+    "resolve_storage_client",
+    "upload_file",
 ]
-
-import importlib.util
-import sys
 
 
 def lazy_import(name: str) -> ModuleType:

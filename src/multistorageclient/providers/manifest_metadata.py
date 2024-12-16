@@ -38,7 +38,7 @@ class ManifestPartReference:
     A data class representing a reference to dataset manifest part.
 
     Attributes:
-        path (str): The path of the manifest part relative to the main mainfest.
+        path (str): The path of the manifest part relative to the main manifest.
     """
     path: str
 
@@ -84,7 +84,7 @@ class Manifest:
             version = data['version']
             parts = [ManifestPartReference.from_dict(part) for part in data['parts']]
         except KeyError as e:
-            raise ValueError(f"Invalid manifest data: Missing required field {e}")
+            raise ValueError("Invalid manifest data: Missing required field") from e
 
         return Manifest(version=version, parts=parts)
 
@@ -281,11 +281,11 @@ class ManifestMetadataProvider(MetadataProvider):
     def list_objects(self, prefix: str, start_after: Optional[str] = None,
                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
-            raise ValueError("start_after must be before end_at!")
+            raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
         # Note that this is a generator, not a tuple (there's no tuple comprehension).
         keys = (
-            key for key in self._files.keys()
+            key for key in self._files
             if key.startswith(prefix)
             and (start_after is None or start_after < key)
             and (end_at is None or key <= end_at)
@@ -315,12 +315,12 @@ class ManifestMetadataProvider(MetadataProvider):
 
     def add_file(self, path: str, metadata: ObjectMetadata) -> None:
         if not self.is_writable():
-            raise RuntimeError("Manifest update support not enabled in configuration.")
+            raise RuntimeError(f"Manifest update support not enabled in configuration. Attempted to add {path}.")
         self._pending_adds[path] = metadata
 
     def remove_file(self, path: str) -> None:
         if not self.is_writable():
-            raise RuntimeError("Manifest update support not enabled in configuration.")
+            raise RuntimeError(f"Manifest update support not enabled in configuration. Attempted to remove {path}.")
         if path not in self._files:
             raise FileNotFoundError(f'Object {path} does not exist.')
         self._pending_removes.append(path)

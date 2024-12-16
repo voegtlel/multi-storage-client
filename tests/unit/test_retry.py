@@ -32,7 +32,7 @@ class FakeStorageProvider:
         self.attempts = 0
         self.error_count = error_count
 
-    def get_object(self, path: str, range: Optional[Range] = None):
+    def get_object(self, path: str, byte_range: Optional[Range] = None):
         # Simulates reading an object from storage, raising a retryable connection time out error
         # for the first 'error_count' attempts before succeeding.
         self.attempts += 1

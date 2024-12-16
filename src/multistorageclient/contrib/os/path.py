@@ -55,7 +55,7 @@ def isdir(path: str) -> bool:
         except FileNotFoundError:
             return False
         except Exception as e:
-            logger.warning(f"Error occurred while fetching file info at {path}, caused by: {e}")
+            logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
             return False
     else:
         return _os_path.isdir(path)
@@ -78,7 +78,7 @@ def isfile(path: str) -> bool:
         except FileNotFoundError:
             return False
         except Exception as e:
-            logger.warning(f"Error occurred while fetching file info at {path}, caused by: {e}")
+            logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
             return False
     else:
         return _os_path.isfile(path)

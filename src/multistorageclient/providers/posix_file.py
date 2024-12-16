@@ -75,9 +75,9 @@ class PosixFileStorageProvider(BaseStorageProvider):
             raise error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {path}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {path}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -102,12 +102,12 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="PUT", path=path, put_object_size=len(body))
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         def _invoke_api() -> bytes:
-            if range:
+            if byte_range:
                 with open(path, 'rb') as f:
-                    f.seek(range.offset)
-                    return f.read(range.size)
+                    f.seek(byte_range.offset)
+                    return f.read(byte_range.size)
             else:
                 with open(path, 'rb') as f:
                     return f.read()
@@ -175,7 +175,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
             filesize = len(f.getvalue().encode('utf-8'))
 
             def _invoke_api() -> None:
-                with open(remote_path, 'w') as fp:
+                with open(remote_path, 'w', encoding='utf-8') as fp:
                     fp.write(f.read())
 
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
@@ -207,7 +207,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         elif isinstance(f, StringIO):
             def _invoke_api() -> None:
-                with open(source_path, 'r') as src:
+                with open(source_path, 'r', encoding='utf-8') as src:
                     f.write(src.read())
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)

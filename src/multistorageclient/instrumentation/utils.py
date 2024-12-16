@@ -15,7 +15,7 @@
 
 import os
 from functools import wraps
-from typing import Any, Callable, Dict, Mapping, MutableMapping, Tuple, Union
+from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Tuple, Union
 
 import datasketches
 from opentelemetry import metrics, trace
@@ -136,7 +136,9 @@ providers: list[AttributeProvider] = [
 msc_base_provider = MSCAttributeProvider()
 
 
-def collect_default_attributes(env: Mapping[str, Any] = os.environ) -> Mapping[str, Any]:
+def collect_default_attributes(         # pylint: disable=dangerous-default-value
+    env: Mapping[str, Any] = os.environ
+) -> Mapping[str, Any]:
     collected_attributes: Dict[str, Any] = {}
 
     for provider in providers:
@@ -170,11 +172,13 @@ class TDigestPercentiles:
         self._p99_gauge = p99_gauge
         self._p999_gauge = p999_gauge
 
-    def record(self, amount: Union[int, float], attributes: Mapping[str, Any] = {}) -> None:
+    def record(self, amount: Union[int, float], attributes: Optional[Mapping[str, Any]] = None) -> None:
         """
         Records an amount into the T-digest for the specified attribute combination and updates
         the P50, P99, and P99.9 gauges accordingly.
         """
+        if not attributes:
+            attributes = {}
         # Record the amount into the specific tdigest for this attribute combination
         tdigest = self._get_tdigest(attributes)
         tdigest.update(amount)
@@ -184,8 +188,10 @@ class TDigestPercentiles:
         self._p99_gauge.set(tdigest.get_quantile(0.99), attributes)
         self._p999_gauge.set(tdigest.get_quantile(0.999), attributes)
 
-    def _get_tdigest(self, attributes: Mapping[str, Any] = {}) -> Any:
+    def _get_tdigest(self, attributes: Optional[Mapping[str, Any]] = None) -> Any:
         # Create a key based on the attributes (sorted for consistent keys)
+        if not attributes:
+            attributes = {}
         attributes_key = tuple(sorted(attributes.items())) if attributes else tuple()
 
         # Get or create a tdigest for this specific attribute combination
@@ -240,10 +246,12 @@ class StorageProviderMetricsHelper:
 
         self._attributes = attributes
 
-    def _merge_attributes(self, attributes: Mapping[str, Any] = {}) -> Dict[str, Any]:
+    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """
         Merges default attributes with provided attributes.
         """
+        if not attributes:
+            attributes = {}
         return {**self._attributes, **attributes}
 
     def record_duration(self, duration: Union[int, float], provider: str,
@@ -403,10 +411,12 @@ class CacheManagerMetricsHelper:
         self._attributes = attributes
         self._counter = CACHE_MANAGER_COUNTER
 
-    def _merge_attributes(self, attributes: Mapping[str, Any] = {}) -> Dict[str, Any]:
+    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
         """
         Merges default attributes with provided attributes.
         """
+        if not attributes:
+            attributes = {}
         return {**self._attributes, **attributes}
 
     def increase(self, operation: str, success: bool) -> None:

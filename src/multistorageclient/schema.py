@@ -158,4 +158,4 @@ def validate_config(config_dict: Dict[str, Any]) -> None:
     try:
         validate(instance=config_dict, schema=CONFIG_SCHEMA)
     except Exception as e:
-        raise RuntimeError(f'Failed to validate the config file, caused by: {e}')
+        raise RuntimeError('Failed to validate the config file') from e

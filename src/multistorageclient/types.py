@@ -107,7 +107,7 @@ class ObjectMetadata:
                 etag=data.get('etag')
             )
         except KeyError as e:
-            raise ValueError(f"Missing required field: {e}")
+            raise ValueError("Missing required field.") from e
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -162,7 +162,7 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         """
         Retrieves an object from the storage provider.
 
@@ -212,7 +212,8 @@ class StorageProvider(ABC):
         Uploads a file from the local file system to the storage provider.
 
         :param remote_path: The path where the object will be stored.
-        :param f: The source file to upload. This can either be a string representing the local file path, or a file-like object (e.g., an open file handle).
+        :param f: The source file to upload. This can either be a string representing the local
+            file path, or a file-like object (e.g., an open file handle).
         """
         pass
 
@@ -225,7 +226,9 @@ class StorageProvider(ABC):
         Downloads a file from the storage provider to the local file system.
 
         :param remote_path: The path of the file to download.
-        :param f: The destination for the downloaded file. This can either be a string representing the local file path where the file will be saved, or a file-like object to write the downloaded content into.
+        :param f: The destination for the downloaded file. This can either be a string representing
+            the local file path where the file will be saved, or a file-like object to write the
+            downloaded content into.
         :param metadata: Metadata about the object to download.
         """
         pass
@@ -354,7 +357,7 @@ class StorageProviderConfig:
 
     #: The name or type of the storage provider (e.g., 's3', 'gcs', 'oci', 'azure').
     type: str
-    #: A dictionary of additional options required to configure the storage provider (e.g., endpoint URLs, region, etc.). Defaults to None.
+    #: Additional options required to configure the storage provider (e.g., endpoint URLs, region, etc.).
     options: Optional[Dict[str, Any]] = None
 
 
@@ -369,7 +372,8 @@ class ProviderBundle(ABC):
     @abstractmethod
     def storage_provider_config(self) -> StorageProviderConfig:
         """
-        :return: The configuration for the storage provider, which includes the provider name/type and additional options.
+        :return: The configuration for the storage provider, which includes the provider
+                    name/type and additional options.
         """
         pass
 
@@ -377,7 +381,8 @@ class ProviderBundle(ABC):
     @abstractmethod
     def credentials_provider(self) -> Optional[CredentialsProvider]:
         """
-        :return: The credentials provider responsible for managing authentication credentials required to access the storage service.
+        :return: The credentials provider responsible for managing authentication credentials
+                    required to access the storage service.
         """
         pass
 

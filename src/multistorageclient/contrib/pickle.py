@@ -31,14 +31,14 @@ def load(file: Union[str, IO[bytes]],
     Adapt pickle.load.
 
     This function aims to provide additional flexibility for callers to load from files in the following ways:
-    - multistorageclient.pickle.load(multistorageclient.open(file_path_w_storageclient_protocol, "rb"))
-    - multistorageclient.pickle.load(file_path_w_storageclient_protocol)
+    - multistorageclient.pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
+    - multistorageclient.pickle.load(file_path_with_msc_protocol)
 
     User can also use native pickle function to achieve the same goal:
-    - pickle.load(multistorageclient.open(file_path_w_storageclient_protocol, "rb"))
+    - pickle.load(multistorageclient.open(file_path_with_msc_protocol, "rb"))
 
     User, however, cannot directly pass the file object as the msc-prefixed file path cannot be used by native open()
-    i.e. multistorageclient.pickle.load(open(file_path_w_storageclient_protocol, "rb"))
+    i.e. multistorageclient.pickle.load(open(file_path_with_msc_protocol, "rb"))
     """
 
     if isinstance(file, str):
@@ -65,10 +65,10 @@ def dump(obj: Any,
     Adapt pickle.dump.
 
     This function can take only file path of the target file, it cannot take file-like object
-    - multistorageclient.pickle.dump(data, file_path_w_storageclient_protocol, ...)
+    - multistorageclient.pickle.dump(data, file_path_with_msc_protocol, ...)
 
     Alternatively, user can use native pickle dump, but need to close the file to proactively trigger file upload:
-    with multistorageclient.open(file_path_w_storageclient_protocol, "rb") as fp:
+    with multistorageclient.open(file_path_with_msc_protocol, "rb") as fp:
         pickle.dump(data, fp, ....)
     """
     if isinstance(file_path, str):

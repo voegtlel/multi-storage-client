@@ -53,9 +53,9 @@ class BaseStorageProvider(StorageProvider):
         path = self._realpath(path)
         return self._put_object(path, body)
 
-    def get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         path = self._realpath(path)
-        return self._get_object(path, range)
+        return self._get_object(path, byte_range)
 
     def delete_object(self, path: str) -> None:
         path = self._realpath(path)
@@ -68,7 +68,7 @@ class BaseStorageProvider(StorageProvider):
     def list_objects(self, prefix: str, start_after: Optional[str] = None,
                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
-            raise ValueError("start_after must be before end_at!")
+            raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
         prefix = self._realpath(prefix)
         return self._list_objects(prefix, start_after, end_at)
@@ -108,7 +108,7 @@ class BaseStorageProvider(StorageProvider):
         pass
 
     @abstractmethod
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         pass
 
     @abstractmethod

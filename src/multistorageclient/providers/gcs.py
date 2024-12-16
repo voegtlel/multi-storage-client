@@ -102,12 +102,12 @@ class GoogleStorageProvider(BaseStorageProvider):
             return result
         except NotFound:
             status_code = 404
-            raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')
+            raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')   # pylint: disable=raise-missing-from
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -132,15 +132,15 @@ class GoogleStorageProvider(BaseStorageProvider):
             blob.upload_from_string(body)
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
         def _invoke_api() -> None:
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
-            if range:
-                return blob.download_as_bytes(start=range.offset, end=range.offset + range.size - 1)
+            if byte_range:
+                return blob.download_as_bytes(start=byte_range.offset, end=byte_range.offset + byte_range.size - 1)
             return blob.download_as_bytes()
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 

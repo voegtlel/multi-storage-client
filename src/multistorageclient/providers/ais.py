@@ -63,7 +63,8 @@ class StaticAISCredentialProvider(CredentialsProvider):
         :param username: The username for the AIStore authentication.
         :param password: The password for the AIStore authentication.
         :param authn_endpoint: The AIStore authentication endpoint.
-        :param token: The AIStore authentication token. This is used for authentication if username, password and authn_endpoint are not provided.
+        :param token: The AIStore authentication token. This is used for authentication if username,
+                        password and authn_endpoint are not provided.
         :param skip_verify: If true, skip SSL certificate verification. Defaults to True.
         :param ca_cert: Path to a CA certificate file for SSL verification.
 
@@ -158,18 +159,18 @@ class AIStoreStorageProvider(BaseStorageProvider):
             return result
         except AISError as error:
             status_code = error.status_code
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except HTTPError as error:
             status_code = error.response.status_code
             if status_code == 404:
-                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')
+                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')  # pylint: disable=raise-missing-from
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -193,16 +194,16 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
-        if range:
-            bytes_range = f'bytes={range.offset}-{range.offset + range.size - 1}'
+        if byte_range:
+            bytes_range = f'bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}'
         else:
             bytes_range = None
 
         def _invoke_api() -> bytes:
             obj = self.client.bucket(bucket, self.provider).object(obj_name=key)
-            if range:
+            if byte_range:
                 reader = obj.get(byte_range=bytes_range)
             else:
                 reader = obj.get()

@@ -138,12 +138,12 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             return result
         except ResourceNotFoundError:
             status_code = 404
-            raise FileNotFoundError(f'Object {container}/{blob} does not exist.')
+            raise FileNotFoundError(f'Object {container}/{blob} does not exist.')   # pylint: disable=raise-missing-from
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -168,14 +168,14 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="PUT", container=container_name, blob=blob_name)
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
         def _invoke_api() -> bytes:
             blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-            if range:
-                stream = blob_client.download_blob(offset=range.offset, length=range.size)
+            if byte_range:
+                stream = blob_client.download_blob(offset=byte_range.offset, length=byte_range.size)
             else:
                 stream = blob_client.download_blob()
             return stream.readall()

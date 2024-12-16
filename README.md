@@ -169,11 +169,13 @@ profiles:
     
     # Define the credentials provider used for authentication with the storage service.
     # If not specified, the default configuration of the SDK will be used.
+    # Credentials can either be provided in environment variables (recommended),
+    # or hardcoded into this profile.
     credentials_provider:
       type: S3Credentials
       options:
-        access_key: *****
-        secret_key: *****
+        access_key: $S3_ACCESS_KEY
+        secret_key: $S3_SECRET_KEY
 
 # Configure the local cache for storing files for repeated access.
 cache:

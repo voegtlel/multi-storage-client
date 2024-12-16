@@ -28,6 +28,7 @@ from ..types import MSC_PROTOCOL, MSC_PROTOCOL_NAME
 _global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv('MSC_MAX_WORKERS', '8')))
 
 
+# pylint: disable=abstract-method
 class MultiAsyncFileSystem(AsyncFileSystem):
     """
     Custom fsspec AsyncFileSystem implementation for MSC protocol (msc://).

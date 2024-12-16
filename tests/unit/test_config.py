@@ -82,7 +82,7 @@ def test_override_default_profile() -> None:
             }
         }""")
 
-    assert ex.match('Cannot override "default" profile with a different storage provider type "s3"')
+    assert ex.match('Cannot override "default" profile with storage provider type "s3"; expected "file".')
 
 
 def test_credentials_provider() -> None:
@@ -299,7 +299,8 @@ def test_storage_provider_profile_unrecognized() -> None:
             """
         )
 
-    assert "Profile 'non-existent-profile' does not exist" in str(e), f"Unexpected error message: {str(e)}"
+    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" \
+        in str(e), f"Unexpected error message: {str(e)}"
 
 
 def test_storage_provider_profile_with_manifest() -> None:
@@ -330,8 +331,8 @@ def test_storage_provider_profile_with_manifest() -> None:
                     storage_provider_profile: profile-manifest
             """, profile='profile-data')
 
-    assert "Found manifest_provider for profile" in str(e), f"Unexpected error message: {str(e)}"
-    assert "Not supported" in str(e), f"Unexpected error message: {str(e)}"
+    assert "Found metadata_provider for profile" in str(e), f"Unexpected error message: {str(e)}"
+    assert "not supported" in str(e), f"Unexpected error message: {str(e)}"
 
 
 def test_load_retry_config() -> None:

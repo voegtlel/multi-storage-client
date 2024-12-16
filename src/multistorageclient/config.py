@@ -127,12 +127,14 @@ class StorageClientConfigLoader:
                 "storage_provider", {}).get("type", None)
             if storage_provider_type != "file":
                 raise ValueError(
-                    f'Cannot override "{profile}" profile with a different storage provider type "{storage_provider_type}"')
+                    f'Cannot override "{DEFAULT_POSIX_PROFILE_NAME}" profile with storage provider type '
+                    f'"{storage_provider_type}"; expected "file".'
+                )
 
         profile_dict = self._profiles.get(profile)
 
         if not profile_dict:
-            raise ValueError(f"Profile {profile} does not exist.")
+            raise ValueError(f"Profile {profile} not found; available profiles: {list(self._profiles.keys())}")
 
         self._profile = profile
         self._profile_dict = profile_dict
@@ -144,8 +146,9 @@ class StorageClientConfigLoader:
                                 credentials_provider: Optional[CredentialsProvider] = None) -> StorageProvider:
         if storage_options is None:
             storage_options = {}
-        if storage_provider_name not in STORAGE_PROVIDER_MAPPING.keys():
-            raise ValueError(f'Storage provider {storage_provider_name} is not supported.')
+        if storage_provider_name not in STORAGE_PROVIDER_MAPPING:
+            raise ValueError(f'Storage provider {storage_provider_name} is not supported. '
+                             f'Supported providers are: {list(STORAGE_PROVIDER_MAPPING.keys())}')
         if credentials_provider:
             storage_options['credentials_provider'] = credentials_provider
         class_name = STORAGE_PROVIDER_MAPPING[storage_provider_name]
@@ -199,14 +202,15 @@ class StorageClientConfigLoader:
                 if storage_provider_profile:
                     storage_profile_dict = self._profiles.get(storage_provider_profile)
                     if not storage_profile_dict:
-                        raise ValueError(f"Profile '{storage_provider_profile}' does not exist.")
+                        raise ValueError(f"Profile '{storage_provider_profile}' referenced by "
+                                         f"storage_provider_profile does not exist.")
 
                     # Check if metadata provider is configured for this profile
                     # NOTE: The storage profile for manifests does not support metadata provider (at the moment).
                     local_metadata_provider_dict = storage_profile_dict.get('metadata_provider', None)
                     if local_metadata_provider_dict:
-                        raise ValueError(f"Found manifest_provider for profile '{storage_provider_profile}'. "
-                                         f"Not supported.'")
+                        raise ValueError(f"Found metadata_provider for profile '{storage_provider_profile}'. "
+                                         f"This is not supported for storage profiles used by manifests.'")
 
                     # Initialize CredentialsProvider
                     local_creds_provider_dict = storage_profile_dict.get('credentials_provider', None)
@@ -231,7 +235,8 @@ class StorageClientConfigLoader:
             else:
                 class_type = metadata_provider_dict['type']
                 if '.' not in class_type:
-                    raise ValueError("Expected a fully qualified class name (e.g., 'module.ClassName')")
+                    raise ValueError("Expected a fully qualified class name (e.g., 'module.ClassName'); "
+                                     f"got '{class_type}'.")
                 module_name, class_name = class_type.rsplit('.', 1)
                 cls = import_class(class_name, module_name)
                 options = metadata_provider_dict.get('options', {})
@@ -363,14 +368,16 @@ class StorageClientConfig:
 
             if config_file is None:
                 logger.warning(
-                    f'Cannot find the MSC config file in any of the locations: {DEFAULT_CONFIG_FILE_SEARCH_PATHS}; add a config file for sending client-side metrics to an OpenTelemetry service')
+                    'Cannot find the MSC config file in any of the locations: %s; add a '
+                    'config file for sending client-side metrics to an OpenTelemetry service',
+                    DEFAULT_CONFIG_FILE_SEARCH_PATHS)
 
                 return StorageClientConfig.from_dict(DEFAULT_POSIX_PROFILE, profile=profile)
 
         if not os.path.exists(config_file):
             raise FileNotFoundError(f'Cannot find the config file at {config_file}')
 
-        with open(config_file, 'r') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             content = f.read()
             if config_file.endswith('.json'):
                 return StorageClientConfig.from_json(content, profile)

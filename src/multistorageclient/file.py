@@ -88,7 +88,7 @@ class RemoteFileReader(IO[bytes]):
 
         # Perform range read from storage provider
         bytes_range = Range(offset=offset, size=length)
-        data = self._storage_provider.get_object(self._remote_path, range=bytes_range)
+        data = self._storage_provider.get_object(self._remote_path, byte_range=bytes_range)
 
         # Update the position by the number of bytes read
         bytes_read = len(data)
@@ -152,6 +152,7 @@ class RemoteFileReader(IO[bytes]):
         return byte
 
 
+# pylint: disable=abstract-method
 class ObjectFile(IO):
     """
     A file-like object that handles remote file access with asynchronous downloads.
@@ -179,6 +180,7 @@ class ObjectFile(IO):
                  storage_provider: StorageProvider,
                  remote_path: str,
                  mode: str = "rb",
+                 encoding: Optional[str] = None,
                  cache_manager: Optional[CacheManager] = None,
                  metadata_provider: Optional[MetadataProvider] = None
                  ):
@@ -188,6 +190,7 @@ class ObjectFile(IO):
         :param storage_provider: The storage provider responsible for handling the remote file.
         :param remote_path: The path to the remote file.
         :param mode: The file mode ('r', 'w', 'rb' or 'wb'). Defaults to 'rb'.
+        :param encoding: The encoding to use for text mode. Defaults to None.
         :param cache_manager: The cache manager responsible for local cache management.
         :param metadata_provider: An optional metadata_provider to track updates.
         """
@@ -201,7 +204,7 @@ class ObjectFile(IO):
             self._trace_span.set_attribute(k, v)
 
         if mode not in ("r", "w", "rb", "wb", "a", "ab"):
-            raise ValueError(f'Invalid mode "{mode}", only "w", "r", "a", "wb", "rb" and "ab" is supported.')
+            raise ValueError(f'Invalid mode "{mode}", only "w", "r", "a", "wb", "rb" and "ab" are supported.')
 
         if not storage_provider:
             raise ValueError(f"Storage provider is required to download file {remote_path}")
@@ -210,6 +213,7 @@ class ObjectFile(IO):
             raise ValueError('Missing parameter "remote_path"')
 
         self._mode = mode
+        self._encoding = encoding
         self._storage_provider = storage_provider
         self._metadata_provider = metadata_provider
         self._remote_path = remote_path
@@ -258,7 +262,7 @@ class ObjectFile(IO):
         Download the file to the cache directory.
         """
         if not self._cache_manager:
-            raise ValueError(f"Cannot open file at {self._remote_path}, cache is not configured.")
+            raise ValueError(f"Cannot download file {self._remote_path}, cache is not configured.")
 
         try:
             if self._cache_manager.use_etag():
@@ -287,7 +291,7 @@ class ObjectFile(IO):
 
             self._file = file_object
         except Exception as e:
-            raise IOError(f"Failed to download file, caused by: {e}")
+            raise IOError(f"Failed to download file {self._remote_path}") from e
         finally:
             self._download_complete.set()
 
@@ -320,13 +324,14 @@ class ObjectFile(IO):
                 self._storage_provider.download_file(self._remote_path, self._file)
                 self._file.seek(0)
             except Exception as e:
-                raise IOError(f"Failed to download file, caused by: {e}")
+                raise IOError(f"Failed to download file {self._remote_path}") from e
             finally:
                 self._download_complete.set()
         else:
             # Only support binary mode in reading large files
             if self._mode == "r":
-                raise ValueError('Failed to open file in text mode, please use mode "rb" to open large files.')
+                raise ValueError(f'Failed to open large file {self._remote_path} in text mode; '
+                                 f'use mode "rb" to open files larger than {LARGE_FILE_SIZE_THRESHOLD}.')
             self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
             self._download_complete.set()
 
@@ -422,7 +427,7 @@ class ObjectFile(IO):
             self._download_complete.wait()
         if hasattr(self._file, "readinto"):
             return self._file.readinto(b)  # type: ignore
-        raise io.UnsupportedOperation("readinto operation is not supported on this file")
+        raise io.UnsupportedOperation(f"readinto operation is not supported on file {self._remote_path}")
 
     @file_tracer
     def readall(self) -> Any:
@@ -452,16 +457,17 @@ class ObjectFile(IO):
                 self._storage_provider.download_file(self._remote_path, temp_file_path)
                 if os.path.getsize(temp_file_path) > LARGE_FILE_SIZE_THRESHOLD:
                     logger.warning(
-                        f"The append mode ('a' or 'ab') is not suitable for appending to large files. "
-                        f"The file at '{self._remote_path}' exceeds the recommended size threshold "
-                        f"({LARGE_FILE_SIZE_THRESHOLD} bytes). This operation will result in poor performance "
-                        f"due to the need to download and re-upload the entire file."
+                        "The append mode ('a' or 'ab') is not suitable for appending to large files. "
+                        "The file at '%s' exceeds the recommended size threshold "
+                        "(%d bytes). This operation will result in poor performance "
+                        "due to the need to download and re-upload the entire file.",
+                        self._remote_path, LARGE_FILE_SIZE_THRESHOLD
                     )
             except FileNotFoundError:
                 pass
 
             # Append the content to the downloaded file
-            with open(temp_file_path, self._mode) as fp:
+            with open(temp_file_path, self._mode, encoding=self._encoding) as fp:
                 self._file.seek(0)
                 fp.write(self._file.read())
                 self._file.close()
@@ -494,13 +500,14 @@ class PosixFile(IO):
     """
     A file-like object that wraps a POSIX file.
 
-    This class provides a standardized interface to interact with local files, integrating features such as tracing file operations with OpenTelemetry spans.
+    This class provides a standardized interface to interact with local files, integrating features
+    such as tracing file operations with OpenTelemetry spans.
     """
 
     _file: IO
     _trace_span: Optional[Span] = None
 
-    def __init__(self, path: str, mode: str = "rb"):
+    def __init__(self, path: str, mode: str = "rb", encoding: Optional[str] = None):
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("PosixFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
         self._trace_span.set_attribute("mode", mode)
@@ -510,7 +517,7 @@ class PosixFile(IO):
         # Ensure the parent directory exists
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        self._file = open(path, mode=mode)
+        self._file = open(path, mode=mode, encoding=encoding)
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
@@ -586,7 +593,7 @@ class PosixFile(IO):
     def readinto(self, b: Any) -> int:
         if hasattr(self._file, "readinto"):
             return self._file.readinto(b)  # type: ignore
-        raise io.UnsupportedOperation("readinto operation is not supported on this file")
+        raise io.UnsupportedOperation(f"readinto operation is not supported on file {self._file.name}")
 
     @file_tracer
     def readall(self) -> Any:

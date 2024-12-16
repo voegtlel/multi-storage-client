@@ -210,22 +210,22 @@ class S3StorageProvider(BaseStorageProvider):
         except ClientError as error:
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
             if status_code == 404:
-                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')
+                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')   # pylint: disable=raise-missing-from
             elif status_code == 429:
-                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}: {error}")
+                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}") from error
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except FileNotFoundError as error:
             status_code = -1
             raise error
         except ReadTimeoutError as error:
             status_code = -1
-            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -248,12 +248,12 @@ class S3StorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
 
         def _invoke_api() -> bytes:
-            if range:
-                bytes_range = f'bytes={range.offset}-{range.offset + range.size - 1}'
+            if byte_range:
+                bytes_range = f'bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}'
                 response = self._s3_client.get_object(Bucket=bucket, Key=key, Range=bytes_range)
             else:
                 response = self._s3_client.get_object(Bucket=bucket, Key=key)
@@ -337,15 +337,15 @@ class S3StorageProvider(BaseStorageProvider):
             for page in page_iterator:
                 # S3 guarantees lexicographical order for general purpose buckets (for
                 # normal S3) but not directory buckets (for S3 Express One Zone).
-                for object in page.get('Contents', []):
-                    key = object['Key']
+                for response_object in page.get('Contents', []):
+                    key = response_object['Key']
                     if end_at is None or key <= end_at:
                         yield ObjectMetadata(
                             key=key,
                             type="file",
-                            content_length=object['Size'],
-                            last_modified=object['LastModified'],
-                            etag=object['ETag'].strip('"'),
+                            content_length=response_object['Size'],
+                            last_modified=response_object['LastModified'],
+                            etag=response_object['ETag'].strip('"'),
                         )
                     else:
                         return

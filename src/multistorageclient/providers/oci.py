@@ -49,7 +49,8 @@ PROVIDER = "oci"
 
 class OracleStorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the StorageProvider for interacting with Oracle Cloud Infrastructure (OCI) Object Storage.
+    A concrete implementation of the StorageProvider for interacting with
+    Oracle Cloud Infrastructure (OCI) Object Storage.
     """
 
     def __init__(self, namespace: str, base_path: str = "",
@@ -122,19 +123,20 @@ class OracleStorageProvider(BaseStorageProvider):
         except ServiceError as error:
             status_code = error.status
             if status_code == 404:
-                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')
+                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')   # pylint: disable=raise-missing-from
             elif status_code == 429:
-                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}: {error}")
+                raise RetryableError(
+                    f"Too many request to {operation} object(s) at {bucket}/{key}.") from error
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+                raise RuntimeError("Failed to {operation} object(s) at {bucket}/{key}") from error
         except (ConnectionError, ChunkedEncodingError, ContentDecodingError) as error:
             status_code = -1
-            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}: {error}")
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         finally:
-            elapsed_time = (time.time() - start_time)
+            elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
                 elapsed_time,
                 provider=PROVIDER,
@@ -163,13 +165,13 @@ class OracleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
-    def _get_object(self, path: str, range: Optional[Range] = None) -> bytes:
+    def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
         self._refresh_oci_client_if_needed()
 
         def _invoke_api() -> bytes:
-            if range:
-                bytes_range = f'bytes={range.offset}-{range.offset + range.size - 1}'
+            if byte_range:
+                bytes_range = f'bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}'
             else:
                 bytes_range = None
             response = self._oci_client.get_object(
@@ -231,14 +233,14 @@ class OracleStorageProvider(BaseStorageProvider):
                     start=next_start_with
                 )
                 # OCI guarantees lexicographical order.
-                for object in response.data.objects:
-                    key = object.name
+                for response_object in response.data.objects:
+                    key = response_object.name
                     if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
                         yield ObjectMetadata(
                             key=key,
-                            content_length=object.size,
-                            last_modified=object.time_modified,
-                            etag=object.etag
+                            content_length=response_object.size,
+                            last_modified=response_object.time_modified,
+                            etag=response_object.etag
                         )
                     elif start_after != key:
                         return
