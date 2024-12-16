@@ -6,17 +6,21 @@
 
 from sphinx_pyproject import SphinxConfig
 
+# Disabled due to https://github.com/sphinx-toolbox/sphinx-pyproject/issues/59.
+#
 # Load `name`, `version`, `description`, and `authors` from the project's `pyproject.toml`.
 #
 # Prefer defining other configurations in this file instead of using `[tool.sphinx-pyproject]` in the project's `pyproject.toml`.
-config = SphinxConfig(
-    "../../pyproject.toml",
-    globalns=globals(),
-    style="poetry"
-)
-
-project = config.name
-release = config.version
+# config = SphinxConfig(
+#     "../../pyproject.toml",
+#     globalns=globals(),
+#     style="poetry"
+# )
+#
+# project = config.name
+# release = config.version
+project = "multi-storage-client"
+author = "NVIDIA Multi-Storage Client Team"
 copyright = "NVIDIA Corporation"
 
 # Extensions.

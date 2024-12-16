@@ -2,7 +2,7 @@
 name = "multi-storage-client"
 version = "0.12.1"
 description = "Storage client implementation for accessing different object stores."
-authors = ["NVIDIA Multi-Storage Client Team <nv-multi-storage-client@nvidia.com>"]
+authors = ["NVIDIA Multi-Storage Client Team"]
 license = "Apache-2.0"
 readme = "README.md"
 packages = [
