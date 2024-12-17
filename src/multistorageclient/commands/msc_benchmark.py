@@ -174,14 +174,14 @@ def main() -> None:
 
     storage_client_config = StorageClientConfig.from_file(profile=args.profile)
     storage_client = StorageClient(storage_client_config)
-    bucket = args.bucket
+    prefix = args.prefix
 
     for size_str, objects in TESTS_MIXED.items():
         for processes in PROCESSES:
             for threads in THREADS:
-                run_test(storage_client, "upload", bucket, size_str, objects, processes, threads)
-                run_test(storage_client, "download", bucket, size_str, objects, processes, threads)
-                run_test(storage_client, "delete", bucket, size_str, objects, processes, threads)
+                run_test(storage_client, "upload", prefix, size_str, objects, processes, threads)
+                run_test(storage_client, "download", prefix, size_str, objects, processes, threads)
+                run_test(storage_client, "delete", prefix, size_str, objects, processes, threads)
 
 
 if __name__ == "__main__":
