@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "multi-storage-client"
-version = "0.12.1"
+version = "0.12.2"
 description = "Unified high-performance Python client for object and file stores."
 authors = ["NVIDIA Multi-Storage Client Team"]
 license = "Apache-2.0"
