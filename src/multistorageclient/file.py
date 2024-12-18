@@ -78,7 +78,7 @@ class RemoteFileReader(IO[bytes]):
         # Calculate the start position for the range read
         offset = self._pos
         if size == 0 or offset >= self._file_size:
-            return b''
+            return b""
         elif size == -1:
             # If size is -1, read to the end of the file
             length = self._file_size - offset
@@ -176,14 +176,15 @@ class ObjectFile(IO):
     _local_path: Optional[str] = None
     _trace_span: Optional[Span] = None
 
-    def __init__(self,
-                 storage_provider: StorageProvider,
-                 remote_path: str,
-                 mode: str = "rb",
-                 encoding: Optional[str] = None,
-                 cache_manager: Optional[CacheManager] = None,
-                 metadata_provider: Optional[MetadataProvider] = None
-                 ):
+    def __init__(
+        self,
+        storage_provider: StorageProvider,
+        remote_path: str,
+        mode: str = "rb",
+        encoding: Optional[str] = None,
+        cache_manager: Optional[CacheManager] = None,
+        metadata_provider: Optional[MetadataProvider] = None,
+    ):
         """
         Initialize the ObjectFile instance.
 
@@ -287,7 +288,7 @@ class ObjectFile(IO):
                 file_object = self._cache_manager.open(cache_path, self._mode)
 
             if file_object is None:
-                raise FileNotFoundError(f'Unexpected error, file not found at {self._remote_path}')
+                raise FileNotFoundError(f"Unexpected error, file not found at {self._remote_path}")
 
             self._file = file_object
         except Exception as e:
@@ -301,10 +302,8 @@ class ObjectFile(IO):
         """
         if self._cache_manager:
             temp_file = tempfile.NamedTemporaryFile(
-                mode=self._mode,
-                delete=False,
-                dir=self._cache_manager.get_cache_dir(),
-                prefix='.')
+                mode=self._mode, delete=False, dir=self._cache_manager.get_cache_dir(), prefix="."
+            )
         else:
             temp_file = tempfile.NamedTemporaryFile(mode=self._mode, delete=False)
         temp_file_path = temp_file.name
@@ -330,8 +329,10 @@ class ObjectFile(IO):
         else:
             # Only support binary mode in reading large files
             if self._mode == "r":
-                raise ValueError(f'Failed to open large file {self._remote_path} in text mode; '
-                                 f'use mode "rb" to open files larger than {LARGE_FILE_SIZE_THRESHOLD}.')
+                raise ValueError(
+                    f"Failed to open large file {self._remote_path} in text mode; "
+                    f'use mode "rb" to open files larger than {LARGE_FILE_SIZE_THRESHOLD}.'
+                )
             self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
             self._download_complete.set()
 
@@ -381,7 +382,7 @@ class ObjectFile(IO):
         self._download_complete.wait()
         return next(self._file)
 
-    def __enter__(self) -> 'ObjectFile':
+    def __enter__(self) -> "ObjectFile":
         return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
@@ -461,7 +462,8 @@ class ObjectFile(IO):
                         "The file at '%s' exceeds the recommended size threshold "
                         "(%d bytes). This operation will result in poor performance "
                         "due to the need to download and re-upload the entire file.",
-                        self._remote_path, LARGE_FILE_SIZE_THRESHOLD
+                        self._remote_path,
+                        LARGE_FILE_SIZE_THRESHOLD,
                     )
             except FileNotFoundError:
                 pass
@@ -552,7 +554,7 @@ class PosixFile(IO):
     def __next__(self) -> Any:
         return next(self._file)
 
-    def __enter__(self) -> 'PosixFile':
+    def __enter__(self) -> "PosixFile":
         return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:

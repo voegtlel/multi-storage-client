@@ -12,7 +12,9 @@ repository = "https://github.com/NVIDIA/multi-storage-client"
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-python-dateutil = "^2.7.0"
+datasketches = "^5.1.0"
+filelock = "^3.14.0"
+jsonschema = "^4"
 numpy = [
     { version = "<1.25.0", python = "~3.8" },
     { version = ">=1.24.0", python = "^3.9" }
@@ -20,9 +22,7 @@ numpy = [
 opentelemetry-api = "^1.24.0"
 opentelemetry-sdk = "^1.24.0"
 opentelemetry-exporter-otlp-proto-http = "^1.24.0"
-datasketches = "^5.1.0"
-filelock = "^3.14.0"
-jsonschema = "^4"
+python-dateutil = "^2.7.0"
 pyyaml = "^6"
 
 aistore = { version = ">=1.8.1", optional = true }
@@ -39,12 +39,15 @@ xarray = [
 zarr = { version = ">=2.15.0", optional = true }
 
 [tool.poetry.extras]
+# Storage providers.
 aistore = ["aistore"]
 azure-storage-blob = ["azure-storage-blob"]
 boto3 = ["boto3"]
-fsspec = ["fsspec"]
 google-cloud-storage = ["google-cloud-storage"]
 oci = ["oci"]
+
+# Higher-level libraries.
+fsspec = ["fsspec"]
 torch = ["torch"]
 xarray = ["xarray"]
 zarr = ["zarr"]
@@ -54,9 +57,6 @@ pip-licenses = [
     { version = "^4", python = "<3.9" },
     { version = "^5", python = "^3.9" }
 ]
-autopep8 = "^2.3.1"
-flake8 = "^7"
-mypy = "^1.11.2"
 types-PyYAML = "^6"
 types-python-dateutil = ">=2.8.2"
 types-requests = "^2.31.0.3"
@@ -74,26 +74,29 @@ msc = "multistorageclient.contrib.async_fs.MultiAsyncFileSystem"
 [tool.poetry.scripts]
 msc-benchmark = "multistorageclient.commands.msc_benchmark:main"
 
-[tool.autopep8]
-aggressive = 2
-in-place = true
-max_line_length = 120
-recursive = true
-
-[tool.mypy]
-files = ["src/"]
-check_untyped_defs = true
-disallow_untyped_defs = true
-ignore_missing_imports = true
-
 [tool.pip-licenses]
 format = "markdown"
 order = "license"
 output-file = ".licenses.md"
 with-urls = true
 
+[tool.pyright]
+include = ["src", "tests"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
+
+[tool.ruff]
+indent-width = 4
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+indent-style = "space"
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+unfixable = []
 
 [build-system]
 requires = ["poetry-core"]

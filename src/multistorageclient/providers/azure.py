@@ -38,6 +38,7 @@ class StaticAzureCredentialsProvider(CredentialsProvider):
     """
     A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static Azure credentials.
     """
+
     _connection: str
 
     def __init__(self, connection: str):
@@ -65,8 +66,9 @@ class AzureBlobStorageProvider(BaseStorageProvider):
     A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Azure Blob Storage.
     """
 
-    def __init__(self, endpoint_url: str, base_path: str = "",
-                 credentials_provider: Optional[CredentialsProvider] = None):
+    def __init__(
+        self, endpoint_url: str, base_path: str = "", credentials_provider: Optional[CredentialsProvider] = None
+    ):
         """
         Initializes the :py:class:`AzureBlobStorageProvider` with the endpoint URL and optional credentials provider.
 
@@ -90,9 +92,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             credentials = self._credentials_provider.get_credentials()
             return BlobServiceClient.from_connection_string(credentials.access_key)
         else:
-            return BlobServiceClient(
-                account_url=self._account_url
-            )
+            return BlobServiceClient(account_url=self._account_url)
 
     def _refresh_blob_service_client_if_needed(self) -> None:
         """
@@ -104,8 +104,15 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                 self._credentials_provider.refresh_credentials()
                 self._blob_service_client = self._create_blob_service_client()
 
-    def _collect_metrics(self, func: Callable, operation: str, container: str, blob: str,
-                         put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
+    def _collect_metrics(
+        self,
+        func: Callable,
+        operation: str,
+        container: str,
+        blob: str,
+        put_object_size: Optional[int] = None,
+        get_object_size: Optional[int] = None,
+    ) -> Any:
         """
         Collects and records performance metrics around Azure operations such as PUT, GET, DELETE, etc.
 
@@ -138,25 +145,19 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             return result
         except ResourceNotFoundError:
             status_code = 404
-            raise FileNotFoundError(f'Object {container}/{blob} does not exist.')   # pylint: disable=raise-missing-from
+            raise FileNotFoundError(f"Object {container}/{blob} does not exist.")  # pylint: disable=raise-missing-from
         except Exception as error:
             status_code = -1
             raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}") from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time,
-                provider=PROVIDER,
-                operation=operation,
-                bucket=container,
-                status_code=status_code)
+                elapsed_time, provider=PROVIDER, operation=operation, bucket=container, status_code=status_code
+            )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size,
-                    provider=PROVIDER,
-                    operation=operation,
-                    bucket=container,
-                    status_code=status_code)
+                    object_size, provider=PROVIDER, operation=operation, bucket=container, status_code=status_code
+                )
 
     def _put_object(self, path: str, body: bytes) -> None:
         container_name, blob_name = split_path(path)
@@ -204,13 +205,14 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                 content_length=properties.size,
                 content_type=properties.content_settings.content_type,
                 last_modified=properties.last_modified,
-                etag=properties.etag.strip('"') if properties.etag else ''
+                etag=properties.etag.strip('"') if properties.etag else "",
             )
 
         return self._collect_metrics(_invoke_api, operation="HEAD", container=container_name, blob=blob_name)
 
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         container_name, prefix = split_path(prefix)
         self._refresh_blob_service_client_if_needed()
 
@@ -227,7 +229,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                         content_length=blob.size,
                         content_type=blob.content_settings.content_type,
                         last_modified=blob.last_modified,
-                        etag=blob.etag.strip('"') if blob.etag else ''
+                        etag=blob.etag.strip('"') if blob.etag else "",
                     )
                 elif end_at is not None and end_at < key:
                     return
@@ -246,12 +248,13 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                 with open(f, "rb") as data:
                     blob_client.upload_blob(data, overwrite=True)
 
-            return self._collect_metrics(_invoke_api, operation="PUT", container=container_name,
-                                         blob=blob_name, put_object_size=file_size)
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=file_size
+            )
         else:
             # Convert StringIO to BytesIO before upload
             if isinstance(f, io.StringIO):
-                fp: IO = io.BytesIO(f.getvalue().encode('utf-8'))  # type: ignore
+                fp: IO = io.BytesIO(f.getvalue().encode("utf-8"))  # type: ignore
             else:
                 fp = f
 
@@ -263,13 +266,11 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 blob_client.upload_blob(fp, overwrite=True)
 
-            return self._collect_metrics(_invoke_api, operation="PUT", container=container_name,
-                                         blob=blob_name, put_object_size=file_size)
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=file_size
+            )
 
-    def _download_file(self,
-                       remote_path: str,
-                       f: Union[str, IO],
-                       metadata: Optional[ObjectMetadata] = None) -> None:
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         if not metadata:
             metadata = self._get_object_metadata(remote_path)
 
@@ -281,22 +282,33 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
             def _invoke_api() -> None:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix='.') as fp:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     stream = blob_client.download_blob()
                     fp.write(stream.readall())
                 os.rename(src=temp_file_path, dst=f)
 
-            return self._collect_metrics(_invoke_api, operation="GET", container=container_name,
-                                         blob=blob_name, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api,
+                operation="GET",
+                container=container_name,
+                blob=blob_name,
+                get_object_size=metadata.content_length,
+            )
         else:
+
             def _invoke_api() -> None:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 stream = blob_client.download_blob()
                 if isinstance(f, io.StringIO):
-                    f.write(stream.readall().decode('utf-8'))
+                    f.write(stream.readall().decode("utf-8"))
                 else:
                     f.write(stream.readall())
 
-            return self._collect_metrics(_invoke_api, operation="GET", container=container_name,
-                                         blob=blob_name, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api,
+                operation="GET",
+                container=container_name,
+                blob=blob_name,
+                get_object_size=metadata.content_length,
+            )

@@ -33,7 +33,7 @@ TESTS_MIXED: Dict[str, int] = {
 
 
 def size_to_bytes(size: str) -> int:
-    return int(size[:-2]) * 1024 ** {'KB': 1, 'MB': 2, 'GB': 3, 'TB': 4, 'PB': 5}[size[-2:]]
+    return int(size[:-2]) * 1024 ** {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5}[size[-2:]]
 
 
 RANDOM_DATA = {k: os.urandom(size_to_bytes(k)) for k in TESTS_MIXED.keys()}
@@ -41,11 +41,8 @@ RANDOM_DATA = {k: os.urandom(size_to_bytes(k)) for k in TESTS_MIXED.keys()}
 
 class PerformanceMetrics:
     def __init__(
-            self,
-            start_times: List[Any],
-            end_times: List[Any],
-            response_times: List[Any],
-            object_sizes: List[Any]) -> None:
+        self, start_times: List[Any], end_times: List[Any], response_times: List[Any], object_sizes: List[Any]
+    ) -> None:
         self.start_times = start_times
         self.end_times = end_times
         self.response_times = response_times
@@ -63,9 +60,9 @@ class PerformanceMetrics:
         avg_response_time = sum(self.response_times) / len(self.response_times)
 
         response_time_percentiles = {
-            '50%': statistics.median(self.response_times),
-            '90%': statistics.quantiles(self.response_times, n=10)[-1],
-            '99%': statistics.quantiles(self.response_times, n=100)[-1],
+            "50%": statistics.median(self.response_times),
+            "90%": statistics.quantiles(self.response_times, n=10)[-1],
+            "99%": statistics.quantiles(self.response_times, n=100)[-1],
         }
 
         # Results summary
@@ -73,18 +70,20 @@ class PerformanceMetrics:
         print(f"Total time: {total_time:.2f} seconds")
         print(f"Throughput: {pretty_print_bytes(total_size / total_time)}/s")
         print(f"Average response time: {avg_response_time * 1000:.2f} ms")
-        print(f"Response time percentiles: 50% Median: {response_time_percentiles['50%'] * 1000:.2f} ms, "
-              f"90%: {response_time_percentiles['90%'] * 1000:.2f} ms, "
-              f"99%: {response_time_percentiles['99%'] * 1000:.2f} ms\n")
+        print(
+            f"Response time percentiles: 50% Median: {response_time_percentiles['50%'] * 1000:.2f} ms, "
+            f"90%: {response_time_percentiles['90%'] * 1000:.2f} ms, "
+            f"99%: {response_time_percentiles['99%'] * 1000:.2f} ms\n"
+        )
 
 
 def pretty_print_bytes(byte_value: float) -> str:
-    suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    suffixes = ["B", "KB", "MB", "GB", "TB", "PB"]
     i = 0
     while byte_value >= 1024 and i < len(suffixes) - 1:
         byte_value /= 1024.0
         i += 1
-    return f"{byte_value:.2f}".rstrip('0').rstrip('.') + " " + suffixes[i]
+    return f"{byte_value:.2f}".rstrip("0").rstrip(".") + " " + suffixes[i]
 
 
 def upload_object(storage_client: StorageClient, size: str, path: str, metrics: PerformanceMetrics) -> None:
@@ -116,8 +115,9 @@ def delete_object(storage_client: StorageClient, path: str) -> None:
         print(f"Error deleting {path}: {e}")
 
 
-def task(storage_client: StorageClient, test_type: str, bucket: str,
-         size: str, i: int, metrics: PerformanceMetrics) -> None:
+def task(
+    storage_client: StorageClient, test_type: str, bucket: str, size: str, i: int, metrics: PerformanceMetrics
+) -> None:
     object_name_prefix = f"test-{size}"
     object_name = f"{object_name_prefix}-{i}"
     object_path = os.path.join(bucket, object_name)
@@ -130,17 +130,32 @@ def task(storage_client: StorageClient, test_type: str, bucket: str,
         delete_object(storage_client, object_path)
 
 
-def process_task(storage_client: StorageClient, test_type: str, bucket: str, size: str,
-                 batch_range: range, metrics: PerformanceMetrics, threads: int) -> None:
+def process_task(
+    storage_client: StorageClient,
+    test_type: str,
+    bucket: str,
+    size: str,
+    batch_range: range,
+    metrics: PerformanceMetrics,
+    threads: int,
+) -> None:
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for i in batch_range:
             executor.submit(task, storage_client, test_type, bucket, size, i, metrics)
 
 
-def run_test(storage_client: StorageClient, test_type: str, bucket: str,
-             size: str, num_objects: int, processes: int, threads: int) -> None:
+def run_test(
+    storage_client: StorageClient,
+    test_type: str,
+    bucket: str,
+    size: str,
+    num_objects: int,
+    processes: int,
+    threads: int,
+) -> None:
     print(
-        f"--- Running {test_type} test for {num_objects} x {size} objects with {processes} processes x {threads} threads ---")
+        f"--- Running {test_type} test for {num_objects} x {size} objects with {processes} processes x {threads} threads ---"
+    )
 
     with Manager() as manager:
         # Create shared lists for metrics
@@ -156,8 +171,10 @@ def run_test(storage_client: StorageClient, test_type: str, bucket: str,
         batches = [range(i, min(i + batch_size, num_objects)) for i in range(0, num_objects, batch_size)]
 
         with Pool(processes=processes, maxtasksperchild=1) as pool:
-            pool.starmap(process_task, [(storage_client, test_type, bucket, size,
-                         batches[i], metrics, threads) for i in range(len(batches))])
+            pool.starmap(
+                process_task,
+                [(storage_client, test_type, bucket, size, batches[i], metrics, threads) for i in range(len(batches))],
+            )
 
         if test_type != "delete":
             metrics.calculate()
@@ -167,9 +184,8 @@ def run_test(storage_client: StorageClient, test_type: str, bucket: str,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Upload/Download performance tests with nv storage client")
-    parser.add_argument('--prefix', type=str, default='', help='The path prefix to use for the test')
-    parser.add_argument('--profile', type=str, default='default',
-                        help='The storage client profile to use for the test')
+    parser.add_argument("--prefix", type=str, default="", help="The path prefix to use for the test")
+    parser.add_argument("--profile", type=str, default="default", help="The storage client profile to use for the test")
     args = parser.parse_args()
 
     storage_client_config = StorageClientConfig.from_file(profile=args.profile)

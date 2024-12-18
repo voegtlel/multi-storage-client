@@ -20,7 +20,6 @@ import tempfile
 import pytest
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
-from utils import file_storage_config
 
 
 @pytest.fixture
@@ -30,7 +29,7 @@ def sample_data():
 
 @pytest.fixture
 def pickle_file_path(sample_data):
-    with tempfile.NamedTemporaryFile(delete=False, mode='wb') as temp:
+    with tempfile.NamedTemporaryFile(delete=False, mode="wb") as temp:
         pickle.dump(sample_data, temp)
     yield temp.name
     os.unlink(temp.name)
@@ -47,15 +46,13 @@ def test_pickle_load(file_storage_config, pickle_file_path, sample_data):
     assert result == sample_data
 
     # test load with file object
-    with open(pickle_file_path, 'rb') as f:
+    with open(pickle_file_path, "rb") as f:
         result = msc.pickle.load(f)
     assert result == sample_data
 
 
 def test_pickle_dump(file_storage_config, sample_data):
-
     with tempfile.NamedTemporaryFile(delete=True) as temp:
-
         msc_path = f"{MSC_PROTOCOL}default{temp.name}"
 
         # Test dump with msc-prefixed file path
@@ -70,4 +67,4 @@ def test_pickle_dump(file_storage_config, sample_data):
 
         # Test dump with msc.open (file-like object)
         with pytest.raises(NotImplementedError):
-            msc.pickle.dump(sample_data, msc.open(msc_path, 'wb'))
+            msc.pickle.dump(sample_data, msc.open(msc_path, "wb"))

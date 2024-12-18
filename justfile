@@ -29,9 +29,11 @@ build: prepare-virtual-environment
     # Remove package build artifacts.
     rm -rf dist
     # Format.
-    poetry run autopep8 src tests
+    ruff format
+    # Lint.
+    ruff check --fix
     # Type check.
-    poetry run mypy
+    poetry run pyright
     # Unit test.
     poetry run pytest
     # Build the package archives.
@@ -42,7 +44,7 @@ document: prepare-virtual-environment
     # Remove documentation build artifacts.
     rm -rf docs/dist
     # Format.
-    poetry run autopep8 docs/src
+    ruff format
     # Build the documentation website.
     poetry run sphinx-build -b html docs/src docs/dist
 

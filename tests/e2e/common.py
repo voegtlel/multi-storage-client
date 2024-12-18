@@ -29,38 +29,38 @@ def delete_files(storage_client: msc.StorageClient, prefix: str) -> None:
 
 
 def verify_shortcuts(profile: str, prefix: str) -> None:
-    body = b'A' * (16 * MB)
+    body = b"A" * (16 * MB)
 
     for i in range(10):
-        with msc.open(f'msc://{profile}/{prefix}/data-{i}.bin', 'wb') as fp:
+        with msc.open(f"msc://{profile}/{prefix}/data-{i}.bin", "wb") as fp:
             fp.write(body)
 
-    results = msc.glob(f'msc://{profile}/{prefix}/**/*.bin')
+    results = msc.glob(f"msc://{profile}/{prefix}/**/*.bin")
     assert len(results) == 10
 
     for res in results:
-        with msc.open(res, 'rb') as fp:
-            assert fp.read(10) == b'A' * 10
+        with msc.open(res, "rb") as fp:
+            assert fp.read(10) == b"A" * 10
 
 
 def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> None:
-    body = b'A' * (16 * MB)
+    body = b"A" * (16 * MB)
     text = '{"text":"✅ Unicode Test ✅"}'
 
     # write file
-    filename = f'{prefix}/testfile.bin'
+    filename = f"{prefix}/testfile.bin"
     storage_client.write(filename, body)
     assert len(list(storage_client.list(prefix))) == 1
 
     # is file
     assert storage_client.is_file(filename)
     assert not storage_client.is_file(prefix)
-    assert not storage_client.is_file('not-exist-prefix')
+    assert not storage_client.is_file("not-exist-prefix")
 
     # glob
-    assert len(storage_client.glob('*.py')) == 0
-    assert storage_client.glob(f'{prefix}/*.bin')[0] == filename
-    assert len(storage_client.glob(f'{prefix}/*.bin')) == 1
+    assert len(storage_client.glob("*.py")) == 0
+    assert storage_client.glob(f"{prefix}/*.bin")[0] == filename
+    assert len(storage_client.glob(f"{prefix}/*.bin")) == 1
 
     # verify file is written
     assert storage_client.read(filename) == body
@@ -87,12 +87,12 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
         assert os.path.getsize(temp_file_path) == len(body)
 
     # open file
-    with storage_client.open(filename, 'wb') as fp:
+    with storage_client.open(filename, "wb") as fp:
         fp.write(body)
 
     assert len(list(storage_client.list(prefix))) == 1
 
-    with storage_client.open(filename, 'rb') as fp:
+    with storage_client.open(filename, "rb") as fp:
         content = fp.read()
         assert content == body
         assert isinstance(content, bytes)
@@ -105,13 +105,13 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     assert len(list(storage_client.list(prefix))) == 0
 
     # large file
-    body_large = b'*' * (550 * MB)
-    with storage_client.open(filename, 'wb') as fp:
+    body_large = b"*" * (550 * MB)
+    with storage_client.open(filename, "wb") as fp:
         fp.write(body_large)
 
     assert len(list(storage_client.list(prefix))) == 1
 
-    with storage_client.open(filename, 'rb') as fp:
+    with storage_client.open(filename, "rb") as fp:
         read_size = 128 * MB
         content = fp.read(read_size)
         assert len(content) == read_size
@@ -129,13 +129,13 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     assert len(list(storage_client.list(prefix))) == 0
 
     # unicode file
-    filename = f'{prefix}/testfile.txt'
-    with storage_client.open(filename, 'w') as fp:
+    filename = f"{prefix}/testfile.txt"
+    with storage_client.open(filename, "w") as fp:
         fp.write(text)
 
     assert len(list(storage_client.list(prefix))) == 1
 
-    with storage_client.open(filename, 'r') as fp:
+    with storage_client.open(filename, "r") as fp:
         content = fp.read()
         assert content == text
         assert isinstance(content, str)
@@ -150,7 +150,7 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
 
 def test_shortcuts(profile: str):
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    prefix = f'files-{uuid.uuid4()}'
+    prefix = f"files-{uuid.uuid4()}"
     try:
         verify_shortcuts(profile, prefix)
     finally:
@@ -159,7 +159,7 @@ def test_shortcuts(profile: str):
 
 def test_storage_client(profile: str):
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    prefix = f'files-{uuid.uuid4()}'
+    prefix = f"files-{uuid.uuid4()}"
     try:
         verify_storage_provider(client, prefix)
     finally:

@@ -49,7 +49,7 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
         profile = pr.netloc
 
         # Remove the leading slash
-        if pr.path.startswith('/'):
+        if pr.path.startswith("/"):
             path = pr.path[1:]
         else:
             path = pr.path

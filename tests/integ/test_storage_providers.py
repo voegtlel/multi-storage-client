@@ -18,7 +18,6 @@ import shutil
 import tempfile
 from typing import Set
 
-import pytest
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.providers import S3StorageProvider
 
@@ -26,27 +25,27 @@ MB = 1024 * 1024
 
 
 def verify_storage_provider(config: StorageClientConfig) -> None:
-    prefix = 'files'
+    prefix = "files"
 
     storage_client = StorageClient(config)
 
-    body = b'A' * (64 * MB)
+    body = b"A" * (64 * MB)
     text = '{"text":"✅ Unicode Test ✅"}'
 
     # cleanup
-    for object in storage_client.list(f'{prefix}'):
-        storage_client.delete(f'{object.key}')
+    for object in storage_client.list(f"{prefix}"):
+        storage_client.delete(f"{object.key}")
 
     # write file
-    dirname = f'{prefix}/testdir/'
-    filename = f'{dirname}testfile.bin'
+    dirname = f"{prefix}/testdir/"
+    filename = f"{dirname}testfile.bin"
     storage_client.write(filename, body)
-    assert len(list(storage_client.list(f'{prefix}'))) == 1
+    assert len(list(storage_client.list(f"{prefix}"))) == 1
 
     # is file
     assert storage_client.is_file(filename)
-    assert not storage_client.is_file(f'{prefix}')
-    assert not storage_client.is_file('not-exist-prefix')
+    assert not storage_client.is_file(f"{prefix}")
+    assert not storage_client.is_file("not-exist-prefix")
 
     # glob
     assert len(storage_client.glob("*.py")) == 0
@@ -60,7 +59,7 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
     assert info.content_length == len(body)
     assert info.type == "file"
     assert storage_client.is_file(filename)
-    assert not storage_client.is_file(f'{prefix}')
+    assert not storage_client.is_file(f"{prefix}")
 
     # TODO: enable this test for all providers, once "type" has been added (currently only on posix, S3)
     # verify directory info, both with and without an ending "/"
@@ -93,7 +92,7 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
     with storage_client.open(filename, "wb") as fp:
         fp.write(body)
 
-    assert len(list(storage_client.list(f'{prefix}'))) == 1
+    assert len(list(storage_client.list(f"{prefix}"))) == 1
 
     with storage_client.open(filename, "rb") as fp:
         content = fp.read()
@@ -102,14 +101,14 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
 
     # delete file
     storage_client.delete(filename)
-    assert len(list(storage_client.list(f'{prefix}'))) == 0
+    assert len(list(storage_client.list(f"{prefix}"))) == 0
 
     # large file
-    body_large = b'*' * (550 * MB)
+    body_large = b"*" * (550 * MB)
     with storage_client.open(filename, "wb") as fp:
         fp.write(body_large)
 
-    assert len(list(storage_client.list(f'{prefix}'))) == 1
+    assert len(list(storage_client.list(f"{prefix}"))) == 1
 
     with storage_client.open(filename, "rb") as fp:
         read_size = 128 * MB
@@ -128,18 +127,18 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         read_size = 128
         buffer = bytearray(read_size)
         assert read_size == fp.readinto(buffer)
-        assert b'*' * read_size == buffer
+        assert b"*" * read_size == buffer
 
     # delete file
     storage_client.delete(filename)
-    assert len(list(storage_client.list(f'{prefix}'))) == 0
+    assert len(list(storage_client.list(f"{prefix}"))) == 0
 
     # unicode file
-    filename = f'{prefix}/testfile.txt'
+    filename = f"{prefix}/testfile.txt"
     with storage_client.open(filename, "w") as fp:
         fp.write(text)
 
-    assert len(list(storage_client.list(f'{prefix}'))) == 1
+    assert len(list(storage_client.list(f"{prefix}"))) == 1
 
     with storage_client.open(filename, "r") as fp:
         content = fp.read()
@@ -148,10 +147,10 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
 
     # delete file
     storage_client.delete(filename)
-    assert len(list(storage_client.list(f'{prefix}'))) == 0
+    assert len(list(storage_client.list(f"{prefix}"))) == 0
 
     # append mode
-    filename = f'{prefix}/testfile-append.txt'
+    filename = f"{prefix}/testfile-append.txt"
     with storage_client.open(filename, "a") as fp:
         fp.write(text)
     with storage_client.open(filename, "a") as fp:
@@ -160,7 +159,7 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         assert fp.read() == text * 2
     storage_client.delete(filename)
 
-    filename = f'{prefix}/testfile-append.bin'
+    filename = f"{prefix}/testfile-append.bin"
     with storage_client.open(filename, "ab") as fp:
         fp.write(body)
     with storage_client.open(filename, "ab") as fp:
@@ -171,25 +170,22 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
 
 
 def verify_storage_provider_list_segment(config: StorageClientConfig) -> None:
-    prefix = 'list-segment'
+    prefix = "list-segment"
     storage_client = StorageClient(config)
 
     keys: Set[str] = set()
     # Create some files.
     for i in range(1, 4):
-        key = os.path.join(prefix, f'{i}.txt')
-        storage_client.write(key, 'hello'.encode())
+        key = os.path.join(prefix, f"{i}.txt")
+        storage_client.write(key, "hello".encode())
         keys.add(key)
 
     # Range over the files.
     for i in range(1, 4):
-        assert {os.path.join(prefix, f'{i}.txt')} == {
+        assert {os.path.join(prefix, f"{i}.txt")} == {
             object_metadatum.key
-            for object_metadatum
-            in storage_client.list(
-                prefix=prefix,
-                start_after=os.path.join(prefix, f'{i - 1}.txt'),
-                end_at=os.path.join(prefix, f'{i}.txt')
+            for object_metadatum in storage_client.list(
+                prefix=prefix, start_after=os.path.join(prefix, f"{i - 1}.txt"), end_at=os.path.join(prefix, f"{i}.txt")
             )
         }
 
@@ -203,25 +199,25 @@ def test_s3_local():
     """
     import boto3
 
-    bucket_name = 'test-bucket-0001'
+    bucket_name = "test-bucket-0001"
 
-    minio_access_key = 'minioadmin'
-    minio_secret_key = 'minioadmin'
-    endpoint_url = 'http://localhost:9000'
+    minio_access_key = "minioadmin"
+    minio_secret_key = "minioadmin"
+    endpoint_url = "http://localhost:9000"
 
     client = boto3.client(
-        's3',
+        "s3",
         endpoint_url=endpoint_url,
         aws_access_key_id=minio_access_key,
         aws_secret_access_key=minio_secret_key,
-        region_name='us-east-1'
+        region_name="us-east-1",
     )
 
     # Delete all objects in the bucket
     try:
-        objects = client.list_objects_v2(Bucket=bucket_name).get('Contents', [])
+        objects = client.list_objects_v2(Bucket=bucket_name).get("Contents", [])
         for obj in objects:
-            client.delete_object(Bucket=bucket_name, Key=obj['Key'])
+            client.delete_object(Bucket=bucket_name, Key=obj["Key"])
         client.delete_bucket(Bucket=bucket_name)
     except client.exceptions.NoSuchBucket:
         pass
@@ -232,27 +228,30 @@ def test_s3_local():
         print(f"Failed to create bucket: {e}")
         pass
 
-    config = StorageClientConfig.from_dict({
-        "profiles": {
-            "s3-local": {
-                "storage_provider": {
-                    "type": "s3",
-                    "options": {
-                        "endpoint_url": endpoint_url,
-                        "region_name": "us-east-1",
-                        "base_path": bucket_name,
-                    }
-                },
-                "credentials_provider": {
-                    "type": "S3Credentials",
-                    "options": {
-                        "access_key": minio_access_key,
-                        "secret_key": minio_secret_key,
-                    }
+    config = StorageClientConfig.from_dict(
+        {
+            "profiles": {
+                "s3-local": {
+                    "storage_provider": {
+                        "type": "s3",
+                        "options": {
+                            "endpoint_url": endpoint_url,
+                            "region_name": "us-east-1",
+                            "base_path": bucket_name,
+                        },
+                    },
+                    "credentials_provider": {
+                        "type": "S3Credentials",
+                        "options": {
+                            "access_key": minio_access_key,
+                            "secret_key": minio_secret_key,
+                        },
+                    },
                 }
             }
-        }
-    }, profile="s3-local")
+        },
+        profile="s3-local",
+    )
 
     verify_storage_provider(config=config)
     verify_storage_provider_list_segment(config=config)
@@ -271,7 +270,7 @@ def test_azure_local():
     connection_string = "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;"
     client = BlobServiceClient.from_connection_string(connection_string)
 
-    container_name = 'test-bucket-0001'
+    container_name = "test-bucket-0001"
 
     # Clean the container by deleting all blobs
     container_client = client.get_container_client(container_name)
@@ -297,29 +296,32 @@ def test_azure_local():
     if os.path.exists(cache_dir):
         shutil.rmtree(cache_dir)
 
-    config = StorageClientConfig.from_dict({
-        "profiles": {
-            "azure-local": {
-                "storage_provider": {
-                    "type": "azure",
-                    "options": {
-                        "endpoint_url": "http://127.0.0.1:10000/devstoreaccount1",
-                        "base_path": container_name,
-                    }
-                },
-                "credentials_provider": {
-                    "type": "AzureCredentials",
-                    "options": {
-                        "connection": connection_string,
-                    }
+    config = StorageClientConfig.from_dict(
+        {
+            "profiles": {
+                "azure-local": {
+                    "storage_provider": {
+                        "type": "azure",
+                        "options": {
+                            "endpoint_url": "http://127.0.0.1:10000/devstoreaccount1",
+                            "base_path": container_name,
+                        },
+                    },
+                    "credentials_provider": {
+                        "type": "AzureCredentials",
+                        "options": {
+                            "connection": connection_string,
+                        },
+                    },
                 }
-            }
+            },
+            "cache": {
+                "location": cache_dir,
+                "size_mb": 5000,
+            },
         },
-        "cache": {
-            "location": cache_dir,
-            "size_mb": 5000,
-        }
-    }, profile="azure-local")
+        profile="azure-local",
+    )
 
     verify_storage_provider(config=config)
     verify_storage_provider_list_segment(config=config)

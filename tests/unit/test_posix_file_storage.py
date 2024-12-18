@@ -21,12 +21,12 @@ from multistorageclient import StorageClient, StorageClientConfig
 
 def verify_functions(config: StorageClientConfig, prefix: str) -> None:
     storage_client = StorageClient(config)
-    body = b'A' * 64 * 1024
+    body = b"A" * 64 * 1024
 
     assert len(list(storage_client.list(prefix))) == 0
 
     # write file
-    filename = os.path.join(prefix, 'testfile.bin')
+    filename = os.path.join(prefix, "testfile.bin")
     storage_client.write(filename, body)
     assert len(list(storage_client.list(prefix))) == 1
 
@@ -52,36 +52,22 @@ def verify_list_segment(config: StorageClientConfig, prefix: str) -> None:
 
     # Create some files.
     for i in range(1, 4):
-        key = os.path.join(prefix, f'{i}.txt')
-        storage_client.write(key, 'test'.encode())
+        key = os.path.join(prefix, f"{i}.txt")
+        storage_client.write(key, "test".encode())
 
     # Range over the files.
     for i in range(1, 4):
-        assert {f'{i}.txt'} == {
+        assert {f"{i}.txt"} == {
             object_metadatum.key
-            for object_metadatum
-            in storage_client.list(
-                prefix=prefix,
-                start_after=f'{i - 1}.txt',
-                end_at=f'{i}.txt'
-            )
+            for object_metadatum in storage_client.list(prefix=prefix, start_after=f"{i - 1}.txt", end_at=f"{i}.txt")
         }
 
 
 def test_posix_file_storage_provider() -> None:
-    base_path = '/'
-    config = StorageClientConfig.from_dict({
-        'profiles': {
-            'default': {
-                'storage_provider': {
-                    'type': 'file',
-                    'options': {
-                        'base_path': base_path
-                    }
-                }
-            }
-        }
-    })
+    base_path = "/"
+    config = StorageClientConfig.from_dict(
+        {"profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": base_path}}}}}
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         verify_functions(config, prefix=os.path.relpath(tmpdir, base_path))
@@ -91,20 +77,11 @@ def test_posix_file_storage_provider() -> None:
 
 def test_posix_file_storage_provider_with_base_path() -> None:
     def _config(base_path: str) -> StorageClientConfig:
-        return StorageClientConfig.from_dict({
-            'profiles': {
-                'default': {
-                    'storage_provider': {
-                        'type': 'file',
-                        'options': {
-                            'base_path': base_path
-                        }
-                    }
-                }
-            }
-        })
+        return StorageClientConfig.from_dict(
+            {"profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": base_path}}}}}
+        )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        verify_functions(_config(tmpdir), prefix='')
+        verify_functions(_config(tmpdir), prefix="")
     with tempfile.TemporaryDirectory() as tmpdir:
-        verify_list_segment(_config(tmpdir), prefix='')
+        verify_list_segment(_config(tmpdir), prefix="")

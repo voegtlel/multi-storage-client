@@ -35,7 +35,6 @@ __all__ = [
     "StorageClient",
     "StorageClientConfig",
     "CacheConfig",
-
     # Shortcuts
     "download_file",
     "glob",
@@ -63,10 +62,10 @@ def lazy_import(name: str) -> ModuleType:
 
 # lazy import for optional dependencies
 # full path is needed, relative imports doesn't work here
-numpy = lazy_import(f'{__package__}.contrib.numpy')
-pickle = lazy_import(f'{__package__}.contrib.pickle')
-os = lazy_import(f'{__package__}.contrib.os')
-zarr = lazy_import(f'{__package__}.contrib.zarr')
-async_fs = lazy_import(f'{__package__}.contrib.async_fs')
-xr = lazy_import(f'{__package__}.contrib.xarray')
-torch = lazy_import(f'{__package__}.contrib.torch')
+numpy = lazy_import(f"{__package__}.contrib.numpy")
+pickle = lazy_import(f"{__package__}.contrib.pickle")
+os = lazy_import(f"{__package__}.contrib.os")
+zarr = lazy_import(f"{__package__}.contrib.zarr")
+async_fs = lazy_import(f"{__package__}.contrib.async_fs")
+xr = lazy_import(f"{__package__}.contrib.xarray")
+torch = lazy_import(f"{__package__}.contrib.torch")

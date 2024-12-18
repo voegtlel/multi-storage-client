@@ -28,12 +28,12 @@ def split_path(path: str) -> Tuple[str, str]:
     :param path: The path to split.
     :return: A tuple containing the bucket and key.
     """
-    parts = path.lstrip('/').split('/', 1)
+    parts = path.lstrip("/").split("/", 1)
     if len(parts) == 2:
         bucket, key = parts
     else:
         bucket = parts[0]
-        key = ''
+        key = ""
     return bucket, key
 
 
@@ -47,9 +47,9 @@ def glob(keys: List[str], pattern: str) -> List[str]:
     :return: A list of keys that match the pattern.
     """
     # Split the pattern into parts
-    if '**' in pattern:
+    if "**" in pattern:
         # Handle the recursive case with '**'
-        base_pattern = pattern.replace('**/', '')  # Remove the '**/' part for matching
+        base_pattern = pattern.replace("**/", "")  # Remove the '**/' part for matching
         return [key for key in keys if fnmatch.fnmatch(key, base_pattern)]
     else:
         # Standard fnmatch usage for non-recursive patterns
@@ -91,7 +91,7 @@ def cache_key(path: str) -> str:
     :return: A hexadecimal string representing the hashed value of the file path, to be used as a cache key.
     """
     md5 = hashlib.md5()
-    md5.update(path.encode('utf-8'))
+    md5.update(path.encode("utf-8"))
     return md5.hexdigest()
 
 
@@ -102,7 +102,7 @@ def join_paths(base: str, path: str) -> str:
     This function works for both filesystem paths and custom scheme paths like ``msc://``.
     It removes any trailing slashes from the base and leading slashes from the path before joining them together.
     """
-    return os.path.join(base.rstrip('/'), path.lstrip('/'))
+    return os.path.join(base.rstrip("/"), path.lstrip("/"))
 
 
 def expand_env_vars(data: Any) -> Any:
@@ -135,7 +135,7 @@ def expand_env_vars(data: Any) -> Any:
         return [expand_env_vars(element) for element in data]
     elif isinstance(data, str):
         expanded = os.path.expandvars(data)
-        unresolved_vars = re.findall(r'\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*', expanded)
+        unresolved_vars = re.findall(r"\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*", expanded)
         if unresolved_vars:
             raise ValueError(f"Unresolved environment variables {unresolved_vars} in '{data}'")
         return expanded
@@ -144,14 +144,14 @@ def expand_env_vars(data: Any) -> Any:
 
 
 def extract_prefix_from_glob(s: str) -> str:
-    parts = s.split('/')
+    parts = s.split("/")
     prefix_parts = []
 
     for part in parts:
         # Check if the part contains any glob special characters
-        if any(c in part for c in '*?[]{}'):
+        if any(c in part for c in "*?[]{}"):
             break  # Stop if a glob character is found
         prefix_parts.append(part)
 
-    prefix = '/'.join(prefix_parts)
+    prefix = "/".join(prefix_parts)
     return prefix

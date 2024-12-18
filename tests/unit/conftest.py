@@ -13,12 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pytest fixtures.
+#
+# https://docs.pytest.org/en/stable/reference/fixtures.html#conftest-py-sharing-fixtures-across-multiple-files
+
 import os
 import tempfile
 
 import pytest
 
-CONFIG_FILENAME = os.path.join(tempfile.gettempdir(), 'msc_config.yaml')
+CONFIG_FILENAME = os.path.join(tempfile.gettempdir(), "msc_config.yaml")
 CONFIG_YAML = """
 profiles:
   default:
@@ -40,10 +44,10 @@ cache: {}
 
 
 def setup_config_file(config_json):
-    with open(CONFIG_FILENAME, 'w') as fp:
+    with open(CONFIG_FILENAME, "w") as fp:
         fp.write(config_json)
 
-    os.environ['MSC_CONFIG'] = CONFIG_FILENAME
+    os.environ["MSC_CONFIG"] = CONFIG_FILENAME
 
 
 def delete_config_file():

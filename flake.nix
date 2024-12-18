@@ -97,6 +97,10 @@
                 python39
                 # Poetry.
                 poetry
+                # Ruff.
+                ruff
+                # Pyright.
+                pyright
                 # Storage systems.
                 azurite
                 minio

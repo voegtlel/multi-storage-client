@@ -31,46 +31,54 @@ MB = 1024 * 1024
 DURATION_HISTOGRAM = METER.create_histogram(
     name="storageclient_api_duration",
     unit="ms",
-    description="Measures the duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.")
+    description="Measures the duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.",
+)
 
 OBJECT_SIZE_HISTOGRAM = METER.create_histogram(
     name="storageclient_object_size",
     unit="mb",
-    description="Tracks the size of objects involved in storage operations (e.g., GET, PUT) in megabytes.")
+    description="Tracks the size of objects involved in storage operations (e.g., GET, PUT) in megabytes.",
+)
 
 DURATION_P50_GAUGE = METER.create_gauge(
     name="storageclient_api_duration_p50",
     unit="ms",
-    description="Measures the P50 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.")
+    description="Measures the P50 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.",
+)
 
 DURATION_P99_GAUGE = METER.create_gauge(
     name="storageclient_api_duration_p99",
     unit="ms",
-    description="Measures the P99 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.")
+    description="Measures the P99 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.",
+)
 
 DURATION_P999_GAUGE = METER.create_gauge(
     name="storageclient_api_duration_p999",
     unit="ms",
-    description="Measures the P99.9 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.")
+    description="Measures the P99.9 duration of storage operations (e.g., GET, PUT, LIST) in milliseconds.",
+)
 
 OBJECT_SIZE_P50_GAUGE = METER.create_gauge(
     name="storageclient_object_size_p50",
     unit="mb",
-    description="Tracks the P50 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.")
+    description="Tracks the P50 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.",
+)
 
 OBJECT_SIZE_P99_GAUGE = METER.create_gauge(
     name="storageclient_object_size_p99",
     unit="mb",
-    description="Tracks the P99 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.")
+    description="Tracks the P99 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.",
+)
 
 OBJECT_SIZE_P999_GAUGE = METER.create_gauge(
     name="storageclient_object_size_p999",
     unit="mb",
-    description="Tracks the P99.9 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.")
+    description="Tracks the P99.9 size of objects involved in storage operations (e.g., GET, PUT) in megabytes.",
+)
 
 CACHE_MANAGER_COUNTER = METER.create_counter(
     name="storageclient_cache_manager_count",
-    description="Counts the number of operations (e.g., SET, READ, OPEN, DELETE) in cache manager."
+    description="Counts the number of operations (e.g., SET, READ, OPEN, DELETE) in cache manager.",
 )
 
 
@@ -136,8 +144,8 @@ providers: list[AttributeProvider] = [
 msc_base_provider = MSCAttributeProvider()
 
 
-def collect_default_attributes(         # pylint: disable=dangerous-default-value
-    env: Mapping[str, Any] = os.environ
+def collect_default_attributes(  # pylint: disable=dangerous-default-value
+    env: Mapping[str, Any] = os.environ,
 ) -> Mapping[str, Any]:
     collected_attributes: Dict[str, Any] = {}
 
@@ -196,33 +204,33 @@ class TDigestPercentiles:
 
         # Get or create a tdigest for this specific attribute combination
         if attributes_key not in self._tdigests:
-            self._tdigests[attributes_key] = datasketches.tdigest_float()
+            self._tdigests[attributes_key] = datasketches.tdigest_float()  # pyright: ignore [reportAttributeAccessIssue]
 
         return self._tdigests[attributes_key]
 
     def _serialize_tdigests(self) -> Mapping[Tuple, bytes]:
-        """ Serialize tdigests objects into bytes. """
+        """Serialize tdigests objects into bytes."""
         m = {}
         for k, v in self._tdigests.items():
             m[k] = v.serialize()
         return m
 
     def _deserialize_tdigests(self, tdigests: Mapping[Tuple, bytes]) -> MutableMapping[Tuple, Any]:
-        """ Deserialize tdigests objects from bytes. """
+        """Deserialize tdigests objects from bytes."""
         m = {}
         for k, v in tdigests.items():
-            m[k] = datasketches.tdigest_float.deserialize(v)
+            m[k] = datasketches.tdigest_float.deserialize(v)  # pyright: ignore [reportAttributeAccessIssue]
         return m
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
-        self._tdigests = self._deserialize_tdigests(state['_tdigests'])
-        self._p50_gauge = state['_p50_gauge']
-        self._p99_gauge = state['_p99_gauge']
-        self._p999_gauge = state['_p999_gauge']
+        self._tdigests = self._deserialize_tdigests(state["_tdigests"])
+        self._p50_gauge = state["_p50_gauge"]
+        self._p99_gauge = state["_p99_gauge"]
+        self._p999_gauge = state["_p999_gauge"]
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
-        state['_tdigests'] = self._serialize_tdigests()
+        state["_tdigests"] = self._serialize_tdigests()
         return state
 
 
@@ -242,7 +250,8 @@ class StorageProviderMetricsHelper:
 
         self._object_size_histogram = OBJECT_SIZE_HISTOGRAM
         self._object_size_percentiles = TDigestPercentiles(
-            OBJECT_SIZE_P50_GAUGE, OBJECT_SIZE_P99_GAUGE, OBJECT_SIZE_P999_GAUGE)
+            OBJECT_SIZE_P50_GAUGE, OBJECT_SIZE_P99_GAUGE, OBJECT_SIZE_P999_GAUGE
+        )
 
         self._attributes = attributes
 
@@ -254,8 +263,9 @@ class StorageProviderMetricsHelper:
             attributes = {}
         return {**self._attributes, **attributes}
 
-    def record_duration(self, duration: Union[int, float], provider: str,
-                        operation: str, bucket: str, status_code: int) -> None:
+    def record_duration(
+        self, duration: Union[int, float], provider: str, operation: str, bucket: str, status_code: int
+    ) -> None:
         """
         Records the duration for a given operation with specified attributes.
 
@@ -269,18 +279,19 @@ class StorageProviderMetricsHelper:
             return
 
         attributes = {
-            'provider': provider,
-            'operation': operation,
-            'bucket': bucket,
-            'status_code': status_code,
-            'proc_id': os.getpid(),
+            "provider": provider,
+            "operation": operation,
+            "bucket": bucket,
+            "status_code": status_code,
+            "proc_id": os.getpid(),
         }
         duration_ms = duration * 1000
         self._duration_histogram.record(duration_ms, attributes=self._merge_attributes(attributes))
         self._duration_percentiles.record(duration_ms, attributes=self._merge_attributes(attributes))
 
-    def record_object_size(self, object_size: Union[int, float],
-                           provider: str, operation: str, bucket: str, status_code: int) -> None:
+    def record_object_size(
+        self, object_size: Union[int, float], provider: str, operation: str, bucket: str, status_code: int
+    ) -> None:
         """
         Records the object size for a given operation with specified attributes.
 
@@ -294,11 +305,11 @@ class StorageProviderMetricsHelper:
             return
 
         attributes = {
-            'provider': provider,
-            'operation': operation,
-            'bucket': bucket,
-            'status_code': status_code,
-            'proc_id': os.getpid(),
+            "provider": provider,
+            "operation": operation,
+            "bucket": bucket,
+            "status_code": status_code,
+            "proc_id": os.getpid(),
         }
         object_size_mb = object_size / MB
         self._object_size_histogram.record(object_size_mb, attributes=self._merge_attributes(attributes))
@@ -318,7 +329,7 @@ def file_tracer(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         managed_file_instance = args[0]
-        parent_trace_span = getattr(managed_file_instance, '_trace_span', None)
+        parent_trace_span = getattr(managed_file_instance, "_trace_span", None)
         function_name = func.__name__
 
         # Use the parent span's context if it exists
@@ -380,6 +391,7 @@ def _generic_tracer(func: Callable, class_name: str) -> Callable:
                 span.set_status(StatusCode.ERROR, f"Exception: {str(e)}")
                 span.record_exception(e)
                 raise e
+
     return wrapper
 
 
@@ -427,8 +439,8 @@ class CacheManagerMetricsHelper:
         :param success: True if the operation succeeds.
         """
         attributes = {
-            'operation': operation,
-            'success': success,
-            'proc_id': os.getpid(),
+            "operation": operation,
+            "success": success,
+            "proc_id": os.getpid(),
         }
         self._counter.add(1, attributes=self._merge_attributes(attributes))

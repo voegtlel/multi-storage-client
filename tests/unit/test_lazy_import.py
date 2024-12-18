@@ -20,9 +20,9 @@ import pytest
 
 def test_missing_numpy_dependency():
     # Mock the import system to raise ImportError when numpy is imported
-    with patch.dict(sys.modules, {'numpy': None}):
+    with patch.dict(sys.modules, {"numpy": None}):
         with pytest.raises(ImportError):
-            import numpy
+            import numpy  # noqa
 
         # This should not raise an error due to lazy import
-        import multistorageclient as msc
+        import multistorageclient as msc  # noqa

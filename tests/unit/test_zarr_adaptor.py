@@ -20,7 +20,6 @@ import zarr
 
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
-from utils import file_storage_config
 
 
 @pytest.fixture
@@ -29,7 +28,8 @@ def sample_zarr_data():
     temp_dir = tempfile.TemporaryDirectory()
 
     store_path = os.path.join(temp_dir.name, "test_zarr.zarr")
-    root = zarr.open(store_path, mode='w')
+    root = zarr.open(store_path, mode="w")
+    assert isinstance(root, zarr.Group)
 
     array1 = root.create_dataset("array1", shape=(100, 100), dtype="int32")
     array2 = root.create_dataset("array2", shape=(50, 50), dtype="float64")
@@ -43,10 +43,7 @@ def sample_zarr_data():
 
 
 def test_zarr_open_consolidated(sample_zarr_data, file_storage_config):
-    zarr_paths = [
-        sample_zarr_data,
-        f"{MSC_PROTOCOL}default{sample_zarr_data}/"
-    ]
+    zarr_paths = [sample_zarr_data, f"{MSC_PROTOCOL}default{sample_zarr_data}/"]
     for path in zarr_paths:
         if path.startswith(MSC_PROTOCOL):
             zarr_group = msc.zarr.open_consolidated(path, msc_max_workers=4)

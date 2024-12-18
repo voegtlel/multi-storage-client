@@ -23,13 +23,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, List, Optional, Tuple, Union
 
-from filelock import FileLock, Timeout
+from filelock import BaseFileLock, FileLock, Timeout
 
 from .instrumentation.utils import CacheManagerMetricsHelper
 
-DEFAULT_CACHE_SIZE_MB = 10_000        # 10 GB
+DEFAULT_CACHE_SIZE_MB = 10_000  # 10 GB
 DEFAULT_CACHE_REFRESH_INTERVAL = 300  # 5 minutes
-DEFAULT_LOCK_TIMEOUT = 600            # 10 minutes
+DEFAULT_LOCK_TIMEOUT = 600  # 10 minutes
 
 
 @dataclass
@@ -37,6 +37,7 @@ class CacheConfig:
     """
     Configuration for the :py:class:`CacheManager`.
     """
+
     #: The directory where the cache is stored.
     location: str
     #: The maximum size of the cache in megabytes.
@@ -58,8 +59,9 @@ class CacheManager:
     A cache manager that stores files in a specified directory and evicts files based on the LRU policy.
     """
 
-    def __init__(self, profile: str, cache_config: CacheConfig,
-                 cache_refresh_interval: int = DEFAULT_CACHE_REFRESH_INTERVAL):
+    def __init__(
+        self, profile: str, cache_config: CacheConfig, cache_refresh_interval: int = DEFAULT_CACHE_REFRESH_INTERVAL
+    ):
         self._profile = profile
         self._cache_config = cache_config
         self._max_cache_size = cache_config.size_bytes()
@@ -77,11 +79,8 @@ class CacheManager:
 
         # Populate cache with existing files in the cache directory
         self._cache_refresh_lock_file = FileLock(
-            os.path.join(
-                self._cache_dir,
-                ".cache_refresh.lock"),
-            timeout=0,
-            blocking=False)
+            os.path.join(self._cache_dir, ".cache_refresh.lock"), timeout=0, blocking=False
+        )
         self.refresh_cache()
 
     def _get_file_size(self, file_path: str) -> Optional[int]:
@@ -149,8 +148,8 @@ class CacheManager:
 
         :return: The contents of the file as bytes if found in the cache, otherwise None.
         """
+        success = True
         try:
-            success = True
             try:
                 if self.contains(key):
                     with open(self.get_cache_file_path(key), "rb") as fp:
@@ -173,8 +172,8 @@ class CacheManager:
 
         :return: The file object if the file is found in the cache, otherwise None.
         """
+        success = True
         try:
-            success = True
             try:
                 if self.contains(key):
                     return open(self.get_cache_file_path(key), mode)
@@ -194,9 +193,8 @@ class CacheManager:
         :param key: The key corresponding to the file to be stored.
         :param source: The source data to be stored, either a path to a file or bytes.
         """
+        success = True
         try:
-            success = True
-
             hashed_name = self._get_cache_key(key)
             file_path = os.path.join(self._cache_dir, self._profile, hashed_name)
 
@@ -207,7 +205,9 @@ class CacheManager:
                 os.chmod(file_path, mode=stat.S_IRUSR | stat.S_IWUSR)
             else:
                 # Create a temporary file and move the file to the cache directory
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(file_path), prefix='.') as temp_file:
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", delete=False, dir=os.path.dirname(file_path), prefix="."
+                ) as temp_file:
                     temp_file_path = temp_file.name
                     temp_file.write(source)
                 os.rename(src=temp_file_path, dst=file_path)
@@ -322,7 +322,7 @@ class CacheManager:
 
         return False
 
-    def acquire_lock(self, key: str) -> FileLock:
+    def acquire_lock(self, key: str) -> BaseFileLock:
         """
         Create a :py:class:`filelock.FileLock` object for a given key.
 

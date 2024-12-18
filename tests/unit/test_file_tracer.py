@@ -33,7 +33,7 @@ class MockManagedFile:
 
 
 class TestFileTracer(unittest.TestCase):
-    @patch('multistorageclient.instrumentation.utils.TRACER.start_as_current_span')
+    @patch("multistorageclient.instrumentation.utils.TRACER.start_as_current_span")
     def test_read_tracing(self, mock_start_as_current_span: MagicMock) -> None:
         mock_span = MagicMock()
         mock_start_as_current_span.return_value.__enter__.return_value = mock_span
@@ -46,7 +46,7 @@ class TestFileTracer(unittest.TestCase):
         mock_span.set_attribute.assert_any_call("size", 10)
         mock_span.set_status.assert_called_with(StatusCode.OK)
 
-    @patch('multistorageclient.instrumentation.utils.TRACER.start_as_current_span')
+    @patch("multistorageclient.instrumentation.utils.TRACER.start_as_current_span")
     def test_write_tracing(self, mock_start_as_current_span: MagicMock) -> None:
         mock_span = MagicMock()
         mock_start_as_current_span.return_value.__enter__.return_value = mock_span
@@ -60,5 +60,5 @@ class TestFileTracer(unittest.TestCase):
         mock_span.set_status.assert_called_with(StatusCode.OK)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

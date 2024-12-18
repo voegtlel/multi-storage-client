@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import multistorageclient as msc
-from utils import file_storage_config_with_cache
 import tempfile
 import pytest
 import os
@@ -41,10 +40,10 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
             await filesystem._pipe_file(file_path, b"test content")
         listed_files = await filesystem._ls(test_dir_path)
         expected_file_list = sorted([f"file{i}.txt" for i in range(3)])
-        assert sorted(f["name"] for f in listed_files) == expected_file_list, \
-            f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
-        assert all(f["type"] == "file" for f in listed_files), \
-            "Expected all files to be of type 'file'"
+        assert (
+            sorted(f["name"] for f in listed_files) == expected_file_list
+        ), f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
+        assert all(f["type"] == "file" for f in listed_files), "Expected all files to be of type 'file'"
 
         # test _info on a file
         info = await filesystem._info(test_path)
@@ -61,7 +60,7 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
         assert info["type"] == "directory"
 
         # test _open
-        file_obj = await filesystem._open(test_path, mode='rb')
+        file_obj = await filesystem._open(test_path, mode="rb")
         opened_content = file_obj.read()
         assert opened_content == expected_content, f"Expected {expected_content}, got {opened_content}"
         file_obj.close()
@@ -88,8 +87,9 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
 
         with open(downloaded_file_path, "rb") as downloaded_file:
             downloaded_content = downloaded_file.read()
-        assert downloaded_content == expected_file_content, \
-            f"Expected downloaded content to be {expected_file_content}, got {downloaded_content}"
+        assert (
+            downloaded_content == expected_file_content
+        ), f"Expected downloaded content to be {expected_file_content}, got {downloaded_content}"
 
         # Clean up remote file after test
         await filesystem._rm(remote_file_path, recursive=True)

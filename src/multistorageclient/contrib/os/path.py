@@ -48,8 +48,8 @@ def isdir(path: str) -> bool:
         storage_client, file_path = resolve_storage_client(path)
         try:
             # Append trailing slash
-            if not path.endswith('/'):
-                file_path += '/'
+            if not path.endswith("/"):
+                file_path += "/"
             meta = storage_client.info(file_path)
             return meta.type == "directory"
         except FileNotFoundError:
@@ -71,7 +71,7 @@ def isfile(path: str) -> bool:
     if path.startswith(MSC_PROTOCOL):
         storage_client, file_path = resolve_storage_client(path)
         try:
-            if path.endswith('/'):
+            if path.endswith("/"):
                 return False
             meta = storage_client.info(file_path)
             return meta.type == "file"

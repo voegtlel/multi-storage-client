@@ -24,10 +24,10 @@ from multistorageclient import StorageClient, StorageClientConfig
 
 def verify_open_binary_mode(config: StorageClientConfig):
     storage_client = StorageClient(config)
-    body = b'A' * 64 * 1024
+    body = b"A" * 64 * 1024
 
     with tempfile.TemporaryDirectory(prefix="binary") as dirname:
-        filename = os.path.join(dirname, 'testfile.bin')
+        filename = os.path.join(dirname, "testfile.bin")
 
         fp = storage_client.open(filename, "wb")
         assert not fp.readable()
@@ -44,17 +44,17 @@ def verify_open_binary_mode(config: StorageClientConfig):
         fp = storage_client.open(filename, "rb")
         assert fp.readable()
         assert not fp.writable()
-        assert fp.read(10) == b'A' * 10
+        assert fp.read(10) == b"A" * 10
         buffer = bytearray(12)
         assert 10 == fp.tell()
         assert 12 == fp.readinto(buffer)
-        assert buffer == b'A' * 12
+        assert buffer == b"A" * 12
         fp.close()
 
         storage_client.delete(filename)
 
         with pytest.raises(FileNotFoundError):
-            storage_client.open(os.path.join(dirname, 'file-does-not-exist'), 'r')
+            storage_client.open(os.path.join(dirname, "file-does-not-exist"), "r")
 
 
 def verify_open_text_mode(config: StorageClientConfig):
@@ -62,7 +62,7 @@ def verify_open_text_mode(config: StorageClientConfig):
     body = '{"text":"✅ Unicode Test ✅"}'
 
     with tempfile.TemporaryDirectory(prefix="text") as dirname:
-        filename = os.path.join(dirname, 'testfile.json')
+        filename = os.path.join(dirname, "testfile.json")
 
         fp = storage_client.open(filename, "w")
         assert not fp.readable()
@@ -72,7 +72,7 @@ def verify_open_text_mode(config: StorageClientConfig):
         # verify file is written
         fp.close()
         assert len(list(storage_client.list(dirname))) == 1
-        assert storage_client.info(filename).content_length == len(body.encode('utf-8'))
+        assert storage_client.info(filename).content_length == len(body.encode("utf-8"))
 
         # verify file is readable
         fp = storage_client.open(filename, "r")
@@ -86,10 +86,10 @@ def verify_open_text_mode(config: StorageClientConfig):
 
 def verify_open_mmap(config: StorageClientConfig):
     storage_client = StorageClient(config)
-    body = b'A' * 64 * 1024
+    body = b"A" * 64 * 1024
 
     with tempfile.TemporaryDirectory(prefix="text") as dirname:
-        filename = os.path.join(dirname, 'testfile.json')
+        filename = os.path.join(dirname, "testfile.json")
 
         fp = storage_client.open(filename, "wb")
         assert not fp.readable()
@@ -97,25 +97,27 @@ def verify_open_mmap(config: StorageClientConfig):
         fp.write(body)
         fp.close()
 
-        with storage_client.open(filename, 'rb') as fp:
+        with storage_client.open(filename, "rb") as fp:
             with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
                 content = mm[:]
                 assert content == body
 
 
 def test_open_file():
-    config = StorageClientConfig.from_dict({
-        'profiles': {
-            'default': {
-                'storage_provider': {
-                    'type': 'file',
-                    'options': {
-                        'base_path': '/',
+    config = StorageClientConfig.from_dict(
+        {
+            "profiles": {
+                "default": {
+                    "storage_provider": {
+                        "type": "file",
+                        "options": {
+                            "base_path": "/",
+                        },
                     }
                 }
             }
         }
-    })
+    )
 
     verify_open_binary_mode(config)
     verify_open_text_mode(config)

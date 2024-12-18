@@ -51,5 +51,5 @@ __all__ = [
     "StaticAzureCredentialsProvider",
     "AzureBlobStorageProvider",
     "AIStoreStorageProvider",
-    "StaticAISCredentialProvider"
+    "StaticAISCredentialProvider",
 ]

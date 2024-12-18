@@ -30,6 +30,7 @@ class StorageClient:
     """
     A client for interacting with different storage providers.
     """
+
     _config: StorageClientConfig
 
     def __init__(self, config: StorageClientConfig):
@@ -67,7 +68,7 @@ class StorageClient:
         return cache_path
 
     def _is_cache_enabled(self) -> bool:
-        return (self._cache_manager is not None and not self._is_posix_file_storage_provider())
+        return self._cache_manager is not None and not self._is_posix_file_storage_provider()
 
     def _is_posix_file_storage_provider(self) -> bool:
         return isinstance(self._storage_provider, PosixFileStorageProvider)
@@ -93,7 +94,7 @@ class StorageClient:
 
             if data:
                 if byte_range:
-                    return data[byte_range.offset: byte_range.offset + byte_range.size]
+                    return data[byte_range.offset : byte_range.offset + byte_range.size]
                 else:
                     return data
             else:
@@ -146,8 +147,10 @@ class StorageClient:
         if self._metadata_provider:
             remote_path, exists = self._metadata_provider.realpath(remote_path)
             if exists:
-                raise FileExistsError(f"The file at path '{remote_path}' already exists; "
-                                      f"overwriting is not yet allowed when using a metadata provider.")
+                raise FileExistsError(
+                    f"The file at path '{remote_path}' already exists; "
+                    f"overwriting is not yet allowed when using a metadata provider."
+                )
         self._storage_provider.upload_file(remote_path, local_path)
         if self._metadata_provider:
             metadata = self._storage_provider.get_object_metadata(remote_path)
@@ -163,8 +166,10 @@ class StorageClient:
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
             if exists:
-                raise FileExistsError(f"The file at path '{path}' already exists; "
-                                      f"overwriting is not yet allowed when using a metadata provider.")
+                raise FileExistsError(
+                    f"The file at path '{path}' already exists; "
+                    f"overwriting is not yet allowed when using a metadata provider."
+                )
         self._storage_provider.put_object(path, body)
         if self._metadata_provider:
             # TODO(NGCDP-3016): Handle eventual consistency of Swiftstack, without wait.
@@ -207,12 +212,13 @@ class StorageClient:
             results = self._storage_provider.glob(pattern)
 
         if include_url_prefix:
-            results = [join_paths(f'{MSC_PROTOCOL}{self._config.profile}', path) for path in results]
+            results = [join_paths(f"{MSC_PROTOCOL}{self._config.profile}", path) for path in results]
 
         return results
 
-    def list(self, prefix: str = "", start_after: Optional[str] = None,
-             end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def list(
+        self, prefix: str = "", start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         """
         Lists objects in the storage provider under the specified prefix.
 
@@ -293,10 +299,10 @@ class StorageClient:
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
-        del state['_credentials_provider']
-        del state['_storage_provider']
-        del state['_metadata_provider']
-        del state['_cache_manager']
+        del state["_credentials_provider"]
+        del state["_storage_provider"]
+        del state["_metadata_provider"]
+        del state["_cache_manager"]
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:

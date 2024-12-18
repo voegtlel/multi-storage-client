@@ -20,7 +20,6 @@ import zarr
 
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
-from utils import file_storage_config
 
 
 @pytest.fixture
@@ -29,7 +28,8 @@ def sample_zarr_data():
     temp_dir = tempfile.TemporaryDirectory()
 
     store_path = os.path.join(temp_dir.name, "test_zarr.zarr")
-    root = zarr.open(store_path, mode='w')
+    root = zarr.open(store_path, mode="w")
+    assert isinstance(root, zarr.Group)
 
     array1 = root.create_dataset("array1", shape=(100, 100), dtype="int32")
     array2 = root.create_dataset("array2", shape=(50, 50), dtype="float64")
@@ -37,8 +37,8 @@ def sample_zarr_data():
     array2[:] = 2.0
 
     # Add the _ARRAY_DIMENSIONS attribute for xarray compatibility
-    array1.attrs['_ARRAY_DIMENSIONS'] = ['dim_0_100', 'dim_1_100']
-    array2.attrs['_ARRAY_DIMENSIONS'] = ['dim_0_50', 'dim_1_50']
+    array1.attrs["_ARRAY_DIMENSIONS"] = ["dim_0_100", "dim_1_100"]
+    array2.attrs["_ARRAY_DIMENSIONS"] = ["dim_0_50", "dim_1_50"]
 
     zarr.consolidate_metadata(root.store)
 
@@ -47,10 +47,7 @@ def sample_zarr_data():
 
 
 def test_xarray_open_zarr(sample_zarr_data, file_storage_config):
-    zarr_paths = [
-        sample_zarr_data,
-        f"{MSC_PROTOCOL}default{sample_zarr_data}/"
-    ]
+    zarr_paths = [sample_zarr_data, f"{MSC_PROTOCOL}default{sample_zarr_data}/"]
     for path in zarr_paths:
         if path.startswith(MSC_PROTOCOL):
             xr_dataset = msc.xr.open_zarr(path, msc_max_workers=4)

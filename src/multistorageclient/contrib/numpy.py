@@ -31,21 +31,20 @@ def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
     file = args[0]
 
     if isinstance(file, str) and file.startswith(MSC_PROTOCOL):
-        if 'mode' not in kwargs:
-            kwargs['mode'] = 'r'
-        with msc_open(file, mode=str(kwargs.get('mode'))) as fp:
+        if "mode" not in kwargs:
+            kwargs["mode"] = "r"
+        with msc_open(file, mode=str(kwargs.get("mode"))) as fp:
             args = (fp.get_local_path(),) + args[1:]
 
-    return _np.memmap(*args, **kwargs)
+    return _np.memmap(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]
 
 
-def load(*args: Any, **kwargs: Any
-         ) -> Union[_np.ndarray, Dict[str, _np.ndarray], _np.lib.npyio.NpzFile]:
+def load(*args: Any, **kwargs: Any) -> Union[_np.ndarray, Dict[str, _np.ndarray], _np.lib.npyio.NpzFile]:
     """
     Adapt ``numpy.load``.
     """
 
-    file = args[0] if args else kwargs.get('file')
+    file = args[0] if args else kwargs.get("file")
     if isinstance(file, str) and file.startswith(MSC_PROTOCOL):
         with msc_open(file) as fp:
             # For .npy with memmap mode != none, _np.load() will call format.open_memmap() underneath,
@@ -64,9 +63,9 @@ def load(*args: Any, **kwargs: Any
         if args:
             args = (local_path,) + args[1:]
         else:
-            kwargs['file'] = local_path
+            kwargs["file"] = local_path
 
-    return _np.load(*args, **kwargs)
+    return _np.load(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]
 
 
 def save(*args: Any, **kwargs: Any) -> None:
@@ -74,15 +73,15 @@ def save(*args: Any, **kwargs: Any) -> None:
     Adapt ``numpy.save``.
     """
 
-    file = args[0] if args else kwargs.get('file')
+    file = args[0] if args else kwargs.get("file")
     if isinstance(file, str) and file.startswith(MSC_PROTOCOL):
         # use context manager to make sure to upload the file once close() is called
         with msc_open(file, mode="wb") as fp:
             if args:
                 args = (fp,) + args[1:]
             else:
-                kwargs['file'] = fp
+                kwargs["file"] = fp
 
-            _np.save(*args, **kwargs)
+            _np.save(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]
     else:
-        _np.save(*args, **kwargs)
+        _np.save(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]

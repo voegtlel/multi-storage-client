@@ -28,49 +28,35 @@ from multistorageclient.utils import glob as glob_util
 
 
 class TestCredentialsProvider(CredentialsProvider):
-
     def get_credentials(self) -> Credentials:
-        return Credentials(
-            access_key="*****",
-            secret_key="*****",
-            token="ooooo",
-            expiration=""
-        )
+        return Credentials(access_key="*****", secret_key="*****", token="ooooo", expiration="")
 
     def refresh_credentials(self) -> None:
         pass
 
 
 class TestMetadataProvider(MetadataProvider):
-
     def __init__(self):
         self._files = {
-            key: ObjectMetadata(
-                key=key,
-                content_length=19283,
-                last_modified=datetime.now(tz=timezone.utc)
-            )
-            for key
-            in ["webdataset-00001.tar", "webdataset-00002.tar"]
+            key: ObjectMetadata(key=key, content_length=19283, last_modified=datetime.now(tz=timezone.utc))
+            for key in ["webdataset-00001.tar", "webdataset-00002.tar"]
         }
         self._pending = {}
         self._pending_removes = set()
 
-    def list_objects(self, prefix: str, start_after: Optional[str] = None,
-                     end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
-        return iter([
-            file
-            for file
-            in self._files.values()
-            if (start_after is None or start_after < file.key) and (end_at is None or file.key <= file.key)
-        ])
+    def list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
+        return iter(
+            [
+                file
+                for file in self._files.values()
+                if (start_after is None or start_after < file.key) and (end_at is None or file.key <= file.key)
+            ]
+        )
 
     def get_object_metadata(self, path: str) -> ObjectMetadata:
-        return ObjectMetadata(
-            key=path,
-            content_length=19283,
-            last_modified=datetime.now(tz=timezone.utc)
-        )
+        return ObjectMetadata(key=path, content_length=19283, last_modified=datetime.now(tz=timezone.utc))
 
     def glob(self, pattern: str) -> List[str]:
         return glob_util(list(self._files.keys()), pattern)
@@ -82,9 +68,7 @@ class TestMetadataProvider(MetadataProvider):
     def add_file(self, path: str, metadata: ObjectMetadata) -> None:
         assert path not in self._files
         self._pending[path] = ObjectMetadata(
-            key=path,
-            content_length=19283,
-            last_modified=datetime.now(tz=timezone.utc)
+            key=path, content_length=19283, last_modified=datetime.now(tz=timezone.utc)
         )
 
     def remove_file(self, path: str) -> None:
@@ -104,15 +88,9 @@ class TestMetadataProvider(MetadataProvider):
 
 
 class TestProviderBundle(ProviderBundle):
-
     @property
     def storage_provider_config(self) -> StorageProviderConfig:
-        return StorageProviderConfig(
-            type="file",
-            options={
-                "base_path": "/"
-            }
-        )
+        return StorageProviderConfig(type="file", options={"base_path": "/"})
 
     @property
     def credentials_provider(self) -> Optional[CredentialsProvider]:

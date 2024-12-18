@@ -19,73 +19,62 @@ from multistorageclient.utils import glob, join_paths, expand_env_vars, extract_
 
 
 def test_basic_glob():
-    keys = ['file1.txt', 'file2.txt', 'image1.jpg', 'doc1.pdf']
-    pattern = '*.txt'
-    expected = ['file1.txt', 'file2.txt']
+    keys = ["file1.txt", "file2.txt", "image1.jpg", "doc1.pdf"]
+    pattern = "*.txt"
+    expected = ["file1.txt", "file2.txt"]
     assert glob(keys, pattern) == expected
 
 
 def test_wildcard_glob():
-    keys = ['file1.txt', 'file2.txt', 'file3.log', 'file4.txt']
-    pattern = 'file?.txt'
-    expected = ['file1.txt', 'file2.txt', 'file4.txt']
+    keys = ["file1.txt", "file2.txt", "file3.log", "file4.txt"]
+    pattern = "file?.txt"
+    expected = ["file1.txt", "file2.txt", "file4.txt"]
     assert glob(keys, pattern) == expected
 
 
 def test_recursive_glob():
-    keys = [
-        'logs/app1/file1.log',
-        'logs/app1/subdir/file2.log',
-        'logs/app2/file3.log',
-        'logs/app2/subdir/file4.txt'
-    ]
-    pattern = '**/*.log'
-    expected = [
-        'logs/app1/file1.log',
-        'logs/app1/subdir/file2.log',
-        'logs/app2/file3.log'
-    ]
+    keys = ["logs/app1/file1.log", "logs/app1/subdir/file2.log", "logs/app2/file3.log", "logs/app2/subdir/file4.txt"]
+    pattern = "**/*.log"
+    expected = ["logs/app1/file1.log", "logs/app1/subdir/file2.log", "logs/app2/file3.log"]
     assert glob(keys, pattern) == expected
 
 
 def test_invalid_glob():
-    keys = ['file1.txt', 'file2.txt', 'file3.log', 'file4.txt']
-    pattern = '**/***/file/**.txt'
+    keys = ["file1.txt", "file2.txt", "file3.log", "file4.txt"]
+    pattern = "**/***/file/**.txt"
     expected = []
     assert glob(keys, pattern) == expected
 
 
 def test_join_paths():
-    assert "msc://profile/bucket/prefix" == join_paths('msc://profile', 'bucket/prefix')
-    assert "msc://profile/bucket/prefix" == join_paths('msc://profile', '/bucket/prefix')
-    assert "msc://profile/bucket/prefix" == join_paths('msc://profile/', '/bucket/prefix')
+    assert "msc://profile/bucket/prefix" == join_paths("msc://profile", "bucket/prefix")
+    assert "msc://profile/bucket/prefix" == join_paths("msc://profile", "/bucket/prefix")
+    assert "msc://profile/bucket/prefix" == join_paths("msc://profile/", "/bucket/prefix")
 
 
 def test_expand_env_vars():
-    os.environ['VAR'] = 'value'
+    os.environ["VAR"] = "value"
     options = {
-        'key1': '${VAR}',
-        'key2': 42,
-        'key3': ['list_item', '$VAR'],
-        'key4': {'nested_key': '${VAR}'},
-        'key5': 'PREFIX_${VAR}',
+        "key1": "${VAR}",
+        "key2": 42,
+        "key3": ["list_item", "$VAR"],
+        "key4": {"nested_key": "${VAR}"},
+        "key5": "PREFIX_${VAR}",
     }
     expected = {
-        'key1': 'value',
-        'key2': 42,
-        'key3': ['list_item', 'value'],
-        'key4': {'nested_key': 'value'},
-        'key5': 'PREFIX_value',
+        "key1": "value",
+        "key2": 42,
+        "key3": ["list_item", "value"],
+        "key4": {"nested_key": "value"},
+        "key5": "PREFIX_value",
     }
     assert expand_env_vars(options) == expected
 
 
 def test_expand_env_vars_unresolved_var():
-    del os.environ['VAR']
+    del os.environ["VAR"]
     with pytest.raises(ValueError):
-        options = {
-            'key1': '${VAR}'
-        }
+        options = {"key1": "${VAR}"}
 
         options = expand_env_vars(options)
 

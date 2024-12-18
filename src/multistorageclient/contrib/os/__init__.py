@@ -16,7 +16,7 @@
 import os
 
 from ...types import MSC_PROTOCOL
-from .path import *
+from .path import *  # noqa: F403
 
 
 def makedirs(name: str, mode: int = 0o777, exist_ok: bool = False) -> None:

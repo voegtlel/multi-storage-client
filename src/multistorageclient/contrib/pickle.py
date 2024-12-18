@@ -20,13 +20,14 @@ from ..shortcuts import open as msc_open
 from ..types import MSC_PROTOCOL
 
 
-def load(file: Union[str, IO[bytes]],
-         *,
-         fix_imports: bool = True,
-         encoding: str = "ASCII",
-         errors: str = "strict",
-         buffers: Optional[Iterable[Any]] = None,
-         ) -> Any:
+def load(
+    file: Union[str, IO[bytes]],
+    *,
+    fix_imports: bool = True,
+    encoding: str = "ASCII",
+    errors: str = "strict",
+    buffers: Optional[Iterable[Any]] = None,
+) -> Any:
     """
     Adapt ``pickle.load``.
 
@@ -58,17 +59,17 @@ def load(file: Union[str, IO[bytes]],
                 return _pickle.load(fp, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)
     else:
         # assume a file-like object
-        return _pickle.load(file, fix_imports=fix_imports, encoding=encoding,
-                            errors=errors, buffers=buffers)  # type: ignore
+        return _pickle.load(file, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)  # type: ignore
 
 
-def dump(obj: Any,
-         file_path: str,
-         protocol: Optional[int] = None,
-         *,
-         fix_imports: bool = True,
-         buffer_callback: Optional[Callable[[Any], None]] = None,
-         ) -> None:
+def dump(
+    obj: Any,
+    file_path: str,
+    protocol: Optional[int] = None,
+    *,
+    fix_imports: bool = True,
+    buffer_callback: Optional[Callable[[Any], None]] = None,
+) -> None:
     """
     Adapt ``pickle.dump``.
 

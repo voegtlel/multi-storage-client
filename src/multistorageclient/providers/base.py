@@ -65,8 +65,9 @@ class BaseStorageProvider(StorageProvider):
         path = self._realpath(path)
         return self._get_object_metadata(path)
 
-    def list_objects(self, prefix: str, start_after: Optional[str] = None,
-                     end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
@@ -77,10 +78,7 @@ class BaseStorageProvider(StorageProvider):
         remote_path = self._realpath(remote_path)
         return self._upload_file(remote_path, f)
 
-    def download_file(self,
-                      remote_path: str,
-                      f: Union[str, IO],
-                      metadata: Optional[ObjectMetadata] = None) -> None:
+    def download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         remote_path = self._realpath(remote_path)
         return self._download_file(remote_path, f, metadata)
 
@@ -89,12 +87,12 @@ class BaseStorageProvider(StorageProvider):
         if self._base_path:
             # self.base_path will always contain bucket first, so we can safely split
             bucket, base_prefix = split_path(self._base_path)
-            keys = [object.key.replace(base_prefix, '', 1).lstrip('/') for object in self.list_objects(prefix)]
+            keys = [object.key.replace(base_prefix, "", 1).lstrip("/") for object in self.list_objects(prefix)]
             return [key for key in glob(keys, pattern)]
         else:
             bucket, pattern = split_path(pattern)
             keys = [object.key for object in self.list_objects(prefix)]
-            return [f'{bucket}/{key}' for key in glob(keys, pattern)]
+            return [f"{bucket}/{key}" for key in glob(keys, pattern)]
 
     def is_file(self, path: str) -> bool:
         try:
@@ -120,8 +118,9 @@ class BaseStorageProvider(StorageProvider):
         pass
 
     @abstractmethod
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         pass
 
     @abstractmethod
@@ -129,8 +128,5 @@ class BaseStorageProvider(StorageProvider):
         pass
 
     @abstractmethod
-    def _download_file(self,
-                       remote_path: str,
-                       f: Union[str, IO],
-                       metadata: Optional[ObjectMetadata] = None) -> None:
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         pass

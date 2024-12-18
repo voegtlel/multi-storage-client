@@ -65,25 +65,16 @@ def test_cache_manager_read_delete_file(profile_name, tmpdir, cache_manager):
         cache_manager.set(key, str(file))
 
     # Verify the lock file
-    assert os.path.exists(os.path.join(
-        tmpdir,
-        profile_name,
-        f".{cache_manager._get_cache_key(key)}.lock"))
+    assert os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager._get_cache_key(key)}.lock"))
 
     assert cache_manager.read(key) == b"cached data"
 
     cache_manager.delete(key)
 
     # Verify the file is deleted
-    assert not os.path.exists(os.path.join(
-        tmpdir,
-        profile_name,
-        cache_manager._get_cache_key(key)))
+    assert not os.path.exists(os.path.join(tmpdir, profile_name, cache_manager._get_cache_key(key)))
 
-    assert not os.path.exists(os.path.join(
-        tmpdir,
-        profile_name,
-        f".{cache_manager._get_cache_key(key)}.lock"))
+    assert not os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager._get_cache_key(key)}.lock"))
 
 
 def test_cache_manager_open_file(profile_name, tmpdir, cache_manager):
@@ -97,17 +88,11 @@ def test_cache_manager_open_file(profile_name, tmpdir, cache_manager):
 
     with cache_manager.open(key, "r") as result:
         assert result.read() == "cached data"
-        assert result.name == os.path.join(
-            tmpdir,
-            profile_name,
-            cache_manager._get_cache_key(key))
+        assert result.name == os.path.join(tmpdir, profile_name, cache_manager._get_cache_key(key))
 
     with cache_manager.open(key, "rb") as result:
         assert result.read() == b"cached data"
-        assert result.name == os.path.join(
-            tmpdir,
-            profile_name,
-            cache_manager._get_cache_key(key))
+        assert result.name == os.path.join(tmpdir, profile_name, cache_manager._get_cache_key(key))
 
 
 def test_cache_manager_refresh_cache(cache_manager):

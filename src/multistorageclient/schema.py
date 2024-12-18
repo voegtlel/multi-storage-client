@@ -34,15 +34,12 @@ OTEL_SCHEMA = {
                         "options": {
                             "type": "object",
                             "properties": {
-                                "endpoint": {
-                                    "type": "string",
-                                    "format": "uri"
-                                },
+                                "endpoint": {"type": "string", "format": "uri"},
                             },
                             "required": ["endpoint"],
-                        }
+                        },
                     },
-                    "required": ["type"]
+                    "required": ["type"],
                 }
             },
         },
@@ -59,18 +56,15 @@ OTEL_SCHEMA = {
                         "options": {
                             "type": "object",
                             "properties": {
-                                "endpoint": {
-                                    "type": "string",
-                                    "format": "uri"
-                                },
+                                "endpoint": {"type": "string", "format": "uri"},
                             },
                             "required": ["endpoint"],
-                        }
+                        },
                     },
                     "required": ["type"],
                 }
             },
-        }
+        },
     },
     "additionalProperties": False,
 }
@@ -78,15 +72,9 @@ OTEL_SCHEMA = {
 CACHE_SCHEMA = {
     "type": "object",
     "properties": {
-        "location": {
-            "type": "string"
-        },
-        "use_etag": {
-            "type": "boolean"
-        },
-        "size_mb": {
-            "type": "integer"
-        },
+        "location": {"type": "string"},
+        "use_etag": {"type": "boolean"},
+        "size_mb": {"type": "integer"},
     },
     "additionalProperties": False,
 }
@@ -94,9 +82,7 @@ CACHE_SCHEMA = {
 EXTENSION_SCHEMA = {
     "type": "object",
     "properties": {
-        "type": {
-            "type": "string"
-        },
+        "type": {"type": "string"},
         "options": {
             "type": "object",
         },
@@ -119,27 +105,27 @@ PROFILE_SCHEMA = {
                     "options": {
                         "type": "object",
                         "properties": {
-                            "base_path": {
-                                "type": "string",
-                                "minLength": 0
-                            },
+                            "base_path": {"type": "string", "minLength": 0},
                         },
                         "required": ["base_path"],
-                    }
+                    },
                 },
                 "required": ["type", "options"],
             },
             "credentials_provider": EXTENSION_SCHEMA,
             "metadata_provider": EXTENSION_SCHEMA,
             "provider_bundle": EXTENSION_SCHEMA,
-            "comment": {"type": "string"}
+            "comment": {"type": "string"},
         },
-        "oneOf": [{
-            "required": ["storage_provider"],
-        }, {
-            "required": ["provider_bundle"],
-        }]
-    }
+        "oneOf": [
+            {
+                "required": ["storage_provider"],
+            },
+            {
+                "required": ["provider_bundle"],
+            },
+        ],
+    },
 }
 
 CONFIG_SCHEMA = {
@@ -158,4 +144,4 @@ def validate_config(config_dict: Dict[str, Any]) -> None:
     try:
         validate(instance=config_dict, schema=CONFIG_SCHEMA)
     except Exception as e:
-        raise RuntimeError('Failed to validate the config file') from e
+        raise RuntimeError("Failed to validate the config file") from e

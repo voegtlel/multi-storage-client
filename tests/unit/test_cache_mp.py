@@ -48,6 +48,7 @@ def worker_write_read(cache_dir, keys, data, barrier, result_queue):
         random.shuffle(keys)
         for key in keys:
             fp = cache_manager.open(key, "rb")
+            assert fp is not None
             assert data == fp.read()
             fp.close()
 
@@ -59,6 +60,7 @@ def worker_write_read(cache_dir, keys, data, barrier, result_queue):
         result_queue.put(True)
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         result_queue.put(e)
 
@@ -90,6 +92,7 @@ def worker_write_refresh(cache_dir, keys, data, barrier, return_dict, result_que
         result_queue.put(True)
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         result_queue.put(e)
 
@@ -108,7 +111,7 @@ def test_multiprocessing_cache_manager(cache_dir):
     Test the CacheManager with multiple processes reading and writing to the cache.
     """
     num_procs = 8
-    keys = [f'file-{i:04d}.bin' for i in range(num_procs)]
+    keys = [f"file-{i:04d}.bin" for i in range(num_procs)]
     test_data = b"*" * 1 * 1024 * 1024
 
     cache_config = CacheConfig(location=cache_dir, size_mb=num_procs, use_etag=False)
@@ -123,14 +126,7 @@ def test_multiprocessing_cache_manager(cache_dir):
     # Create multiple processes for testing
     processes = []
     for _ in range(num_procs):
-        p = multiprocessing.Process(
-            target=worker_write_read,
-            args=(
-                cache_dir,
-                keys,
-                test_data,
-                barrier,
-                result_queue))
+        p = multiprocessing.Process(target=worker_write_read, args=(cache_dir, keys, test_data, barrier, result_queue))
         processes.append(p)
         p.start()
 
@@ -150,7 +146,7 @@ def test_multiprocessing_cache_manager(cache_dir):
 
 def test_multiprocessing_cache_manager_single_refresh(cache_dir):
     num_procs = 8
-    keys = [f'file-{i:04d}.bin' for i in range(num_procs * 10)]
+    keys = [f"file-{i:04d}.bin" for i in range(num_procs * 10)]
     test_data = b"*" * 10 * 1024 * 1024
 
     # Shared dictionary for collecting results from worker processes
@@ -167,14 +163,8 @@ def test_multiprocessing_cache_manager_single_refresh(cache_dir):
     processes = []
     for _ in range(num_procs):
         p = multiprocessing.Process(
-            target=worker_write_refresh,
-            args=(
-                cache_dir,
-                keys,
-                test_data,
-                barrier,
-                return_dict,
-                result_queue))
+            target=worker_write_refresh, args=(cache_dir, keys, test_data, barrier, return_dict, result_queue)
+        )
         processes.append(p)
         p.start()
 

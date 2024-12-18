@@ -45,13 +45,14 @@ MULTIPART_THRESHOLD = 512 * MB
 MULTIPART_CHUNK_SIZE = 256 * MB
 IO_CHUNK_SIZE = 128 * MB
 MAX_CONCURRENCY = 16
-PROVIDER = 's3'
+PROVIDER = "s3"
 
 
 class StaticS3CredentialsProvider(CredentialsProvider):
     """
     A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static S3 credentials.
     """
+
     _access_key: str
     _secret_key: str
     _session_token: Optional[str]
@@ -86,12 +87,14 @@ class S3StorageProvider(BaseStorageProvider):
     A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Amazon S3 or SwiftStack.
     """
 
-    def __init__(self,
-                 region_name: str = "",
-                 endpoint_url: str = "",
-                 base_path: str = "",
-                 credentials_provider: Optional[CredentialsProvider] = None,
-                 **kwargs: Any) -> None:
+    def __init__(
+        self,
+        region_name: str = "",
+        endpoint_url: str = "",
+        base_path: str = "",
+        credentials_provider: Optional[CredentialsProvider] = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Initializes the :py:class:`S3StorageProvider` with the region, endpoint URL, and optional credentials provider.
 
@@ -107,41 +110,37 @@ class S3StorageProvider(BaseStorageProvider):
         self._credentials_provider = credentials_provider
         self._s3_client = self._create_s3_client()
         self._transfer_config = TransferConfig(
-            multipart_threshold=int(kwargs.get('multipart_threshold', MULTIPART_THRESHOLD)),
-            max_concurrency=int(kwargs.get('max_concurrency', MAX_CONCURRENCY)),
-            multipart_chunksize=int(kwargs.get('multipart_chunksize', MULTIPART_CHUNK_SIZE)),
-            io_chunksize=int(kwargs.get('io_chunk_size', IO_CHUNK_SIZE)),
+            multipart_threshold=int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD)),
+            max_concurrency=int(kwargs.get("max_concurrency", MAX_CONCURRENCY)),
+            multipart_chunksize=int(kwargs.get("multipart_chunksize", MULTIPART_CHUNK_SIZE)),
+            io_chunksize=int(kwargs.get("io_chunk_size", IO_CHUNK_SIZE)),
             use_threads=True,
         )
 
-    def _create_s3_client(self) -> boto3.client:
+    def _create_s3_client(self):
         """
         Creates and configures the boto3 S3 client, using refreshable credentials if possible.
 
         :return The configured S3 client.
         """
         options = {
-            'region_name': self._region_name,
-            'config': boto3.session.Config(
+            "region_name": self._region_name,
+            "config": boto3.session.Config(  # pyright: ignore [reportAttributeAccessIssue]
                 max_pool_connections=BOTO3_MAX_POOL_CONNECTIONS,
                 connect_timeout=BOTO3_CONNECT_TIMEOUT,
                 read_timeout=BOTO3_READ_TIMEOUT,
-                retries=dict(
-                    mode='standard'
-                )
-            )
+                retries=dict(mode="standard"),
+            ),
         }
         if self._endpoint_url:
-            options['endpoint_url'] = self._endpoint_url
+            options["endpoint_url"] = self._endpoint_url
 
         if self._credentials_provider:
             creds = self._fetch_credentials()
-            if 'expiry_time' in creds and creds['expiry_time']:
+            if "expiry_time" in creds and creds["expiry_time"]:
                 # Use RefreshableCredentials if expiry_time provided.
                 refreshable_credentials = RefreshableCredentials.create_from_metadata(
-                    metadata=creds,
-                    refresh_using=self._fetch_credentials,
-                    method="custom-refresh"
+                    metadata=creds, refresh_using=self._fetch_credentials, method="custom-refresh"
                 )
 
                 botocore_session = get_session()
@@ -149,16 +148,16 @@ class S3StorageProvider(BaseStorageProvider):
 
                 boto3_session = boto3.Session(botocore_session=botocore_session)
 
-                return boto3_session.client('s3', **options)
+                return boto3_session.client("s3", **options)
             else:
                 # Add static credentials to the options dictionary
-                options['aws_access_key_id'] = creds['access_key']
-                options['aws_secret_access_key'] = creds['secret_key']
-                if creds['token']:
-                    options['aws_session_token'] = creds['token']
+                options["aws_access_key_id"] = creds["access_key"]
+                options["aws_secret_access_key"] = creds["secret_key"]
+                if creds["token"]:
+                    options["aws_session_token"] = creds["token"]
 
         # Fallback to standard credential chain.
-        return boto3.client('s3', **options)
+        return boto3.client("s3", **options)
 
     def _fetch_credentials(self) -> dict:
         """
@@ -169,14 +168,21 @@ class S3StorageProvider(BaseStorageProvider):
         self._credentials_provider.refresh_credentials()
         credentials = self._credentials_provider.get_credentials()
         return {
-            'access_key': credentials.access_key,
-            'secret_key': credentials.secret_key,
-            'token': credentials.token,
-            'expiry_time': credentials.expiration
+            "access_key": credentials.access_key,
+            "secret_key": credentials.secret_key,
+            "token": credentials.token,
+            "expiry_time": credentials.expiration,
         }
 
-    def _collect_metrics(self, func: Callable, operation: str, bucket: str, key: str,
-                         put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
+    def _collect_metrics(
+        self,
+        func: Callable,
+        operation: str,
+        bucket: str,
+        key: str,
+        put_object_size: Optional[int] = None,
+        get_object_size: Optional[int] = None,
+    ) -> Any:
         """
         Collects and records performance metrics around S3 operations such as PUT, GET, DELETE, etc.
 
@@ -210,7 +216,7 @@ class S3StorageProvider(BaseStorageProvider):
         except ClientError as error:
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
             if status_code == 404:
-                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')   # pylint: disable=raise-missing-from
+                raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
             elif status_code == 429:
                 raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}") from error
             else:
@@ -227,18 +233,12 @@ class S3StorageProvider(BaseStorageProvider):
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time,
-                provider=PROVIDER,
-                operation=operation,
-                bucket=bucket,
-                status_code=status_code)
+                elapsed_time, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+            )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size,
-                    provider=PROVIDER,
-                    operation=operation,
-                    bucket=bucket,
-                    status_code=status_code)
+                    object_size, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+                )
 
     def _put_object(self, path: str, body: bytes) -> None:
         bucket, key = split_path(path)
@@ -253,11 +253,11 @@ class S3StorageProvider(BaseStorageProvider):
 
         def _invoke_api() -> bytes:
             if byte_range:
-                bytes_range = f'bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}'
+                bytes_range = f"bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}"
                 response = self._s3_client.get_object(Bucket=bucket, Key=key, Range=bytes_range)
             else:
                 response = self._s3_client.get_object(Bucket=bucket, Key=key)
-            return response['Body'].read()
+            return response["Body"].read()
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
@@ -277,14 +277,14 @@ class S3StorageProvider(BaseStorageProvider):
 
         def _invoke_api() -> bool:
             # List objects with the given prefix
-            response = self._s3_client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1, Delimiter='/')
+            response = self._s3_client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1, Delimiter="/")
             # Check if there are any contents or common prefixes
             return bool(response.get("Contents", []) or response.get("CommonPrefixes", []))
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=key)
 
     def _get_object_metadata(self, path: str) -> ObjectMetadata:
-        if path.endswith('/'):
+        if path.endswith("/"):
             # If path is a "directory", then metadata is not guaranteed to exist if
             # it is a "virtual prefix" that was never explicitly created.
             if self._is_dir(path):
@@ -295,7 +295,7 @@ class S3StorageProvider(BaseStorageProvider):
                     last_modified=datetime.datetime.min,
                 )
             else:
-                raise FileNotFoundError(f'Directory {path} does not exist.')
+                raise FileNotFoundError(f"Directory {path} does not exist.")
         else:
             bucket, key = split_path(path)
 
@@ -304,10 +304,10 @@ class S3StorageProvider(BaseStorageProvider):
                 return ObjectMetadata(
                     key=path,
                     type="file",
-                    content_length=response['ContentLength'],
-                    content_type=response['ContentType'],
-                    last_modified=response['LastModified'],
-                    etag=response['ETag'].strip('"'),
+                    content_length=response["ContentLength"],
+                    content_type=response["ContentType"],
+                    last_modified=response["LastModified"],
+                    etag=response["ETag"].strip('"'),
                 )
 
             try:
@@ -326,26 +326,27 @@ class S3StorageProvider(BaseStorageProvider):
                 else:
                     raise error
 
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
 
         def _invoke_api() -> Iterator[ObjectMetadata]:
-            paginator = self._s3_client.get_paginator('list_objects_v2')
-            page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix, StartAfter=(start_after or ''))
+            paginator = self._s3_client.get_paginator("list_objects_v2")
+            page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix, StartAfter=(start_after or ""))
 
             for page in page_iterator:
                 # S3 guarantees lexicographical order for general purpose buckets (for
                 # normal S3) but not directory buckets (for S3 Express One Zone).
-                for response_object in page.get('Contents', []):
-                    key = response_object['Key']
+                for response_object in page.get("Contents", []):
+                    key = response_object["Key"]
                     if end_at is None or key <= end_at:
                         yield ObjectMetadata(
                             key=key,
                             type="file",
-                            content_length=response_object['Size'],
-                            last_modified=response_object['LastModified'],
-                            etag=response_object['ETag'].strip('"'),
+                            content_length=response_object["Size"],
+                            last_modified=response_object["LastModified"],
+                            etag=response_object["ETag"].strip('"'),
                         )
                     else:
                         return
@@ -382,7 +383,7 @@ class S3StorageProvider(BaseStorageProvider):
 
             if filesize <= self._transfer_config.multipart_threshold:
                 if isinstance(f, io.StringIO):
-                    self._put_object(remote_path, f.read().encode('utf-8'))
+                    self._put_object(remote_path, f.read().encode("utf-8"))
                 else:
                     self._put_object(remote_path, f.read())
                 return
@@ -408,7 +409,7 @@ class S3StorageProvider(BaseStorageProvider):
             os.makedirs(os.path.dirname(f), exist_ok=True)
             # Download small files
             if metadata.content_length <= self._transfer_config.multipart_threshold:
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix='.') as fp:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     fp.write(self._get_object(remote_path))
                 os.rename(src=temp_file_path, dst=f)
@@ -418,7 +419,7 @@ class S3StorageProvider(BaseStorageProvider):
             bucket, key = split_path(remote_path)
 
             def _invoke_api() -> None:
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix='.') as fp:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     self._s3_client.download_fileobj(
                         Bucket=bucket,
@@ -428,13 +429,14 @@ class S3StorageProvider(BaseStorageProvider):
                     )
                 os.rename(src=temp_file_path, dst=f)
 
-            return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket,
-                                         key=key, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
+            )
         else:
             # Download small files
             if metadata.content_length <= self._transfer_config.multipart_threshold:
                 if isinstance(f, io.StringIO):
-                    f.write(self._get_object(remote_path).decode('utf-8'))
+                    f.write(self._get_object(remote_path).decode("utf-8"))
                 else:
                     f.write(self._get_object(remote_path))
                 return
@@ -450,5 +452,6 @@ class S3StorageProvider(BaseStorageProvider):
                     Config=self._transfer_config,
                 )
 
-            return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket,
-                                         key=key, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
+            )

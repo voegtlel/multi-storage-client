@@ -55,13 +55,7 @@ def test_record_duration():
     metrics_helper._duration_percentiles = mock_duration_percentiles
     metrics_helper._is_metrics_enabled = Mock(return_value=True)
 
-    metrics_helper.record_duration(
-        duration=2,
-        provider="s3",
-        operation="GET",
-        bucket="my-bucket",
-        status_code=200
-    )
+    metrics_helper.record_duration(duration=2, provider="s3", operation="GET", bucket="my-bucket", status_code=200)
 
     expected_attributes = {
         "provider": "s3",
@@ -75,32 +69,6 @@ def test_record_duration():
     # Duration should be converted to milliseconds (2 seconds * 1000 = 2000 ms)
     mock_duration_histogram.record.assert_called_once_with(2000, attributes=expected_attributes)
     mock_duration_percentiles.record.assert_called_once_with(2000, attributes=expected_attributes)
-
-
-def test_record_object_size_not_record_metrics():
-    """
-    Test the record_object_size method of MetricHelper.
-    """
-    mock_duration_histogram = MagicMock()
-    mock_object_size_histogram = MagicMock()
-    mock_object_size_percentiles = MagicMock()
-
-    metrics_helper = StorageProviderMetricsHelper(attributes={"job_id": "training-job-00001"})
-    metrics_helper._duration_histogram = mock_duration_histogram
-    metrics_helper._object_size_histogram = mock_object_size_histogram
-    metrics_helper._object_size_percentiles = mock_object_size_percentiles
-    metrics_helper._is_metrics_enabled = Mock(return_value=False)
-
-    metrics_helper.record_object_size(
-        object_size=10485760,
-        provider="s3",
-        operation="PUT",
-        bucket="my-bucket",
-        status_code=200,
-    )
-
-    mock_object_size_histogram.record.assert_not_called()
-    mock_object_size_percentiles.record.assert_not_called()
 
 
 def test_record_object_size():
@@ -175,7 +143,7 @@ def mock_slurm_env() -> Mapping[str, Any]:
         "SLURM_JOB_NAME": "test_job",
         "SLURM_JOB_USER": "test_user",
         "SLURM_NODEID": "1",
-        "SLURM_CLUSTER_NAME": "test_cluster"
+        "SLURM_CLUSTER_NAME": "test_cluster",
     }
 
 
@@ -184,10 +152,7 @@ def mock_k8s_env() -> Mapping[str, Any]:
     """
     Fixture for mocking K8S environment variables.
     """
-    return {
-        "KUBERNETES_SERVICE_HOST": "10.0.0.2",
-        "HOSTNAME": "my_pod_name"
-    }
+    return {"KUBERNETES_SERVICE_HOST": "10.0.0.2", "HOSTNAME": "my_pod_name"}
 
 
 @pytest.fixture
@@ -201,7 +166,7 @@ def mock_msc_env() -> Mapping[str, Any]:
         "MSC_JOB_USER": "msc_user",
         "MSC_NODEID": "2",
         "MSC_CLUSTER_NAME": "msc_cluster",
-        "MSC_CONFIG": "/path/to/config"
+        "MSC_CONFIG": "/path/to/config",
     }
 
 
@@ -215,7 +180,7 @@ def partial_slurm_env() -> Mapping[str, Any]:
         "SLURM_JOB_NAME": "test_job",
         "SLURM_JOB_USER": None,  # Missing some attributes
         "SLURM_NODEID": None,
-        "SLURM_CLUSTER_NAME": "test_cluster"
+        "SLURM_CLUSTER_NAME": "test_cluster",
     }
 
 
@@ -229,7 +194,7 @@ def test_collect_default_attributes_slurm(mock_slurm_env):
         "job_name": "test_job",
         "job_user": "test_user",
         "node_id": "1",
-        "cluster": "test_cluster"
+        "cluster": "test_cluster",
     }
     assert result == expected
 
@@ -246,7 +211,7 @@ def test_collect_default_attributes_k8s(mock_k8s_env, mock_msc_env):
         "job_name": "msc_test_job",
         "job_user": "msc_user",
         "node_id": "my_pod_name",  # retrieved from K8S environment variables.
-        "cluster": "msc_cluster"
+        "cluster": "msc_cluster",
     }
     assert result == expected
 
@@ -261,7 +226,7 @@ def test_collect_default_attributes_msc(mock_msc_env):
         "job_name": "msc_test_job",
         "job_user": "msc_user",
         "node_id": "2",
-        "cluster": "msc_cluster"
+        "cluster": "msc_cluster",
     }
     assert result == expected
 
@@ -281,11 +246,7 @@ def test_collect_default_attributes_partial_slurm(partial_slurm_env):
     Test collecting attributes when only partial Slurm variables are present.
     """
     result = collect_default_attributes(env=partial_slurm_env)
-    expected = {
-        "job_id": "12345",
-        "job_name": "test_job",
-        "cluster": "test_cluster"
-    }
+    expected = {"job_id": "12345", "job_name": "test_job", "cluster": "test_cluster"}
     assert result == expected
 
 
@@ -301,7 +262,7 @@ def test_collect_default_attributes_partial_slurm_with_msc_envs(partial_slurm_en
         "job_name": "test_job",
         "job_user": "msc_user",  # retrieved from MSC environment variables.
         "node_id": "2",  # retrieved from MSC environment variables.
-        "cluster": "test_cluster"
+        "cluster": "test_cluster",
     }
     assert result == expected
 
@@ -320,23 +281,29 @@ def test_multiple_records_with_attributes():
     tdigest_percentiles.record(150, attributes=get_200_attributes)
     tdigest_percentiles.record(200, attributes=post_500_attributes)
 
-    p50_gauge.assert_has_calls([
-        call.set(50.0, get_200_attributes),
-        call.set(150.0, get_200_attributes),
-        call.set(200.0, post_500_attributes),
-    ])
+    p50_gauge.assert_has_calls(
+        [
+            call.set(50.0, get_200_attributes),
+            call.set(150.0, get_200_attributes),
+            call.set(200.0, post_500_attributes),
+        ]
+    )
 
-    p99_gauge.assert_has_calls([
-        call.set(50.0, get_200_attributes),
-        call.set(150.0, get_200_attributes),
-        call.set(200.0, post_500_attributes),
-    ])
+    p99_gauge.assert_has_calls(
+        [
+            call.set(50.0, get_200_attributes),
+            call.set(150.0, get_200_attributes),
+            call.set(200.0, post_500_attributes),
+        ]
+    )
 
-    p999_gauge.assert_has_calls([
-        call.set(50.0, get_200_attributes),
-        call.set(150.0, get_200_attributes),
-        call.set(200.0, post_500_attributes),
-    ])
+    p999_gauge.assert_has_calls(
+        [
+            call.set(50.0, get_200_attributes),
+            call.set(150.0, get_200_attributes),
+            call.set(200.0, post_500_attributes),
+        ]
+    )
 
     assert len(tdigest_percentiles._tdigests) == 2
 

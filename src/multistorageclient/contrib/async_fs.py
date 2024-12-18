@@ -25,15 +25,17 @@ from ..file import ObjectFile, PosixFile
 from ..shortcuts import resolve_storage_client
 from ..types import MSC_PROTOCOL, MSC_PROTOCOL_NAME
 
-_global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv('MSC_MAX_WORKERS', '8')))
+_global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv("MSC_MAX_WORKERS", "8")))
 
 
-# pylint: disable=abstract-method
+# pyright: reportIncompatibleMethodOverride=false
 class MultiAsyncFileSystem(AsyncFileSystem):
     """
     Custom :py:class:`fsspec.asyn.AsyncFileSystem` implementation for MSC protocol (``msc://``).
     Uses :py:class:`multistorageclient.StorageClient` for backend operations.
     """
+
+    protocol = MSC_PROTOCOL_NAME
 
     def __init__(self, **kwargs: Any) -> None:
         """
@@ -42,7 +44,6 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         :param kwargs: Additional arguments for the :py:class:`fsspec.asyn.AsyncFileSystem`.
         """
         super().__init__(**kwargs)
-        self.protocol = MSC_PROTOCOL_NAME
 
     def resolve_path_and_storage_client(self, path: str) -> Tuple[StorageClient, str]:
         """
@@ -241,7 +242,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         await self.asynchronize_sync(self.put_file, lpath, rpath, **kwargs)
 
-    def open(self, path: str, mode: str = 'rb', **kwargs: Any) -> Union[PosixFile, ObjectFile]:
+    def open(self, path: str, mode: str = "rb", **kwargs: Any) -> Union[PosixFile, ObjectFile]:
         """
         Opens a file at the given path.
 
@@ -254,7 +255,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         storage_client, path = self.resolve_path_and_storage_client(path)
         return storage_client.open(path, mode)
 
-    async def _open(self, path: str, mode: str = 'rb', **kwargs: Any) -> Union[PosixFile, ObjectFile]:
+    async def _open(self, path: str, mode: str = "rb", **kwargs: Any) -> Union[PosixFile, ObjectFile]:
         """
         Asynchronously opens a file at the given path.
 

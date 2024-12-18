@@ -63,7 +63,8 @@ def test_retry_decorator_in_storage_client():
                 }
             }
         }
-    }""")
+    }"""
+    )
 
     storage_client = StorageClient(config)
 

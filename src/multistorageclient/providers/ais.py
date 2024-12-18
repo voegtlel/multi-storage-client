@@ -35,28 +35,30 @@ from ..types import (
 from ..utils import split_path
 from .base import BaseStorageProvider
 
-PROVIDER = 'ais'
+PROVIDER = "ais"
 
 
 class StaticAISCredentialProvider(CredentialsProvider):
     """
     A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides static S3 credentials.
     """
+
     _username: Optional[str]
     _password: Optional[str]
     _authn_endpoint: Optional[str]
     _token: Optional[str]
-    _skip_verify: Optional[bool]
+    _skip_verify: bool
     _ca_cert: Optional[str]
 
     def __init__(
-            self,
-            username: Optional[str] = None,
-            password: Optional[str] = None,
-            authn_endpoint: Optional[str] = None,
-            token: Optional[str] = None,
-            skip_verify: Optional[bool] = True,
-            ca_cert: Optional[str] = None):
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        authn_endpoint: Optional[str] = None,
+        token: Optional[str] = None,
+        skip_verify: bool = True,
+        ca_cert: Optional[str] = None,
+    ):
         """
         Initializes the :py:class:`StaticAISCredentialProvider` with the given credentials.
 
@@ -87,15 +89,17 @@ class StaticAISCredentialProvider(CredentialsProvider):
 
 
 class AIStoreStorageProvider(BaseStorageProvider):
-    def __init__(self,
-                 endpoint: str,
-                 provider: str = PROVIDER,
-                 skip_verify: bool = True,
-                 ca_cert: Optional[str] = None,
-                 timeout: Optional[Union[float, Tuple[float, float]]] = None,
-                 base_path: str = "",
-                 credentials_provider: Optional[CredentialsProvider] = None,
-                 **kwargs: Any) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        provider: str = PROVIDER,
+        skip_verify: bool = True,
+        ca_cert: Optional[str] = None,
+        timeout: Optional[Union[float, Tuple[float, float]]] = None,
+        base_path: str = "",
+        credentials_provider: Optional[CredentialsProvider] = None,
+        **kwargs: Any,
+    ) -> None:
         """
         AIStore client for managing buckets, objects, and ETL jobs.
 
@@ -114,18 +118,21 @@ class AIStoreStorageProvider(BaseStorageProvider):
         if credentials_provider:
             token = credentials_provider.get_credentials().token
             self.client = Client(
-                endpoint=endpoint,
-                skip_verify=skip_verify,
-                ca_cert=ca_cert,
-                timeout=timeout,
-                token=token)
+                endpoint=endpoint, skip_verify=skip_verify, ca_cert=ca_cert, timeout=timeout, token=token
+            )
         else:
-            self.client = Client(
-                endpoint=endpoint)
+            self.client = Client(endpoint=endpoint)
         self.provider = provider
 
-    def _collect_metrics(self, func: Callable, operation: str, bucket: str, key: str,
-                         put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
+    def _collect_metrics(
+        self,
+        func: Callable,
+        operation: str,
+        bucket: str,
+        key: str,
+        put_object_size: Optional[int] = None,
+        get_object_size: Optional[int] = None,
+    ) -> Any:
         """
         Collects and records performance metrics around object storage operations
         such as ``PUT``, ``GET``, ``DELETE``, etc.
@@ -163,7 +170,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
         except HTTPError as error:
             status_code = error.response.status_code
             if status_code == 404:
-                raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')  # pylint: disable=raise-missing-from
+                raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except Exception as error:
@@ -172,18 +179,12 @@ class AIStoreStorageProvider(BaseStorageProvider):
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time,
-                provider=PROVIDER,
-                operation=operation,
-                bucket=bucket,
-                status_code=status_code)
+                elapsed_time, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+            )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size,
-                    provider=PROVIDER,
-                    operation=operation,
-                    bucket=bucket,
-                    status_code=status_code)
+                    object_size, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+                )
 
     def _put_object(self, path: str, body: bytes) -> None:
         bucket, key = split_path(path)
@@ -197,14 +198,14 @@ class AIStoreStorageProvider(BaseStorageProvider):
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
         if byte_range:
-            bytes_range = f'bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}'
+            bytes_range = f"bytes={byte_range.offset}-{byte_range.offset + byte_range.size - 1}"
         else:
             bytes_range = None
 
         def _invoke_api() -> bytes:
             obj = self.client.bucket(bucket, self.provider).object(obj_name=key)
             if byte_range:
-                reader = obj.get(byte_range=bytes_range)
+                reader = obj.get(byte_range=bytes_range)  # pyright: ignore [reportArgumentType]
             else:
                 reader = obj.get()
             return reader.read_all()
@@ -226,27 +227,25 @@ class AIStoreStorageProvider(BaseStorageProvider):
         def _invoke_api() -> ObjectMetadata:
             obj = self.client.bucket(bck_name=bucket, provider=self.provider).object(obj_name=key)
             props = obj.head()
-            last_modified = datetime.fromtimestamp(int(props.get("Ais-Atime")) // 1_000_000_000)
+            last_modified = datetime.fromtimestamp(int(props.get("Ais-Atime")) // 1_000_000_000)  # pyright: ignore [reportArgumentType]
             return ObjectMetadata(
                 key=key,
-                content_length=int(props.get("Content-Length")),
+                content_length=int(props.get("Content-Length")),  # pyright: ignore [reportArgumentType]
                 last_modified=last_modified,
-                etag=props.get('Ais-Checksum-Value', None),
+                etag=props.get("Ais-Checksum-Value", None),
             )
 
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
 
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
 
         def _invoke_api() -> Iterator[ObjectMetadata]:
             # AIS has no start key option like other object stores.
-            all_objects = self.client.bucket(
-                bck_name=bucket,
-                provider=self.provider).list_all_objects_iter(
-                prefix=prefix,
-                props='name,size,atime,checksum,cone'
+            all_objects = self.client.bucket(bck_name=bucket, provider=self.provider).list_all_objects_iter(
+                prefix=prefix, props="name,size,atime,checksum,cone"
             )
 
             # Assume AIS guarantees lexicographical order.
@@ -257,7 +256,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
                         key=key,
                         content_length=int(obj.props.size),
                         last_modified=dateutil_parser(obj.props.access_time),
-                        etag=obj.props.checksum_value
+                        etag=obj.props.checksum_value,
                     )
                 elif end_at is not None and end_at < key:
                     return
@@ -270,7 +269,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
                 self._put_object(remote_path, fp.read())
         else:
             if isinstance(f, io.StringIO):
-                self._put_object(remote_path, f.read().encode('utf-8'))
+                self._put_object(remote_path, f.read().encode("utf-8"))
             else:
                 self._put_object(remote_path, f.read())
 
@@ -280,10 +279,10 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         if isinstance(f, str):
             os.makedirs(os.path.dirname(f), exist_ok=True)
-            with open(f, 'wb') as fp:
+            with open(f, "wb") as fp:
                 fp.write(self._get_object(remote_path))
         else:
             if isinstance(f, io.StringIO):
-                f.write(self._get_object(remote_path).decode('utf-8'))
+                f.write(self._get_object(remote_path).decode("utf-8"))
             else:
                 f.write(self._get_object(remote_path))

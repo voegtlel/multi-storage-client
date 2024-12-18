@@ -41,7 +41,8 @@ def test_json_config() -> None:
                 }
             }
         }
-    }""")
+    }"""
+    )
 
     storage_client = StorageClient(config)
     assert isinstance(storage_client._storage_provider, PosixFileStorageProvider)
@@ -80,14 +81,15 @@ def test_override_default_profile() -> None:
                     }
                 }
             }
-        }""")
+        }"""
+        )
 
     assert ex.match('Cannot override "default" profile with storage provider type "s3"; expected "file".')
 
 
 def test_credentials_provider() -> None:
-    os.environ['S3_ACCESS_KEY'] = 'my_key'
-    os.environ['S3_SECRET_KEY'] = 'my_secret'
+    os.environ["S3_ACCESS_KEY"] = "my_key"
+    os.environ["S3_SECRET_KEY"] = "my_secret"
     json_config = StorageClientConfig.from_json(
         """{
         "profiles": {
@@ -107,7 +109,8 @@ def test_credentials_provider() -> None:
                 }
             }
         }
-    }""")
+    }"""
+    )
 
     yaml_config = StorageClientConfig.from_yaml(
         """
@@ -149,7 +152,8 @@ def test_load_extensions() -> None:
               type: mock_module.mocks.TestCredentialsProvider
             metadata_provider:
               type: mock_module.mocks.TestMetadataProvider
-        """)
+        """
+    )
 
     storage_client = StorageClient(config)
     assert isinstance(storage_client._credentials_provider, TestCredentialsProvider)
@@ -166,7 +170,9 @@ def test_load_provider_bundle() -> None:
           test-provider-bundle:
             provider_bundle:
               type: mock_module.mocks.TestProviderBundle
-        """, profile="test-provider-bundle")
+        """,
+        profile="test-provider-bundle",
+    )
 
     storage_client = StorageClient(config)
     assert isinstance(storage_client._credentials_provider, TestCredentialsProvider)
@@ -179,11 +185,10 @@ def test_load_direct_provider_bundle() -> None:
     from mock_module.mocks import TestCredentialsProvider, TestMetadataProvider
 
     bundle = SimpleProviderBundle(
-        storage_provider_config=StorageProviderConfig(
-            type="file",
-            options={"base_path": "/"}),
+        storage_provider_config=StorageProviderConfig(type="file", options={"base_path": "/"}),
         credentials_provider=TestCredentialsProvider(),
-        metadata_provider=TestMetadataProvider())
+        metadata_provider=TestMetadataProvider(),
+    )
     config = StorageClientConfig.from_provider_bundle(config_dict={}, provider_bundle=bundle)
 
     storage_client = StorageClient(config)
@@ -207,7 +212,9 @@ def test_swiftstack_storage_provider() -> None:
                 }
             }
         }
-    }""", profile="swift_profile")
+    }""",
+        profile="swift_profile",
+    )
 
     assert isinstance(config.storage_provider, S3StorageProvider)
 
@@ -233,7 +240,8 @@ def test_manifest_provider_bundle() -> None:
                 }
             }
         }
-    }""")
+    }"""
+    )
 
     yaml_config = StorageClientConfig.from_yaml(
         """
@@ -299,8 +307,9 @@ def test_storage_provider_profile_unrecognized() -> None:
             """
         )
 
-    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" \
-        in str(e), f"Unexpected error message: {str(e)}"
+    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" in str(
+        e
+    ), f"Unexpected error message: {str(e)}"
 
 
 def test_storage_provider_profile_with_manifest() -> None:
@@ -329,7 +338,9 @@ def test_storage_provider_profile_with_manifest() -> None:
                   options:
                     manifest_path: .msc_manifests
                     storage_provider_profile: profile-manifest
-            """, profile='profile-data')
+            """,
+            profile="profile-data",
+        )
 
     assert "Found metadata_provider for profile" in str(e), f"Unexpected error message: {str(e)}"
     assert "not supported" in str(e), f"Unexpected error message: {str(e)}"

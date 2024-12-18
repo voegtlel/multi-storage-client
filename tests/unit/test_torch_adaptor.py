@@ -18,7 +18,6 @@ import torch
 
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
-from utils import file_storage_config
 
 
 @pytest.fixture

@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Any, Iterator, Mapping, Optional, Sequence, Tuple
 
 import zarr as _zarr
+from zarr.storage import BaseStore
 
 from ..shortcuts import resolve_storage_client
 from ..types import MSC_PROTOCOL
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
     from ..client import StorageClient
 
 
-def open_consolidated(*args: Any, **kwargs: Any) -> _zarr.hierarchy.Group:
+def open_consolidated(*args: Any, **kwargs: Any) -> _zarr.Group:
     """
     Adapt ``zarr.open_consolidated`` to use :py:class:`LazyZarrStore` when path matches the ``msc`` protocol.
 
@@ -35,35 +36,36 @@ def open_consolidated(*args: Any, **kwargs: Any) -> _zarr.hierarchy.Group:
     directly calls ``zarr.open_consolidated``.
     """
     args_list = list(args)
-    path = args_list[0] if args_list else kwargs.get('store')
-    msc_max_workers = kwargs.pop('msc_max_workers', None)
+    path = args_list[0] if args_list else kwargs.get("store")
+    msc_max_workers = kwargs.pop("msc_max_workers", None)
     if isinstance(path, str) and path.startswith(MSC_PROTOCOL):
         storage_client, prefix = resolve_storage_client(path)
         zarr_store = LazyZarrStore(storage_client, prefix=prefix, msc_max_workers=msc_max_workers)
         if path == args_list[0]:
             args_list[0] = zarr_store
         else:
-            kwargs['store'] = zarr_store
-        return _zarr.open_consolidated(*args_list, **kwargs)
-    return _zarr.open_consolidated(*args, **kwargs)
+            kwargs["store"] = zarr_store
+        return _zarr.open_consolidated(*args_list, **kwargs)  # pyright: ignore [reportReturnType]
+    return _zarr.open_consolidated(*args, **kwargs)  # pyright: ignore [reportReturnType]
 
 
-class LazyZarrStore(_zarr.storage.BaseStore):
-    def __init__(self, storage_client: 'StorageClient', prefix: str = '',
-                 msc_max_workers: Optional[int] = None) -> None:
+# pyright: reportIncompatibleMethodOverride=false
+class LazyZarrStore(BaseStore):
+    def __init__(
+        self, storage_client: "StorageClient", prefix: str = "", msc_max_workers: Optional[int] = None
+    ) -> None:
         self.storage_client = storage_client
         self.prefix = prefix
-        self.max_workers = msc_max_workers or int(os.getenv('MSC_MAX_WORKERS', '8'))
+        self.max_workers = msc_max_workers or int(os.getenv("MSC_MAX_WORKERS", "8"))
 
     def __getitem__(self, key: str) -> Any:
         full_key = self.prefix + key
         return self.storage_client.read(full_key)
 
-    def getitems(
-        self, keys: Sequence[str], *, contexts: Any
-    ) -> Mapping[str, Any]:
+    def getitems(self, keys: Sequence[str], *, contexts: Any) -> Mapping[str, Any]:
         def get_item(key: str) -> Tuple[str, Any]:
             return key, self.__getitem__(key)
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {executor.submit(get_item, key): key for key in keys}
             results = {}

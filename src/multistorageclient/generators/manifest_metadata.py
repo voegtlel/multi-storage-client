@@ -29,14 +29,13 @@ class ManifestMetadataGenerator:
 
     @staticmethod
     def _generate_manifest_part_body(object_metadata: List[ObjectMetadata]) -> bytes:
-        return '\n'.join([
-            json.dumps({
-                **metadata_dict,
-                'size_bytes': metadata_dict.pop('content_length')
-            })
-            for metadata in object_metadata
-            for metadata_dict in [metadata.to_dict()]
-        ]).encode(encoding='utf-8')
+        return "\n".join(
+            [
+                json.dumps({**metadata_dict, "size_bytes": metadata_dict.pop("content_length")})
+                for metadata in object_metadata
+                for metadata_dict in [metadata.to_dict()]
+            ]
+        ).encode(encoding="utf-8")
 
     @staticmethod
     def generate_and_write_manifest(
@@ -71,13 +70,13 @@ class ManifestMetadataGenerator:
 
         # Create a ManifestMetadataProvider for writing manifest, configure manifest storage provider
         # TODO(NGCDP-3018): Opportunity to split up the responsibilities of MetadataProvider
-        manifest_metadata_provider = ManifestMetadataProvider(storage_provider=manifest_storage_provider,
-                                                              manifest_path='',
-                                                              writable=True)
+        manifest_metadata_provider = ManifestMetadataProvider(
+            storage_provider=manifest_storage_provider, manifest_path="", writable=True
+        )
 
         # For manifest generation we will always assume direct path for listing objects
-        for object_metadata in data_storage_provider.list_objects(prefix=''):
-            if DEFAULT_MANIFEST_BASE_DIR not in object_metadata.key.split('/'):  # Do not track manifest files
+        for object_metadata in data_storage_provider.list_objects(prefix=""):
+            if DEFAULT_MANIFEST_BASE_DIR not in object_metadata.key.split("/"):  # Do not track manifest files
                 manifest_metadata_provider.add_file(path=object_metadata.key, metadata=object_metadata)
 
         manifest_metadata_provider.commit_updates()

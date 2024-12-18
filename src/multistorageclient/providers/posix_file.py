@@ -29,19 +29,24 @@ PROVIDER = "file"
 
 
 class PosixFileStorageProvider(BaseStorageProvider):
-
     def __init__(self, base_path: str, **kwargs: Any) -> None:
         # Validate POSIX path
         if base_path == "":
             base_path = "/"
 
         if not base_path.startswith("/"):
-            raise ValueError(f'The base_path {base_path} must be an absolute path.')
+            raise ValueError(f"The base_path {base_path} must be an absolute path.")
 
         super().__init__(base_path=base_path, provider_name=PROVIDER)
 
-    def _collect_metrics(self, func: Callable, operation: str, path: str,
-                         put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
+    def _collect_metrics(
+        self,
+        func: Callable,
+        operation: str,
+        path: str,
+        put_object_size: Optional[int] = None,
+        get_object_size: Optional[int] = None,
+    ) -> Any:
         """
         Collects and records performance metrics around file operations such as PUT, GET, DELETE, etc.
 
@@ -79,23 +84,17 @@ class PosixFileStorageProvider(BaseStorageProvider):
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time,
-                provider=PROVIDER,
-                operation=operation,
-                bucket="",
-                status_code=status_code)
+                elapsed_time, provider=PROVIDER, operation=operation, bucket="", status_code=status_code
+            )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size,
-                    provider=PROVIDER,
-                    operation=operation,
-                    bucket="",
-                    status_code=status_code)
+                    object_size, provider=PROVIDER, operation=operation, bucket="", status_code=status_code
+                )
 
     def _put_object(self, path: str, body: bytes) -> None:
         def _invoke_api() -> None:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(path), prefix='.') as fp:
+            with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(path), prefix=".") as fp:
                 temp_file_path = fp.name
                 fp.write(body)
             os.rename(src=temp_file_path, dst=path)
@@ -105,11 +104,11 @@ class PosixFileStorageProvider(BaseStorageProvider):
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         def _invoke_api() -> bytes:
             if byte_range:
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     f.seek(byte_range.offset)
                     return f.read(byte_range.size)
             else:
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     return f.read()
 
         return self._collect_metrics(_invoke_api, operation="GET", path=path)
@@ -133,10 +132,12 @@ class PosixFileStorageProvider(BaseStorageProvider):
                 content_length=os.path.getsize(path),
                 last_modified=datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc),
             )
+
         return self._collect_metrics(_invoke_api, operation="HEAD", path=path)
 
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         def _invoke_api() -> Iterator[ObjectMetadata]:
             # Assume the file system guarantees lexicographical order (some don't).
             for root, _, files in os.walk(prefix):
@@ -149,11 +150,12 @@ class PosixFileStorageProvider(BaseStorageProvider):
                     # (e.g. info, read, write, delete).
                     relative_path = os.path.relpath(full_path, prefix)
                     if (start_after is None or start_after < relative_path) and (
-                            end_at is None or relative_path <= end_at):
+                        end_at is None or relative_path <= end_at
+                    ):
                         yield ObjectMetadata(
                             key=relative_path,
                             content_length=os.path.getsize(full_path),
-                            last_modified=datetime.fromtimestamp(os.path.getmtime(full_path), tz=timezone.utc)
+                            last_modified=datetime.fromtimestamp(os.path.getmtime(full_path), tz=timezone.utc),
                         )
                     elif end_at is not None and end_at < relative_path:
                         return
@@ -172,10 +174,10 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
         elif isinstance(f, StringIO):
-            filesize = len(f.getvalue().encode('utf-8'))
+            filesize = len(f.getvalue().encode("utf-8"))
 
             def _invoke_api() -> None:
-                with open(remote_path, 'w', encoding='utf-8') as fp:
+                with open(remote_path, "w", encoding="utf-8") as fp:
                     fp.write(f.read())
 
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
@@ -183,22 +185,20 @@ class PosixFileStorageProvider(BaseStorageProvider):
             filesize = len(f.getvalue())  # type: ignore
 
             def _invoke_api() -> None:
-                with open(remote_path, 'wb') as fp:
+                with open(remote_path, "wb") as fp:
                     fp.write(f.read())
 
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
 
-    def _download_file(self,
-                       remote_path: str,
-                       f: Union[str, IO],
-                       metadata: Optional[ObjectMetadata] = None) -> None:
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         source_path = remote_path
         filesize = metadata.content_length if metadata else os.path.getsize(source_path)
 
         if isinstance(f, str):
+
             def _invoke_api() -> None:
                 os.makedirs(os.path.dirname(f), exist_ok=True)
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix='.') as fp:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     with open(source_path, "rb") as src:
                         fp.write(src.read())
@@ -206,14 +206,16 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         elif isinstance(f, StringIO):
+
             def _invoke_api() -> None:
-                with open(source_path, 'r', encoding='utf-8') as src:
+                with open(source_path, "r", encoding="utf-8") as src:
                     f.write(src.read())
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         else:
+
             def _invoke_api() -> None:
-                with open(source_path, 'rb') as src:
+                with open(source_path, "rb") as src:
                     f.write(src.read())
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
@@ -221,12 +223,12 @@ class PosixFileStorageProvider(BaseStorageProvider):
     def glob(self, pattern: str) -> List[str]:
         pattern = self._realpath(pattern)
         keys = list(glob.glob(pattern, recursive=True))
-        if self._base_path == '/':
+        if self._base_path == "/":
             return keys
         else:
             # NOTE: PosixStorageProvider does not have the concept of bucket and prefix.
             # So we drop the base_path from it.
-            return [key.replace(self._base_path, '', 1).lstrip('/') for key in keys]
+            return [key.replace(self._base_path, "", 1).lstrip("/") for key in keys]
 
     def is_file(self, path: str) -> bool:
         path = self._realpath(path)

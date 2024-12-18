@@ -31,14 +31,14 @@ def open_zarr(*args: Any, **kwargs: Any) -> _xarray.Dataset:
     directly calls ``xarray.open_zarr``.
     """
     args_list = list(args)
-    path = args_list[0] if args_list else kwargs.get('store')
-    msc_max_workers = kwargs.pop('msc_max_workers', None)
+    path = args_list[0] if args_list else kwargs.get("store")
+    msc_max_workers = kwargs.pop("msc_max_workers", None)
     if isinstance(path, str) and path.startswith(MSC_PROTOCOL):
         storage_client, prefix = resolve_storage_client(path)
         zarr_store = LazyZarrStore(storage_client, prefix=prefix, msc_max_workers=msc_max_workers)
         if path == args_list[0]:
             args_list[0] = zarr_store
         else:
-            kwargs['store'] = zarr_store
+            kwargs["store"] = zarr_store
         return _xarray.open_zarr(*args_list, **kwargs)
     return _xarray.open_zarr(*args, **kwargs)

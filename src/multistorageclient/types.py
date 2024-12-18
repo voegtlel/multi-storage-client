@@ -25,16 +25,7 @@ MSC_PROTOCOL = MSC_PROTOCOL_NAME + "://"
 
 DEFAULT_POSIX_PROFILE_NAME = "default"
 DEFAULT_POSIX_PROFILE = {
-    "profiles": {
-        DEFAULT_POSIX_PROFILE_NAME: {
-            "storage_provider": {
-                "type": "file",
-                "options": {
-                    "base_path": "/"
-                }
-            }
-        }
-    }
+    "profiles": {DEFAULT_POSIX_PROFILE_NAME: {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}}
 }
 
 DEFAULT_RETRY_ATTEMPTS = 3
@@ -88,29 +79,29 @@ class ObjectMetadata:
     etag: Optional[str] = field(default=None)
 
     @staticmethod
-    def from_dict(data: dict) -> 'ObjectMetadata':
+    def from_dict(data: dict) -> "ObjectMetadata":
         """
         Creates an ObjectMetadata instance from a dictionary (parsed from JSON).
         """
         try:
-            last_modified = dateutil_parser(data['last_modified'])
-            key = data.get('key')
+            last_modified = dateutil_parser(data["last_modified"])
+            key = data.get("key")
             if key is None:
                 raise ValueError("Missing required field: 'key'")
             return ObjectMetadata(
                 key=key,
-                content_length=data['content_length'],
+                content_length=data["content_length"],
                 last_modified=last_modified,
                 type=data.get("type", "file"),  # default to file
-                content_type=data.get('content_type'),
-                etag=data.get('etag')
+                content_type=data.get("content_type"),
+                etag=data.get("etag"),
             )
         except KeyError as e:
             raise ValueError("Missing required field.") from e
 
     def to_dict(self) -> dict:
         data = asdict(self)
-        data['last_modified'] = self.last_modified.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        data["last_modified"] = self.last_modified.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         return {k: v for k, v in data.items() if v is not None}
 
 
@@ -141,6 +132,7 @@ class Range:
     """
     Byte-range read.
     """
+
     offset: int
     size: int
 
@@ -192,8 +184,9 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def list_objects(self, prefix: str, start_after: Optional[str] = None,
-                     end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         """
         Lists objects in the storage provider under the specified prefix.
 
@@ -217,10 +210,7 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def download_file(self,
-                      remote_path: str,
-                      f: Union[str, IO],
-                      metadata: Optional[ObjectMetadata] = None) -> None:
+    def download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         """
         Downloads a file from the storage provider to the local file system.
 
@@ -261,8 +251,9 @@ class MetadataProvider(ABC):
     """
 
     @abstractmethod
-    def list_objects(self, prefix: str, start_after: Optional[str] = None,
-                     end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         """
         Lists objects in the storage provider under the specified prefix.
 
@@ -414,4 +405,5 @@ class RetryableError(Exception):
     """
     Exception raised for errors that should trigger a retry.
     """
+
     pass

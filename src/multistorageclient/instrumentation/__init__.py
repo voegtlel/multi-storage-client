@@ -35,20 +35,22 @@ from ..utils import import_class
 _TRACE_SAMPLER_MODULE_NAME = "opentelemetry.sdk.trace.sampling"
 
 _OTEL_TRACE_EXPORTER_MAPPING = {
-    'console': 'opentelemetry.sdk.trace.export.ConsoleSpanExporter',
-    'otlp': 'opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter'
+    "console": "opentelemetry.sdk.trace.export.ConsoleSpanExporter",
+    "otlp": "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
 }
 
 _OTEL_METRIC_EXPORTER_MAPPING = {
-    'console': 'opentelemetry.sdk.metrics.export.ConsoleMetricExporter',
-    'otlp': 'opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter'
+    "console": "opentelemetry.sdk.metrics.export.ConsoleMetricExporter",
+    "otlp": "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter",
 }
 
-_RESOURCE = Resource.create({
-    "service.name": "multistorageclient",
-    "service.namespace": "client",
-    "service.version": "1.0",
-})
+_RESOURCE = Resource.create(
+    {
+        "service.name": "multistorageclient",
+        "service.namespace": "client",
+        "service.version": "1.0",
+    }
+)
 
 _IS_SETUP_DONE = False
 
@@ -66,7 +68,7 @@ def create_retryable_session() -> requests.Session:
     session = requests.Session()
 
     # Disable keep-alive
-    session.headers.update({'Connection': 'close'})
+    session.headers.update({"Connection": "close"})
 
     adapter = HTTPAdapter(max_retries=MAX_RETRIES)
     session.mount("https://", adapter)
@@ -81,7 +83,6 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
     """
 
     with _setup_lock:
-
         global _IS_SETUP_DONE
 
         # This function should only be called once even multiple storage clients
@@ -90,15 +91,15 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
             return
 
         if config:
-            trace_config_dict = config.get('traces', None)
-            metric_config_dict = config.get('metrics', None)
+            trace_config_dict = config.get("traces", None)
+            metric_config_dict = config.get("metrics", None)
 
             if trace_config_dict is not None:
                 # exporter
-                trace_exporter_dict = trace_config_dict.get('exporter', None)
+                trace_exporter_dict = trace_config_dict.get("exporter", None)
                 if trace_exporter_dict:
-                    module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING[trace_exporter_dict['type']].rsplit('.', 1)
-                    options = trace_exporter_dict.get('options', {})
+                    module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING[trace_exporter_dict["type"]].rsplit(".", 1)
+                    options = trace_exporter_dict.get("options", {})
                     cls = import_class(class_name, module_name)
                     exporter = cls(**options)
                 else:
@@ -106,13 +107,13 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                     exporter = ConsoleSpanExporter()
 
                 # sampler
-                trace_sampler_dict = trace_config_dict.get('sampler', None)
+                trace_sampler_dict = trace_config_dict.get("sampler", None)
                 sampler: Union[StaticSampler, ParentBased, None]
                 if trace_sampler_dict:
-                    class_name = trace_sampler_dict['type']
-                    options = trace_exporter_dict.get('options', {})
-                    if class_name != 'console':
-                        options['session'] = create_retryable_session()
+                    class_name = trace_sampler_dict["type"]
+                    options = trace_exporter_dict.get("options", {})
+                    if class_name != "console":
+                        options["session"] = create_retryable_session()
                     cls_or_obj = import_class(class_name, _TRACE_SAMPLER_MODULE_NAME)
                     if isinstance(cls_or_obj, StaticSampler):
                         sampler = cls_or_obj
@@ -128,13 +129,13 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                 trace.set_tracer_provider(tracer_provider)
 
             if metric_config_dict is not None:
-                metric_exporter_dict = metric_config_dict.get('exporter', None)
+                metric_exporter_dict = metric_config_dict.get("exporter", None)
                 if metric_config_dict:
-                    exporter_type = metric_exporter_dict['type']
-                    module_name, class_name = _OTEL_METRIC_EXPORTER_MAPPING[exporter_type].rsplit('.', 1)
-                    options = metric_exporter_dict.get('options', {})
-                    if exporter_type != 'console':
-                        options['session'] = create_retryable_session()
+                    exporter_type = metric_exporter_dict["type"]
+                    module_name, class_name = _OTEL_METRIC_EXPORTER_MAPPING[exporter_type].rsplit(".", 1)
+                    options = metric_exporter_dict.get("options", {})
+                    if exporter_type != "console":
+                        options["session"] = create_retryable_session()
                     cls = import_class(class_name, module_name)
                     exporter = cls(**options)
                 else:
@@ -143,10 +144,14 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                 # set up meter provider for current process
                 metric_reader = PeriodicExportingMetricReader(exporter)
                 custom_views = [
-                    View(instrument_name="storageclient_api_duration",
-                         aggregation=ExplicitBucketHistogramAggregation(LATENCY_HISTOGRAM_BUCKETS)),
-                    View(instrument_name="storageclient_object_size",
-                         aggregation=ExplicitBucketHistogramAggregation(OBJECT_SIZE_HISTOGRAM_BUCKETS)),
+                    View(
+                        instrument_name="storageclient_api_duration",
+                        aggregation=ExplicitBucketHistogramAggregation(LATENCY_HISTOGRAM_BUCKETS),
+                    ),
+                    View(
+                        instrument_name="storageclient_object_size",
+                        aggregation=ExplicitBucketHistogramAggregation(OBJECT_SIZE_HISTOGRAM_BUCKETS),
+                    ),
                 ]
                 meter_provider = MeterProvider(resource=_RESOURCE, metric_readers=[metric_reader], views=custom_views)
                 metrics.set_meter_provider(meter_provider)

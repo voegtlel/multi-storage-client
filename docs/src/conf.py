@@ -4,7 +4,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 #
 
-from sphinx_pyproject import SphinxConfig
 
 # Disabled due to https://github.com/sphinx-toolbox/sphinx-pyproject/issues/59.
 #

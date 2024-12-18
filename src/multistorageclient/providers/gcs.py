@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 import io
 import os
 import tempfile
@@ -27,7 +28,7 @@ from ..types import CredentialsProvider, ObjectMetadata, Range
 from ..utils import split_path
 from .base import BaseStorageProvider
 
-PROVIDER = 'gcs'
+PROVIDER = "gcs"
 
 
 class GoogleStorageProvider(BaseStorageProvider):
@@ -35,8 +36,9 @@ class GoogleStorageProvider(BaseStorageProvider):
     A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Google Cloud Storage.
     """
 
-    def __init__(self, project_id: str, base_path: str = "",
-                 credentials_provider: Optional[CredentialsProvider] = None):
+    def __init__(
+        self, project_id: str, base_path: str = "", credentials_provider: Optional[CredentialsProvider] = None
+    ):
         """
         Initializes the :py:class:`GoogleStorageProvider` with the project ID and optional credentials provider.
 
@@ -68,8 +70,15 @@ class GoogleStorageProvider(BaseStorageProvider):
                 self._credentials_provider.refresh_credentials()
                 self._gcs_client = self._create_gcs_client()
 
-    def _collect_metrics(self, func: Callable, operation: str, bucket: str, key: str,
-                         put_object_size: Optional[int] = None, get_object_size: Optional[int] = None) -> Any:
+    def _collect_metrics(
+        self,
+        func: Callable,
+        operation: str,
+        bucket: str,
+        key: str,
+        put_object_size: Optional[int] = None,
+        get_object_size: Optional[int] = None,
+    ) -> Any:
         """
         Collects and records performance metrics around GCS operations such as PUT, GET, DELETE, etc.
 
@@ -102,25 +111,19 @@ class GoogleStorageProvider(BaseStorageProvider):
             return result
         except NotFound:
             status_code = 404
-            raise FileNotFoundError(f'Object {bucket}/{key} does not exist.')   # pylint: disable=raise-missing-from
+            raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
         except Exception as error:
             status_code = -1
             raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time,
-                provider=PROVIDER,
-                operation=operation,
-                bucket=bucket,
-                status_code=status_code)
+                elapsed_time, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+            )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size,
-                    provider=PROVIDER,
-                    operation=operation,
-                    bucket=bucket,
-                    status_code=status_code)
+                    object_size, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+                )
 
     def _put_object(self, path: str, body: bytes) -> None:
         bucket, key = split_path(path)
@@ -130,18 +133,20 @@ class GoogleStorageProvider(BaseStorageProvider):
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
             blob.upload_from_string(body)
+
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
-        def _invoke_api() -> None:
+        def _invoke_api() -> bytes:
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
             if byte_range:
                 return blob.download_as_bytes(start=byte_range.offset, end=byte_range.offset + byte_range.size - 1)
             return blob.download_as_bytes()
+
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
     def _delete_object(self, path: str) -> None:
@@ -152,6 +157,7 @@ class GoogleStorageProvider(BaseStorageProvider):
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
             blob.delete()
+
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
     def _get_object_metadata(self, path: str) -> ObjectMetadata:
@@ -165,15 +171,17 @@ class GoogleStorageProvider(BaseStorageProvider):
                 raise NotFound(f"Blob {key} not found in bucket {bucket}")
             return ObjectMetadata(
                 key=path,
-                content_length=blob.size,
+                content_length=blob.size or 0,
                 content_type=blob.content_type,
-                last_modified=blob.updated,
+                last_modified=blob.updated or datetime.min,
                 etag=blob.etag,
             )
+
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
 
-    def _list_objects(self, prefix: str, start_after: Optional[str] = None,
-                      end_at: Optional[str] = None) -> Iterator[ObjectMetadata]:
+    def _list_objects(
+        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+    ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
         self._refresh_gcs_client_if_needed()
 
@@ -182,7 +190,7 @@ class GoogleStorageProvider(BaseStorageProvider):
             blobs = bucket_obj.list_blobs(
                 prefix=prefix,
                 # This is ≥ instead of >.
-                start_offset=start_after
+                start_offset=start_after,
             )
             # GCS guarantees lexicographical order.
             for blob in blobs:
@@ -193,7 +201,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                         content_length=blob.size,
                         content_type=blob.content_type,
                         last_modified=blob.updated,
-                        etag=blob.etag
+                        etag=blob.etag,
                     )
                 elif start_after != key:
                     return
@@ -211,6 +219,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
                 blob.upload_from_filename(f)
+
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
         else:
             f.seek(0, io.SEEK_END)
@@ -221,12 +230,10 @@ class GoogleStorageProvider(BaseStorageProvider):
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
                 blob.upload_from_string(f.read())
+
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
 
-    def _download_file(self,
-                       remote_path: str,
-                       f: Union[str, IO],
-                       metadata: Optional[ObjectMetadata] = None) -> None:
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
         self._refresh_gcs_client_if_needed()
 
         if not metadata:
@@ -241,14 +248,16 @@ class GoogleStorageProvider(BaseStorageProvider):
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
 
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix='.') as fp:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     blob.download_to_filename(temp_file_path)
                 os.rename(src=temp_file_path, dst=f)
 
-            return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket,
-                                         key=key, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
+            )
         else:
+
             def _invoke_api() -> None:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
@@ -258,5 +267,6 @@ class GoogleStorageProvider(BaseStorageProvider):
                 else:
                     blob.download_to_file(f)
 
-            return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket,
-                                         key=key, get_object_size=metadata.content_length)
+            return self._collect_metrics(
+                _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
+            )

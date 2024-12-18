@@ -40,25 +40,15 @@ To bypass it we use pytest.mark.forked to create forked processes for each test 
 def test_default_config() -> None:
     multistorageclient.instrumentation._IS_SETUP_DONE = False
 
-    _ = StorageClientConfig.from_dict({
-        "profiles": {
-            "default": {
-                "storage_provider": {
-                    "type": "file",
-                    "options": {
-                        "base_path": "/"
-                    }
-                }
-            }
-        },
-        "opentelemetry": {
-            "traces": {},
-            "metrics": {}
+    _ = StorageClientConfig.from_dict(
+        {
+            "profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}},
+            "opentelemetry": {"traces": {}, "metrics": {}},
         }
-    })
+    )
 
     # trace
-    tracer_provider: TracerProvider = trace.get_tracer_provider()
+    tracer_provider: TracerProvider = trace.get_tracer_provider()  # pyright: ignore [reportAssignmentType]
     assert tracer_provider.sampler == DEFAULT_ON
     assert len(tracer_provider._active_span_processor._span_processors) == 1
 
@@ -67,7 +57,7 @@ def test_default_config() -> None:
     assert isinstance(span_processor.span_exporter, ConsoleSpanExporter)
 
     # metrics
-    meter_provider: MeterProvider = metrics.get_meter_provider()
+    meter_provider: MeterProvider = metrics.get_meter_provider()  # pyright: ignore [reportAssignmentType]
     assert len(meter_provider._all_metric_readers) == 1
 
     reader = next(iter(meter_provider._all_metric_readers))
@@ -79,26 +69,19 @@ def test_default_config() -> None:
 def test_invalid_config() -> None:
     multistorageclient.instrumentation._IS_SETUP_DONE = False
 
-    _ = StorageClientConfig.from_dict({
-        "profiles": {
-            "default": {
-                "storage_provider": {
-                    "type": "file",
-                    "options": {
-                        "base_path": "/"
-                    }
-                }
-            }
-        },
-        "opentelemetry": {}
-    })
+    _ = StorageClientConfig.from_dict(
+        {
+            "profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}},
+            "opentelemetry": {},
+        }
+    )
 
     # trace
-    tracer_provider: TracerProvider = trace.get_tracer_provider()
+    tracer_provider: TracerProvider = trace.get_tracer_provider()  # pyright: ignore [reportAssignmentType]
     assert isinstance(tracer_provider, ProxyTracerProvider)
 
     # metrics
-    meter_provider: MeterProvider = metrics.get_meter_provider()
+    meter_provider: MeterProvider = metrics.get_meter_provider()  # pyright: ignore [reportAssignmentType]
     assert isinstance(meter_provider, _ProxyMeterProvider)
 
 
@@ -110,44 +93,20 @@ def test_otlp_config() -> None:
     metrics_endpoint = "localhost:4718/metrics"
 
     config_dict = {
-        "profiles": {
-            "default": {
-                "storage_provider": {
-                    "type": "file",
-                    "options": {
-                        "base_path": "/"
-                    }
-                }
-            }
-        },
+        "profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}},
         "opentelemetry": {
             "traces": {
-                "exporter": {
-                    "type": "otlp",
-                    "options": {
-                        "endpoint": f"{trace_endpoint}"
-                    }
-                },
-                "sampler": {
-                    "type": "ALWAYS_OFF",
-                    "options": {}
-                }
+                "exporter": {"type": "otlp", "options": {"endpoint": f"{trace_endpoint}"}},
+                "sampler": {"type": "ALWAYS_OFF", "options": {}},
             },
-            "metrics": {
-                "exporter": {
-                    "type": "otlp",
-                    "options": {
-                        "endpoint": f"{metrics_endpoint}"
-                    }
-                }
-            }
-        }
+            "metrics": {"exporter": {"type": "otlp", "options": {"endpoint": f"{metrics_endpoint}"}}},
+        },
     }
 
     _ = StorageClientConfig.from_dict(config_dict)
 
     # trace
-    tracer_provider: TracerProvider = trace.get_tracer_provider()
+    tracer_provider: TracerProvider = trace.get_tracer_provider()  # pyright: ignore [reportAssignmentType]
     assert tracer_provider.sampler == ALWAYS_OFF
     assert len(tracer_provider._active_span_processor._span_processors) == 1
 
@@ -159,7 +118,7 @@ def test_otlp_config() -> None:
     assert exporter._endpoint == trace_endpoint
 
     # metrics
-    meter_provider: MeterProvider = metrics.get_meter_provider()
+    meter_provider: MeterProvider = metrics.get_meter_provider()  # pyright: ignore [reportAssignmentType]
     assert len(meter_provider._all_metric_readers) == 1
 
     reader = next(iter(meter_provider._all_metric_readers))
