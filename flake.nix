@@ -1,7 +1,7 @@
 #
 # Nix flake.
 #
-# https://nix.dev/manual/nix/stable/command-ref/new-cli/nix3-flake.html#flake-format
+# https://nix.dev/manual/nix/stable/command-ref/new-cli/nix3-flake#flake-format
 # https://wiki.nixos.org/wiki/Flakes#Flake_schema
 #
 {

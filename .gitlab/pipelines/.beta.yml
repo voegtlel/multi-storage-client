@@ -36,9 +36,6 @@ variables:
 Run E2E Tests:
   extends:
     - .default
-  # Use a special Docker-outside-of-Docker runner (needed for the AIStore container).
-  tags:
-    - aistore
   parallel:
     matrix:
       # Excluding until we decide what to do with str.removeprefix() requiring Python 3.9+.

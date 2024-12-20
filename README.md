@@ -67,9 +67,6 @@ Key:
 │   # GitLab pipeline entrypoint.
 ├── .gitlab-ci.yml
 │
-│   # Integration test containers.
-├── docker-compose.yml
-│
 │   # Reproducible shell configuration.
 ├── flake.nix
 ├── flake.lock 🤖
