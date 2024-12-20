@@ -309,6 +309,8 @@ fsspec
 This module provides the :py:class:`multistorageclient.contrib.async_fs.MultiAsyncFileSystem` class which
 implements fsspec's ``AsyncFileSystem`` class.
 
+Note: The ``msc://`` protocol is automatically registered with fsspec when ``pip install multi-storage-client``.
+
 .. code-block:: python
    :linenos:
 
@@ -379,8 +381,18 @@ This module provides ``open_zarr`` for reading Xarray datasets from Zarr files/o
 
    import multistorageclient as msc
 
-   # Create a client for the default profile and load a Zarr group file/object into an Xarray dataset.
-   xarray_dataset = msc.xz.open_zarr("msc://default/zarr-group/")
+   # Create a client for the default profile and load a Zarr array into an Xarray dataset.
+   xarray_dataset = msc.xz.open_zarr("msc://default/abc.zarr")
+
+Note: ``Xarray`` supports fsspec URLs natively, so you can use Xarray standard interface with ``msc://`` URLs.
+
+.. code-block:: python
+   :linenos:
+
+   import xarray
+
+   # Use Xarray native interface to load a Zarr array into an Xarray dataset.
+   xarray_dataset = xarray.open_zarr("msc://default/abc.zarr")
 
 Zarr
 ^^^^
@@ -394,5 +406,15 @@ This module provides ``open_consolidated`` for reading Zarr groups from files/ob
 
    import multistorageclient as msc
 
-   # Create a client for the default profile and load a Zarr group file/object.
-   zarr_group = msc.zarr.open_consolidated("msc://default/zarr-group/")
+   # Create a client for the default profile and load a Zarr array.
+   z = msc.zarr.open_consolidated("msc://default/abc.zarr")
+
+Note: ``Zarr`` supports fsspec URLs natively, so you can use Zarr standard interface with ``msc://`` URLs.
+
+.. code-block:: python
+   :linenos:
+
+   import zarr
+
+   # Use Zarr native interface to load a Zarr array.
+   z = zarr.open("msc://default/abc.zarr")
