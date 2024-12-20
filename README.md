@@ -4,7 +4,7 @@ The Multi-Storage Client (MSC) is a unified high-performance Python client for o
 
 It provides a generic interface to interact with objects and files across various storage services. This lets you spend less time learning each storage service's unique interface and lets you change where data is stored without having to change how your code accesses it.
 
-See the [documentation](https://nvidia.github.io/multi-storage-client) to get started.
+See the [documentation](https://nvidia.github.io/multi-storage-client/) to get started.
 
 ## Layout
 
@@ -57,7 +57,7 @@ Key:
 │   │   └── ...
 │   │
 │   │   # Integration tests.
-│   ├── integration/
+│   ├── integ/
 │   │   └── ...
 │   │
 │   │   # End-to-end (E2E) tests.
