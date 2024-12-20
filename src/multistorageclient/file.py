@@ -34,7 +34,9 @@ from .instrumentation.utils import (
 )
 from .types import MetadataProvider, ObjectMetadata, Range, StorageProvider
 
-LARGE_FILE_SIZE_THRESHOLD = 512 * 1024 * 1024  # 512MB
+# Threshold for file size to decide download behavior (512MB) when local cache is not enabled.
+# If a file's size exceeds this threshold, the file is not downloaded to memory.
+IN_MEMORY_FILE_SIZE_THRESHOLD = 512 * 1024 * 1024  # 512MB
 
 logger = logging.Logger(__name__)
 
@@ -229,10 +231,10 @@ class ObjectFile(IO):
                 self._download_thread = threading.Thread(target=self._download_file)
                 self._download_thread.start()
             else:
-                # Write
+                # Write or append
                 self._create_fileobj()
         else:
-            # Use BytesIO as the fileobj
+            # Use BytesIO or StringIO as the fileobj
             if self._mode in ("r", "rb"):
                 # Read
                 self._object_metadata = self._get_object_metadata()
@@ -240,7 +242,7 @@ class ObjectFile(IO):
                 self._download_thread = threading.Thread(target=self._download_fileobj)
                 self._download_thread.start()
             else:
-                # Write
+                # Write or append
                 self._create_fileobj()
 
     def _get_object_metadata(self) -> ObjectMetadata:
@@ -264,6 +266,15 @@ class ObjectFile(IO):
         """
         if not self._cache_manager:
             raise ValueError(f"Cannot download file {self._remote_path}, cache is not configured.")
+
+        # Check if the file can be put into the cache
+        if self._object_metadata.content_length >= self._cache_manager.get_max_cache_size():
+            logging.warning(
+                f'The object "{self._remote_path}" is not cached because the file size ({self._object_metadata.content_length}) '
+                f"exceeds the cache size ({self._cache_manager.get_max_cache_size()}). Please increase the cache size "
+                f"in the config file to cache the file."
+            )
+            return self._open_large_file()
 
         try:
             if self._cache_manager.use_etag():
@@ -317,24 +328,32 @@ class ObjectFile(IO):
         """
         file_size = self._object_metadata.content_length
 
-        if file_size <= LARGE_FILE_SIZE_THRESHOLD:
+        if file_size > IN_MEMORY_FILE_SIZE_THRESHOLD:
+            return self._open_large_file()
+
+        try:
             self._create_fileobj()
-            try:
-                self._storage_provider.download_file(self._remote_path, self._file)
-                self._file.seek(0)
-            except Exception as e:
-                raise IOError(f"Failed to download file {self._remote_path}") from e
-            finally:
-                self._download_complete.set()
-        else:
-            # Only support binary mode in reading large files
-            if self._mode == "r":
-                raise ValueError(
-                    f"Failed to open large file {self._remote_path} in text mode; "
-                    f'use mode "rb" to open files larger than {LARGE_FILE_SIZE_THRESHOLD}.'
-                )
-            self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
+            self._storage_provider.download_file(self._remote_path, self._file)
+            self._file.seek(0)
+        except Exception as e:
+            raise IOError(f"Failed to download file {self._remote_path}") from e
+        finally:
             self._download_complete.set()
+
+    def _open_large_file(self) -> None:
+        """
+        Use RemoteFileReader to open the file without keeping the data in memory.
+        """
+        file_size = self._object_metadata.content_length
+
+        # Only support binary mode in reading large files
+        if self._mode == "r":
+            raise ValueError(
+                f"Failed to open large file {self._remote_path} in text mode; "
+                f'use mode "rb" to open files larger than {IN_MEMORY_FILE_SIZE_THRESHOLD}.'
+            )
+        self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
+        self._download_complete.set()
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
@@ -456,14 +475,14 @@ class ObjectFile(IO):
             temp_file_path = self._get_temp_file_path()
             try:
                 self._storage_provider.download_file(self._remote_path, temp_file_path)
-                if os.path.getsize(temp_file_path) > LARGE_FILE_SIZE_THRESHOLD:
+                if os.path.getsize(temp_file_path) > IN_MEMORY_FILE_SIZE_THRESHOLD:
                     logger.warning(
                         "The append mode ('a' or 'ab') is not suitable for appending to large files. "
                         "The file at '%s' exceeds the recommended size threshold "
                         "(%d bytes). This operation will result in poor performance "
                         "due to the need to download and re-upload the entire file.",
                         self._remote_path,
-                        LARGE_FILE_SIZE_THRESHOLD,
+                        IN_MEMORY_FILE_SIZE_THRESHOLD,
                     )
             except FileNotFoundError:
                 pass

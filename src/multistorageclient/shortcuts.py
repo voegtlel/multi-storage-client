@@ -15,7 +15,7 @@
 
 import threading
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 from urllib.parse import urlparse
 
 from .client import StorageClient
@@ -75,7 +75,7 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     return client, path
 
 
-def open(url: str, mode: str = "rb") -> Union[PosixFile, ObjectFile]:
+def open(url: str, mode: str = "rb", **kwargs: Any) -> Union[PosixFile, ObjectFile]:
     """
     Open a file at the given URL using the specified mode.
 
@@ -90,7 +90,7 @@ def open(url: str, mode: str = "rb") -> Union[PosixFile, ObjectFile]:
     :raises ValueError: If the URL's protocol does not match the expected protocol ``msc``.
     """
     client, path = resolve_storage_client(url)
-    return client.open(path, mode)
+    return client.open(path, mode, **kwargs)
 
 
 def glob(pattern: str) -> List[str]:

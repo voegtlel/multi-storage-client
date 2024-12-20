@@ -18,11 +18,11 @@ from typing import Any, Dict, Iterator, List, Optional, Union
 
 from .config import StorageClientConfig
 from .file import ObjectFile, PosixFile
+from .instrumentation.utils import instrumented
 from .providers.posix_file import PosixFileStorageProvider
 from .retry import retry
 from .types import MSC_PROTOCOL, ObjectMetadata, Range
 from .utils import join_paths
-from .instrumentation.utils import instrumented
 
 
 @instrumented
@@ -233,14 +233,18 @@ class StorageClient:
         else:
             return self._storage_provider.list_objects(prefix, start_after, end_at)
 
-    def open(self, path: str, mode: str = "rb") -> Union[PosixFile, ObjectFile]:
+    def open(
+        self, path: str, mode: str = "rb", encoding: Optional[str] = None, disable_read_cache: bool = False
+    ) -> Union[PosixFile, ObjectFile]:
         """
         Returns a file-like object from the storage provider at the specified path.
 
         :param path: The path of the object to read.
-        :param mode: The file mode.
+        :param mode: The file mode, only "w", "r", "a", "wb", "rb" and "ab" are supported.
+        :param encoding: The encoding to use for text files.
+        :param disable_read_cache: When set to True, disables caching for the file content. This parameter is only applicable when the mode is "r" or "rb".
 
-        :return: A file-like object.
+        :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
@@ -251,9 +255,19 @@ class StorageClient:
 
         if self._is_posix_file_storage_provider():
             realpath = self._storage_provider._realpath(path)  # type: ignore
-            return PosixFile(path=realpath, mode=mode)
+            return PosixFile(path=realpath, mode=mode, encoding=encoding)
         else:
-            return ObjectFile(self._storage_provider, remote_path=path, mode=mode, cache_manager=self._cache_manager)
+            cache_manager = self._cache_manager
+            if disable_read_cache:
+                cache_manager = None
+            return ObjectFile(
+                self._storage_provider,
+                remote_path=path,
+                mode=mode,
+                encoding=encoding,
+                cache_manager=cache_manager,
+                metadata_provider=self._metadata_provider,
+            )
 
     def is_file(self, path: str) -> bool:
         """

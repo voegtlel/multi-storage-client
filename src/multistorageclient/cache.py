@@ -123,6 +123,12 @@ class CacheManager:
         """
         return self._cache_config.use_etag
 
+    def get_max_cache_size(self) -> int:
+        """
+        Return the cache size in bytes from the cache config.
+        """
+        return self._max_cache_size
+
     def get_cache_dir(self) -> str:
         """
         Return the path to the local cache directory.

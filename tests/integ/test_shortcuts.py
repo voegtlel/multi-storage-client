@@ -18,9 +18,9 @@ import mmap
 import os
 import tempfile
 
-import numpy as np
-
 import multistorageclient as msc
+import numpy as np
+from multistorageclient.file import ObjectFile
 
 MB = 1024 * 1024
 
@@ -65,6 +65,11 @@ def verify_shortcuts():
         with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
             content = mm[:]
             assert content == body
+
+    # open file without cache
+    with msc.open(f"msc://s3-iad/{prefix}/data-2.bin", disable_read_cache=True) as fp:
+        assert isinstance(fp, ObjectFile)
+        assert fp._cache_manager is None
 
 
 def test_s3_local():
