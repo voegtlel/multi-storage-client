@@ -49,7 +49,7 @@ Build Package:
       "
   artifacts:
     paths:
-      - dist
+      - dist/
 
 Build Documentation:
   extends:
@@ -61,7 +61,8 @@ Build Documentation:
       "
   artifacts:
     paths:
-      - docs/dist
+      - docs/dist/
+    expose_as: Documentation
 
 Run Integration Tests:
   extends:

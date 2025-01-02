@@ -7,17 +7,6 @@
 stages:
   - Pipeline
 
-default:
-  # This is a very minimal Linux with just Nix. It's not NixOS.
-  image: nixos/nix:latest
-
-variables:
-  # So we don't have to do `nix --experimental-features "nix-command flakes"` every time.
-  #
-  # https://nixos.org/manual/nix/stable/command-ref/env-common#env-NIX_CONFIG
-  NIX_CONFIG: |
-    experimental-features = nix-command flakes
-
 #
 # Jobs.
 #
@@ -26,22 +15,30 @@ variables:
 .default:
   stage: Pipeline
 
-Source:
+.child:
   extends:
     - .default
   trigger:
-    include: .gitlab/pipelines/.source.yml
+    forward:
+      pipeline_variables: false
+      yaml_variables: false
     strategy: depend
+
+Source:
+  extends:
+    - .child
+  trigger:
+    include: .gitlab/pipelines/.source.yml
   interruptible: true
 
 Beta:
   extends:
-    - .default
+    - .child
   needs:
     - Source
   rules:
     # Default branch push.
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     # Tag push.
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != null
   resource_group: Beta
@@ -50,11 +47,10 @@ Beta:
     action: start
   trigger:
     include: .gitlab/pipelines/.beta.yml
-    strategy: depend
 
 Production:
   extends:
-    - .default
+    - .child
   needs:
     - Beta
   rules:
@@ -66,4 +62,3 @@ Production:
     action: start
   trigger:
     include: .gitlab/pipelines/.production.yml
-    strategy: depend
