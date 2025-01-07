@@ -50,9 +50,9 @@ def test_xarray_open_zarr(sample_zarr_data, file_storage_config):
     zarr_paths = [sample_zarr_data, f"{MSC_PROTOCOL}default{sample_zarr_data}/"]
     for path in zarr_paths:
         if path.startswith(MSC_PROTOCOL):
-            xr_dataset = msc.xr.open_zarr(path, msc_max_workers=4)
+            xr_dataset = msc.xarray.open_zarr(path, msc_max_workers=4)
         else:
-            xr_dataset = msc.xr.open_zarr(path)
+            xr_dataset = msc.xarray.open_zarr(path)
         assert "array1" in xr_dataset
         assert "array2" in xr_dataset
         array1 = xr_dataset["array1"]

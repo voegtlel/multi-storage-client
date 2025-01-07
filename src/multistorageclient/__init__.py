@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
-import sys
-
-from types import ModuleType
+import importlib
 
 from .cache import CacheConfig
 from .client import StorageClient, StorageClientConfig
@@ -46,26 +43,9 @@ __all__ = [
 ]
 
 
-def lazy_import(name: str) -> ModuleType:
-    spec = importlib.util.find_spec(name)
-    if spec is None:
-        raise ImportError(f"Module {name} not found")
-    if spec.loader is None:
-        raise ImportError(f"Loader for module {name} not found")
-    loader = importlib.util.LazyLoader(spec.loader)
-    spec.loader = loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    loader.exec_module(module)
-    return module
-
-
-# lazy import for optional dependencies
-# full path is needed, relative imports doesn't work here
-numpy = lazy_import(f"{__package__}.contrib.numpy")
-pickle = lazy_import(f"{__package__}.contrib.pickle")
-os = lazy_import(f"{__package__}.contrib.os")
-zarr = lazy_import(f"{__package__}.contrib.zarr")
-async_fs = lazy_import(f"{__package__}.contrib.async_fs")
-xr = lazy_import(f"{__package__}.contrib.xarray")
-torch = lazy_import(f"{__package__}.contrib.torch")
+def __getattr__(name: str):
+    if name in ["numpy", "pickle", "os", "zarr", "async_fs", "xarray", "torch"]:
+        module = importlib.import_module(f"{__package__}.contrib.{name}")
+        globals()[name] = module  # Cache for subsequent access
+        return module
+    raise AttributeError(f"module {__name__} has no attribute {name}")
