@@ -39,7 +39,7 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
         for file_path in test_file_list:
             await filesystem._pipe_file(file_path, b"test content")
         listed_files = await filesystem._ls(test_dir_path)
-        expected_file_list = sorted([f"file{i}.txt" for i in range(3)])
+        expected_file_list = sorted([f"{dir_path}file{i}.txt".lstrip("/") for i in range(3)])
         assert (
             sorted(f["name"] for f in listed_files) == expected_file_list
         ), f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
@@ -69,6 +69,11 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
         await filesystem._rm(test_path)
         with pytest.raises(FileNotFoundError):
             await filesystem._cat_file(test_path)
+
+        # test _rm on a directory with recursive=True
+        await filesystem._rm(test_dir_path, recursive=True)
+        test_dir_ls = await filesystem._ls(test_dir_path)
+        assert len(test_dir_ls) == 0
 
         # test _put_file
         local_file_path = os.path.join(dirname, "local_test_file.txt")

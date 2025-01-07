@@ -57,9 +57,11 @@ def verify_list_segment(config: StorageClientConfig, prefix: str) -> None:
 
     # Range over the files.
     for i in range(1, 4):
-        assert {f"{i}.txt"} == {
+        assert {os.path.join(prefix, f"{i}.txt")} == {
             object_metadatum.key
-            for object_metadatum in storage_client.list(prefix=prefix, start_after=f"{i - 1}.txt", end_at=f"{i}.txt")
+            for object_metadatum in storage_client.list(
+                prefix=prefix, start_after=os.path.join(prefix, f"{i-1}.txt"), end_at=os.path.join(prefix, f"{i}.txt")
+            )
         }
 
 

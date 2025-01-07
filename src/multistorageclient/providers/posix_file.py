@@ -144,11 +144,8 @@ class PosixFileStorageProvider(BaseStorageProvider):
                 # This is in reverse lexicographical order on some systems for some reason.
                 for name in sorted(files):
                     full_path = os.path.join(root, name)
-                    # TODO: Change from relative to prefix → relative to base path.
-                    #
-                    # Otherwise this can't be passed directly to single object operations
-                    # (e.g. info, read, write, delete).
-                    relative_path = os.path.relpath(full_path, prefix)
+                    # Changed the relative path from relative to prefix → relative to base path.
+                    relative_path = os.path.relpath(full_path, self._base_path)
                     if (start_after is None or start_after < relative_path) and (
                         end_at is None or relative_path <= end_at
                     ):

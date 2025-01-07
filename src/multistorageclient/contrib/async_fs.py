@@ -176,19 +176,19 @@ class MultiAsyncFileSystem(AsyncFileSystem):
 
         :raises IsADirectoryError: If the path is a directory and recursive is not set to True.
         """
-        storage_client, path = self.resolve_path_and_storage_client(path)
+        storage_client, file_path = self.resolve_path_and_storage_client(path)
         if recursive:
-            if not storage_client.is_file(path):
-                files = [object.key for object in storage_client.list(path)]
-                for file_path in files:
-                    self.rm(file_path, recursive=True)
-                storage_client.delete(path)
+            if not storage_client.is_file(file_path):
+                sub_files = [object.key for object in storage_client.list(file_path, include_url_prefix=True)]
+                for sub_file_path in sub_files:
+                    self.rm(sub_file_path, recursive=True)
+                storage_client.delete(file_path)
             else:
-                storage_client.delete(path)
+                storage_client.delete(file_path)
         else:
-            if not storage_client.is_file(path):
-                raise IsADirectoryError(f"'{path}' is a directory. Use recursive=True to remove directories.")
-            storage_client.delete(path)
+            if not storage_client.is_file(file_path):
+                raise IsADirectoryError(f"'{file_path}' is a directory. Use recursive=True to remove directories.")
+            storage_client.delete(file_path)
 
     async def _rm(self, path: str, recursive: bool = False, **kwargs: Any) -> None:
         """

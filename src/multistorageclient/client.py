@@ -217,7 +217,11 @@ class StorageClient:
         return results
 
     def list(
-        self, prefix: str = "", start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str = "",
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_url_prefix: bool = False,
     ) -> Iterator[ObjectMetadata]:
         """
         Lists objects in the storage provider under the specified prefix.
@@ -225,13 +229,19 @@ class StorageClient:
         :param prefix: The prefix to list objects under.
         :param start_after: The key to start after (i.e. exclusive). An object with this key doesn't have to exist.
         :param end_at: The key to end at (i.e. inclusive). An object with this key doesn't have to exist.
+        :param include_url_prefix: Whether to include the URL prefix ``msc://profile`` in the result.
 
         :return: An iterator over objects.
         """
         if self._metadata_provider:
-            return self._metadata_provider.list_objects(prefix, start_after, end_at)
+            objects = self._metadata_provider.list_objects(prefix, start_after, end_at)
         else:
-            return self._storage_provider.list_objects(prefix, start_after, end_at)
+            objects = self._storage_provider.list_objects(prefix, start_after, end_at)
+
+        for object in objects:
+            if include_url_prefix:
+                object.key = join_paths(f"{MSC_PROTOCOL}{self._config.profile}", object.key)
+            yield object
 
     def open(
         self, path: str, mode: str = "rb", encoding: Optional[str] = None, disable_read_cache: bool = False
