@@ -212,6 +212,9 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
+        raise AttributeError("AIStore does not support copy operations")
+
     def _delete_object(self, path: str) -> None:
         bucket, key = split_path(path)
 

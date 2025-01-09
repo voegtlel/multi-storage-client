@@ -19,7 +19,7 @@ import tempfile
 from typing import Set
 
 from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.providers import S3StorageProvider
+from multistorageclient.providers import S3StorageProvider, AIStoreStorageProvider
 
 MB = 1024 * 1024
 
@@ -39,6 +39,7 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
     # write file
     dirname = f"{prefix}/testdir/"
     filename = f"{dirname}testfile.bin"
+    destination_filename = f"{dirname}destination_testfile.bin"
     storage_client.write(filename, body)
     assert len(list(storage_client.list(f"{prefix}"))) == 1
 
@@ -98,6 +99,12 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         content = fp.read()
         assert content == body
         assert isinstance(content, bytes)
+
+    # copy file
+    if config.storage_provider is not AIStoreStorageProvider:
+        storage_client.copy(filename, destination_filename)
+        assert storage_client.read(destination_filename) == body
+        storage_client.delete(destination_filename)
 
     # delete file
     storage_client.delete(filename)

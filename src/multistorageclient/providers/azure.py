@@ -183,6 +183,26 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", container=container_name, blob=blob_name)
 
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
+        src_container, src_blob = split_path(src_path)
+        dest_container, dest_blob = split_path(dest_path)
+        self._refresh_blob_service_client_if_needed()
+
+        def _invoke_api() -> None:
+            src_blob_client = self._blob_service_client.get_blob_client(container=src_container, blob=src_blob)
+            dest_blob_client = self._blob_service_client.get_blob_client(container=dest_container, blob=dest_blob)
+            dest_blob_client.start_copy_from_url(src_blob_client.url)
+
+        src_object = self._get_object_metadata(src_path)
+
+        return self._collect_metrics(
+            _invoke_api,
+            operation="COPY",
+            container=src_container,
+            blob=src_blob,
+            put_object_size=src_object.content_length,
+        )
+
     def _delete_object(self, path: str) -> None:
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()

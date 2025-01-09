@@ -176,6 +176,26 @@ class StorageClient:
             metadata = self._storage_provider.get_object_metadata(path)
             self._metadata_provider.add_file(path, metadata)
 
+    def copy(self, src_path: str, dest_path: str) -> None:
+        """
+        Copies an object from source to destination in the storage provider.
+
+        :param src_path: The path of the source object to copy.
+        :param dest_path: The path of the destination.
+        """
+        if self._metadata_provider:
+            dest_path, exists = self._metadata_provider.realpath(dest_path)
+            if exists:
+                raise FileExistsError(
+                    f"The file at path '{dest_path}' already exists; "
+                    f"overwriting is not yet allowed when using a metadata provider."
+                )
+
+        self._storage_provider.copy_object(src_path, dest_path)
+        if self._metadata_provider:
+            metadata = self._storage_provider.get_object_metadata(dest_path)
+            self._metadata_provider.add_file(dest_path, metadata)
+
     def delete(self, path: str) -> None:
         """
         Deletes an object from the storage provider at the specified path.

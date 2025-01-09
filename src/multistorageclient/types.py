@@ -164,6 +164,16 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
+    def copy_object(self, src_path: str, dest_path: str) -> None:
+        """
+        Copies an object from source to destination in the storage provider.
+
+        :param src_path: The path of the source object to copy.
+        :param dest_path: The path of the destination.
+        """
+        pass
+    
+    @abstractmethod
     def delete_object(self, path: str) -> None:
         """
         Deletes an object from the storage provider.

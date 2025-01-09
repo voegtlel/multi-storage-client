@@ -57,6 +57,11 @@ class BaseStorageProvider(StorageProvider):
         path = self._realpath(path)
         return self._get_object(path, byte_range)
 
+    def copy_object(self, src_path: str, dest_path: str) -> None:
+        src_path = self._realpath(src_path)
+        dest_path = self._realpath(dest_path)
+        return self._copy_object(src_path, dest_path)
+
     def delete_object(self, path: str) -> None:
         path = self._realpath(path)
         return self._delete_object(path)
@@ -107,6 +112,10 @@ class BaseStorageProvider(StorageProvider):
 
     @abstractmethod
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
+        pass
+
+    @abstractmethod
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
         pass
 
     @abstractmethod

@@ -149,6 +149,28 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
+        src_bucket, src_key = split_path(src_path)
+        dest_bucket, dest_key = split_path(dest_path)
+        self._refresh_gcs_client_if_needed()
+
+        def _invoke_api() -> None:
+            source_bucket_obj = self._gcs_client.bucket(src_bucket)
+            source_blob = source_bucket_obj.blob(src_key)
+
+            destination_bucket_obj = self._gcs_client.bucket(dest_bucket)
+            source_bucket_obj.copy_blob(source_blob, destination_bucket_obj, dest_key)
+
+        src_object = self._get_object_metadata(src_path)
+
+        return self._collect_metrics(
+            _invoke_api,
+            operation="COPY",
+            bucket=src_bucket,
+            key=src_key,
+            put_object_size=src_object.content_length,
+        )
+
     def _delete_object(self, path: str) -> None:
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()

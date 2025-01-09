@@ -261,6 +261,25 @@ class S3StorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
+        src_bucket, src_key = split_path(src_path)
+        dest_bucket, dest_key = split_path(dest_path)
+
+        def _invoke_api() -> None:
+            self._s3_client.copy_object(
+                CopySource={"Bucket": src_bucket, "Key": src_key}, Bucket=dest_bucket, Key=dest_key
+            )
+
+        src_object = self._get_object_metadata(src_path)
+
+        return self._collect_metrics(
+            _invoke_api,
+            operation="COPY",
+            bucket=dest_bucket,
+            key=dest_key,
+            put_object_size=src_object.content_length,
+        )
+
     def _delete_object(self, path: str) -> None:
         bucket, key = split_path(path)
 

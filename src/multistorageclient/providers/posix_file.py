@@ -113,6 +113,20 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", path=path)
 
+    def _copy_object(self, src_path: str, dest_path: str) -> None:
+        def _invoke_api() -> None:
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            shutil.copyfile(src_path, dest_path)
+
+        src_object = self._get_object_metadata(src_path)
+
+        return self._collect_metrics(
+            _invoke_api,
+            operation="COPY",
+            path=src_path,
+            put_object_size=src_object.content_length,
+        )
+
     def _delete_object(self, path: str) -> None:
         def _invoke_api() -> None:
             if os.path.exists(path) and os.path.isfile(path):
