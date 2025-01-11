@@ -17,10 +17,11 @@ import io
 import os
 import tempfile
 import time
+from datetime import datetime
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobPrefix, BlobServiceClient
 
 from ..types import (
     Credentials,
@@ -231,7 +232,11 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="HEAD", container=container_name, blob=blob_name)
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         container_name, prefix = split_path(prefix)
         self._refresh_blob_service_client_if_needed()
@@ -239,20 +244,31 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         def _invoke_api() -> Iterator[ObjectMetadata]:
             container_client = self._blob_service_client.get_container_client(container=container_name)
             # Azure has no start key option like other object stores.
-            blobs = container_client.list_blobs(name_starts_with=prefix)
+            if include_directories:
+                blobs = container_client.walk_blobs(name_starts_with=prefix, delimiter="/")
+            else:
+                blobs = container_client.list_blobs(name_starts_with=prefix)
             # Azure guarantees lexicographical order.
             for blob in blobs:
-                key = blob.name
-                if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
+                if isinstance(blob, BlobPrefix):
                     yield ObjectMetadata(
-                        key=key,
-                        content_length=blob.size,
-                        content_type=blob.content_settings.content_type,
-                        last_modified=blob.last_modified,
-                        etag=blob.etag.strip('"') if blob.etag else "",
+                        key=blob.name.rstrip("/"),
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
                     )
-                elif end_at is not None and end_at < key:
-                    return
+                else:
+                    key = blob.name
+                    if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
+                        yield ObjectMetadata(
+                            key=key,
+                            content_length=blob.size,
+                            content_type=blob.content_settings.content_type,
+                            last_modified=blob.last_modified,
+                            etag=blob.etag.strip('"') if blob.etag else "",
+                        )
+                    elif end_at is not None and end_at < key:
+                        return
 
         return self._collect_metrics(_invoke_api, operation="LIST", container=container_name, blob=prefix)
 

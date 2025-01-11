@@ -12,11 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import datetime
+
 import io
 import os
 import tempfile
 import time
+from datetime import datetime
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
 import boto3
@@ -311,7 +312,7 @@ class S3StorageProvider(BaseStorageProvider):
                     key=self._append_delimiter(path),
                     type="directory",
                     content_length=0,
-                    last_modified=datetime.datetime.min,
+                    last_modified=datetime.min,
                 )
             else:
                 raise FileNotFoundError(f"Directory {path} does not exist.")
@@ -340,21 +341,38 @@ class S3StorageProvider(BaseStorageProvider):
                         key=self._append_delimiter(path),
                         type="directory",
                         content_length=0,
-                        last_modified=datetime.datetime.min,
+                        last_modified=datetime.min,
                     )
                 else:
                     raise error
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
 
         def _invoke_api() -> Iterator[ObjectMetadata]:
             paginator = self._s3_client.get_paginator("list_objects_v2")
-            page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix, StartAfter=(start_after or ""))
+            if include_directories:
+                page_iterator = paginator.paginate(
+                    Bucket=bucket, Prefix=prefix, Delimiter="/", StartAfter=(start_after or "")
+                )
+            else:
+                page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix, StartAfter=(start_after or ""))
 
             for page in page_iterator:
+                for item in page.get("CommonPrefixes", []):
+                    yield ObjectMetadata(
+                        key=item["Prefix"].rstrip("/"),
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
+
                 # S3 guarantees lexicographical order for general purpose buckets (for
                 # normal S3) but not directory buckets (for S3 Express One Zone).
                 for response_object in page.get("Contents", []):

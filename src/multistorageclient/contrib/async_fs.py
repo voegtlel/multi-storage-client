@@ -12,18 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-import os
-from typing import Any, Callable, Dict, List, Tuple, Union, Optional
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from fsspec.asyn import AsyncFileSystem
 
 from ..client import StorageClient
 from ..file import ObjectFile, PosixFile
 from ..shortcuts import resolve_storage_client
-from ..types import MSC_PROTOCOL, MSC_PROTOCOL_NAME
+from ..types import MSC_PROTOCOL_NAME
 
 _global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv("MSC_MAX_WORKERS", "8")))
 
@@ -70,32 +71,6 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         loop = asyncio.get_event_loop()
         return loop.run_in_executor(_global_thread_pool, partial(func, *args, **kwargs))
 
-    def glob(self, path: str, maxdepth: Optional[int] = None, **kwargs: Any) -> List[str]:
-        """
-        Matches and retrieves a list of objects in the storage provider that
-        match the specified pattern.
-
-        :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
-        :param maxdepth: maxdepth of the pattern match
-
-        Returns:
-            A list of object paths that match the pattern.
-        """
-        storage_client, file_path = self.resolve_path_and_storage_client(path)
-        return storage_client.glob(file_path, include_url_prefix=path.startswith(MSC_PROTOCOL))
-
-    async def _glob(self, path: str, maxdepth: Optional[int] = None, **kwargs: Any) -> List[str]:
-        """
-        Asynchronously matches and retrieves a list of objects in the storage provider that
-        match the specified pattern.
-
-        :param path: The pattern to match object paths against, supporting wildcards (e.g., ``*.txt``).
-        :param maxdepth: maxdepth of the pattern match
-
-        :return: A list of object paths that match the pattern.
-        """
-        return await self.asynchronize_sync(self.glob, path, maxdepth, **kwargs)
-
     def ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[List[Dict[str, Any]], List[str]]:
         """
         Lists the contents of a directory.
@@ -107,11 +82,16 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         :return: A list of file names or detailed information depending on the 'detail' argument.
         """
         storage_client, dir_path = self.resolve_path_and_storage_client(path)
-        objects = storage_client.list(dir_path)
+
+        if dir_path and not dir_path.endswith("/"):
+            dir_path += "/"
+
+        objects = storage_client.list(dir_path, include_directories=True)
+
         if detail:
             return [
                 {
-                    "name": obj.key,
+                    "name": os.path.join(storage_client.profile, obj.key),
                     "ETag": obj.etag,
                     "LastModified": obj.last_modified,
                     "size": obj.content_length,
@@ -121,7 +101,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
                 for obj in objects
             ]
         else:
-            return [obj.key for obj in objects]
+            return [os.path.join(storage_client.profile, obj.key) for obj in objects]
 
     async def _ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[List[Dict[str, Any]], List[str]]:
         """
@@ -147,7 +127,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         storage_client, file_path = self.resolve_path_and_storage_client(path)
         metadata = storage_client.info(file_path)
         return {
-            "name": metadata.key,
+            "name": os.path.join(storage_client.profile, metadata.key),
             "ETag": metadata.etag,
             "LastModified": metadata.last_modified,
             "size": metadata.content_length,
@@ -166,39 +146,56 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         """
         return await self.asynchronize_sync(self.info, path, **kwargs)
 
-    def rm(self, path: str, recursive: bool = False, **kwargs: Any) -> None:
+    def rm_file(self, path: str, **kwargs: Any):
         """
-        Removes a file or directory.
+        Removes a file.
 
         :param path: The file or directory path to remove.
-        :param recursive: If True, will remove directories and their contents recursively.
         :param kwargs: Additional arguments for remove functionality.
-
-        :raises IsADirectoryError: If the path is a directory and recursive is not set to True.
         """
         storage_client, file_path = self.resolve_path_and_storage_client(path)
-        if recursive:
-            if not storage_client.is_file(file_path):
-                sub_files = [object.key for object in storage_client.list(file_path, include_url_prefix=True)]
-                for sub_file_path in sub_files:
-                    self.rm(sub_file_path, recursive=True)
-                storage_client.delete(file_path)
-            else:
-                storage_client.delete(file_path)
-        else:
-            if not storage_client.is_file(file_path):
-                raise IsADirectoryError(f"'{file_path}' is a directory. Use recursive=True to remove directories.")
-            storage_client.delete(file_path)
+        storage_client.delete(file_path)
 
-    async def _rm(self, path: str, recursive: bool = False, **kwargs: Any) -> None:
+    async def _rm_file(self, path: str, **kwargs: Any):
         """
-        Asynchronously removes a file or directory.
+        Asynchronously removes a file.
 
         :param path: The file or directory path to remove.
-        :param recursive: If True, will remove directories and their contents recursively.
         :param kwargs: Additional arguments for remove functionality.
         """
-        await self.asynchronize_sync(self.rm, path, recursive, **kwargs)
+        return await self.asynchronize_sync(self.rm_file, path, **kwargs)
+
+    def cp_file(self, path1: str, path2: str, **kwargs: Any):
+        """
+        Copies a file from the source path to the destination path.
+
+        :param path1: The source file path.
+        :param path2: The destination file path.
+        :param kwargs: Additional arguments for copy functionality.
+
+        :raises AttributeError: If the source and destination paths are associated with different profiles.
+        """
+        src_storage_client, src_path = self.resolve_path_and_storage_client(path1)
+        dest_storage_client, dest_path = self.resolve_path_and_storage_client(path2)
+
+        if src_storage_client != dest_storage_client:
+            raise AttributeError(
+                f"Cannot copy file from '{path1}' to '{path2}' because the source and destination paths are associated with different profiles. Cross-profile file operations are not supported."
+            )
+
+        src_storage_client.copy(src_path, dest_path)
+
+    async def _cp_file(self, path1: str, path2: str, **kwargs: Any):
+        """
+        Asynchronously copies a file from the source path to the destination path.
+
+        :param path1: The source file path.
+        :param path2: The destination file path.
+        :param kwargs: Additional arguments for copy functionality.
+
+        :raises AttributeError: If the source and destination paths are associated with different profiles.
+        """
+        await self.asynchronize_sync(self.cp_file, path1, path2, **kwargs)
 
     def get_file(self, rpath: str, lpath: str, **kwargs: Any) -> None:
         """

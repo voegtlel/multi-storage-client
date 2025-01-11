@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import multistorageclient as msc
-import tempfile
-import pytest
 import os
+import tempfile
+
+import pytest
+
+import multistorageclient as msc
 
 
 @pytest.mark.asyncio
@@ -39,11 +41,10 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
         for file_path in test_file_list:
             await filesystem._pipe_file(file_path, b"test content")
         listed_files = await filesystem._ls(test_dir_path)
-        expected_file_list = sorted([f"{dir_path}file{i}.txt".lstrip("/") for i in range(3)])
+        expected_file_list = sorted([f"default{dir_path}file{i}.txt".lstrip("/") for i in range(3)])
         assert (
             sorted(f["name"] for f in listed_files) == expected_file_list
         ), f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
-        assert all(f["type"] == "file" for f in listed_files), "Expected all files to be of type 'file'"
 
         # test _info on a file
         info = await filesystem._info(test_path)
@@ -95,6 +96,13 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
         assert (
             downloaded_content == expected_file_content
         ), f"Expected downloaded content to be {expected_file_content}, got {downloaded_content}"
+
+        # test _cp_file
+        copy_file_path = f"{remote_file_path}.copy"
+        await filesystem._cp_file(remote_file_path, copy_file_path)
+        src_info = await filesystem._info(remote_file_path)
+        dest_info = await filesystem._info(copy_file_path)
+        assert src_info["size"] == dest_info["size"]
 
         # Clean up remote file after test
         await filesystem._rm(remote_file_path, recursive=True)

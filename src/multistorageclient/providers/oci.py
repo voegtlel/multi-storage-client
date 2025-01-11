@@ -17,6 +17,7 @@ import io
 import os
 import tempfile
 import time
+from datetime import datetime
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
 import oci
@@ -234,7 +235,11 @@ class OracleStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
         self._refresh_oci_client_if_needed()
@@ -242,13 +247,35 @@ class OracleStorageProvider(BaseStorageProvider):
         def _invoke_api() -> Iterator[ObjectMetadata]:
             next_start_with: Optional[str] = start_after
             while True:
-                response = self._oci_client.list_objects(
-                    namespace_name=self._namespace,
-                    bucket_name=bucket,
-                    prefix=prefix,
-                    # This is ≥ instead of >.
-                    start=next_start_with,
-                )
+                if include_directories:
+                    response = self._oci_client.list_objects(
+                        namespace_name=self._namespace,
+                        bucket_name=bucket,
+                        prefix=prefix,
+                        # This is ≥ instead of >.
+                        start=next_start_with,
+                        delimiter="/",
+                    )
+                else:
+                    response = self._oci_client.list_objects(
+                        namespace_name=self._namespace,
+                        bucket_name=bucket,
+                        prefix=prefix,
+                        # This is ≥ instead of >.
+                        start=next_start_with,
+                    )
+
+                if not response:
+                    return []
+
+                for directory in response.data.prefixes:
+                    yield ObjectMetadata(
+                        key=directory.rstrip("/"),
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
+
                 # OCI guarantees lexicographical order.
                 for response_object in response.data.objects:  # pyright: ignore [reportOptionalMemberAccess]
                     key = response_object.name

@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
 import io
 import os
 import tempfile
 import time
+from datetime import datetime
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
 from google.api_core.exceptions import NotFound
@@ -202,18 +202,40 @@ class GoogleStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
         self._refresh_gcs_client_if_needed()
 
         def _invoke_api() -> Iterator[ObjectMetadata]:
             bucket_obj = self._gcs_client.bucket(bucket)
-            blobs = bucket_obj.list_blobs(
-                prefix=prefix,
-                # This is ≥ instead of >.
-                start_offset=start_after,
-            )
+            if include_directories:
+                blobs = bucket_obj.list_blobs(
+                    prefix=prefix,
+                    # This is ≥ instead of >.
+                    start_offset=start_after,
+                )
+            else:
+                blobs = bucket_obj.list_blobs(
+                    prefix=prefix,
+                    # This is ≥ instead of >.
+                    start_offset=start_after,
+                    delimiter="/",
+                )
+
+            if include_directories:
+                for directory in blobs.prefixes:
+                    yield ObjectMetadata(
+                        key=directory[:-1],
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
+
             # GCS guarantees lexicographical order.
             for blob in blobs:
                 key = blob.name

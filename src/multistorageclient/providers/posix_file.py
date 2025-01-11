@@ -150,11 +150,26 @@ class PosixFileStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="HEAD", path=path)
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         def _invoke_api() -> Iterator[ObjectMetadata]:
             # Assume the file system guarantees lexicographical order (some don't).
-            for root, _, files in os.walk(prefix):
+            for root, dirs, files in os.walk(prefix):
+                if include_directories:
+                    for dir in dirs:
+                        full_path = os.path.join(root, dir)
+                        relative_path = os.path.relpath(full_path, self._base_path)
+                        yield ObjectMetadata(
+                            key=relative_path,
+                            content_length=0,
+                            type="directory",
+                            last_modified=datetime.min,
+                        )
+
                 # This is in reverse lexicographical order on some systems for some reason.
                 for name in sorted(files):
                     full_path = os.path.join(root, name)
@@ -170,6 +185,10 @@ class PosixFileStorageProvider(BaseStorageProvider):
                         )
                     elif end_at is not None and end_at < relative_path:
                         return
+
+                # Only walk one level
+                if include_directories:
+                    break
 
         return self._collect_metrics(_invoke_api, operation="LIST", path=prefix)
 

@@ -73,6 +73,10 @@ class StorageClient:
     def _is_posix_file_storage_provider(self) -> bool:
         return isinstance(self._storage_provider, PosixFileStorageProvider)
 
+    @property
+    def profile(self) -> str:
+        return self._config.profile
+
     @retry
     def read(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         """
@@ -241,6 +245,7 @@ class StorageClient:
         prefix: str = "",
         start_after: Optional[str] = None,
         end_at: Optional[str] = None,
+        include_directories: bool = False,
         include_url_prefix: bool = False,
     ) -> Iterator[ObjectMetadata]:
         """
@@ -249,6 +254,7 @@ class StorageClient:
         :param prefix: The prefix to list objects under.
         :param start_after: The key to start after (i.e. exclusive). An object with this key doesn't have to exist.
         :param end_at: The key to end at (i.e. inclusive). An object with this key doesn't have to exist.
+        :param include_directories: Whether to include directories in the result. When True, directories are returned alongside objects.
         :param include_url_prefix: Whether to include the URL prefix ``msc://profile`` in the result.
 
         :return: An iterator over objects.
@@ -256,7 +262,7 @@ class StorageClient:
         if self._metadata_provider:
             objects = self._metadata_provider.list_objects(prefix, start_after, end_at)
         else:
-            objects = self._storage_provider.list_objects(prefix, start_after, end_at)
+            objects = self._storage_provider.list_objects(prefix, start_after, end_at, include_directories)
 
         for object in objects:
             if include_url_prefix:

@@ -50,8 +50,8 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
 
     # glob
     assert len(storage_client.glob("*.py")) == 0
-    assert storage_client.glob("**/*.bin")[0] == filename
     assert len(storage_client.glob("**/*.bin")) == 1
+    assert storage_client.glob("**/*.bin")[0] == filename
 
     # verify file is written
     assert storage_client.read(filename) == body
@@ -74,6 +74,12 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         assert info is not None
         assert info.key.endswith(dirname)
         assert info.type == "directory"
+
+    # verify directories
+    flat_list = list(storage_client.list(f"{prefix}/", include_directories=True))
+    assert len(flat_list) == 1
+    assert flat_list[0].type == "directory"
+    assert flat_list[0].key == dirname.rstrip("/")
 
     # upload
     temp_file = tempfile.NamedTemporaryFile(delete=False)

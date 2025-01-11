@@ -71,13 +71,17 @@ class BaseStorageProvider(StorageProvider):
         return self._get_object_metadata(path)
 
     def list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
         prefix = self._realpath(prefix)
-        return self._list_objects(prefix, start_after, end_at)
+        return self._list_objects(prefix, start_after, end_at, include_directories)
 
     def upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
         remote_path = self._realpath(remote_path)
@@ -91,7 +95,7 @@ class BaseStorageProvider(StorageProvider):
         prefix = extract_prefix_from_glob(pattern)
         if self._base_path:
             # self.base_path will always contain bucket first, so we can safely split
-            bucket, base_prefix = split_path(self._base_path)
+            _, base_prefix = split_path(self._base_path)
             keys = [object.key.replace(base_prefix, "", 1).lstrip("/") for object in self.list_objects(prefix)]
             return [key for key in glob(keys, pattern)]
         else:
@@ -128,7 +132,11 @@ class BaseStorageProvider(StorageProvider):
 
     @abstractmethod
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         pass
 
