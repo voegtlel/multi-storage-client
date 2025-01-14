@@ -56,7 +56,7 @@ start-storage-systems:
     minio --quiet server .minio &
 
     # Start FakeGCSServer.
-    docker run -p 4443:4443 fsouza/fake-gcs-server:1.52.1 -backend memory -scheme http &
+    docker run -p 4443:4443 fsouza/fake-gcs-server:1.52.1 -scheme http -data /tmp/fake-gcs-server/data &
 
     # Wait for Azurite.
     timeout 10s bash -c "until netcat --zero 127.0.0.1 10000; do sleep 1; done"

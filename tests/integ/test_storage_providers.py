@@ -18,9 +18,8 @@ import shutil
 import tempfile
 from typing import Set
 
-import pytest
 from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.providers import S3StorageProvider, AIStoreStorageProvider, GoogleStorageProvider
+from multistorageclient.providers import AIStoreStorageProvider, GoogleStorageProvider, S3StorageProvider
 
 MB = 1024 * 1024
 
@@ -81,12 +80,10 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
         assert info.type == "directory"
 
     # verify directories
-    # TODO enable directory listing when it is supported for GCS provider.
-    if not isinstance(config.storage_provider, GoogleStorageProvider):
-        flat_list = list(storage_client.list(f"{prefix}/", include_directories=True))
-        assert len(flat_list) == 1
-        assert flat_list[0].type == "directory"
-        assert flat_list[0].key == dirname.rstrip("/")
+    flat_list = list(storage_client.list(f"{prefix}/", include_directories=True))
+    assert len(flat_list) == 1
+    assert flat_list[0].type == "directory"
+    assert flat_list[0].key == dirname.rstrip("/")
 
     # upload
     temp_file = tempfile.NamedTemporaryFile(delete=False)

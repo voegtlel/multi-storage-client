@@ -55,7 +55,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         :return: A tuple containing the :py:class:`multistorageclient.StorageClient` and the resolved path.
         """
         # Use unstrip_protocol to prepend our 'msc://' protocol only if it wasn't given in "path".
-        return resolve_storage_client(self.unstrip_protocol(path))
+        return resolve_storage_client(self.unstrip_protocol(path.lstrip("/")))
 
     @staticmethod
     def asynchronize_sync(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

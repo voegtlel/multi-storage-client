@@ -15,17 +15,36 @@
 
 import glob
 import os
-import shutil
 import tempfile
 import time
 from datetime import datetime, timezone
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import IO, Any, Callable, Iterator, List, Optional, Union
 
 from ..types import ObjectMetadata, Range
 from .base import BaseStorageProvider
 
 PROVIDER = "file"
+
+
+def atomic_write(source: Union[str, IO], destination: str):
+    """
+    Writes the contents of a file to the specified destination path.
+
+    This function ensures that the file write operation is atomic, meaning the output file is either fully written or not modified at all.
+    This is achieved by writing to a temporary file first and then renaming it to the destination path.
+
+    :param source: The input file to read from. It can be a string representing the path to a file, or an open file-like object (IO).
+    :param destination: The path to the destination file where the contents should be written.
+    """
+    with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(destination), prefix=".") as fp:
+        temp_file_path = fp.name
+        if isinstance(source, str):
+            with open(source, mode="rb") as src:
+                fp.write(src.read())
+        else:
+            fp.write(source.read())
+    os.rename(src=temp_file_path, dst=destination)
 
 
 class PosixFileStorageProvider(BaseStorageProvider):
@@ -94,10 +113,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
     def _put_object(self, path: str, body: bytes) -> None:
         def _invoke_api() -> None:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(path), prefix=".") as fp:
-                temp_file_path = fp.name
-                fp.write(body)
-            os.rename(src=temp_file_path, dst=path)
+            atomic_write(source=BytesIO(body), destination=path)
 
         return self._collect_metrics(_invoke_api, operation="PUT", path=path, put_object_size=len(body))
 
@@ -116,7 +132,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
     def _copy_object(self, src_path: str, dest_path: str) -> None:
         def _invoke_api() -> None:
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            shutil.copyfile(src_path, dest_path)
+            atomic_write(source=src_path, destination=dest_path)
 
         src_object = self._get_object_metadata(src_path)
 
@@ -193,59 +209,42 @@ class PosixFileStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="LIST", path=prefix)
 
     def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
-        destination_path = remote_path
+        os.makedirs(os.path.dirname(remote_path), exist_ok=True)
+
+        def _invoke_api() -> None:
+            atomic_write(source=f, destination=remote_path)
 
         if isinstance(f, str):
             filesize = os.path.getsize(f)
-
-            def _invoke_api() -> None:
-                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-                shutil.copyfile(f, destination_path)
-
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
         elif isinstance(f, StringIO):
             filesize = len(f.getvalue().encode("utf-8"))
-
-            def _invoke_api() -> None:
-                with open(remote_path, "w", encoding="utf-8") as fp:
-                    fp.write(f.read())
-
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
         else:
             filesize = len(f.getvalue())  # type: ignore
-
-            def _invoke_api() -> None:
-                with open(remote_path, "wb") as fp:
-                    fp.write(f.read())
-
             return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
 
     def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
-        source_path = remote_path
-        filesize = metadata.content_length if metadata else os.path.getsize(source_path)
+        filesize = metadata.content_length if metadata else os.path.getsize(remote_path)
 
         if isinstance(f, str):
 
             def _invoke_api() -> None:
                 os.makedirs(os.path.dirname(f), exist_ok=True)
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
-                    temp_file_path = fp.name
-                    with open(source_path, "rb") as src:
-                        fp.write(src.read())
-                os.rename(src=temp_file_path, dst=f)
+                atomic_write(source=remote_path, destination=f)
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         elif isinstance(f, StringIO):
 
             def _invoke_api() -> None:
-                with open(source_path, "r", encoding="utf-8") as src:
+                with open(remote_path, "r", encoding="utf-8") as src:
                     f.write(src.read())
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         else:
 
             def _invoke_api() -> None:
-                with open(source_path, "rb") as src:
+                with open(remote_path, "rb") as src:
                     f.write(src.read())
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)

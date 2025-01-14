@@ -227,15 +227,6 @@ class GoogleStorageProvider(BaseStorageProvider):
                     start_offset=start_after,
                 )
 
-            if include_directories:
-                for directory in blobs.prefixes:
-                    yield ObjectMetadata(
-                        key=directory[:-1],
-                        type="directory",
-                        content_length=0,
-                        last_modified=datetime.min,
-                    )
-
             # GCS guarantees lexicographical order.
             for blob in blobs:
                 key = blob.name
@@ -249,6 +240,16 @@ class GoogleStorageProvider(BaseStorageProvider):
                     )
                 elif start_after != key:
                     return
+
+            # The directories must be accessed last.
+            if include_directories:
+                for directory in blobs.prefixes:
+                    yield ObjectMetadata(
+                        key=directory.rstrip("/"),
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
 
