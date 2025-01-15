@@ -37,7 +37,8 @@ from .types import (
     StorageProvider,
     StorageProviderConfig,
 )
-from .utils import expand_env_vars, import_class
+from .utils import expand_env_vars, import_class, merge_dictionaries_no_overwrite
+from .rclone import read_rclone_config, DEFAULT_RCLONE_CONFIG_FILE_SEARCH_PATHS
 
 STORAGE_PROVIDER_MAPPING = {
     "file": "PosixFileStorageProvider",
@@ -56,7 +57,7 @@ CREDENTIALS_PROVIDER_MAPPING = {
     "AISCredentials": "StaticAISCredentialProvider",
 }
 
-DEFAULT_CONFIG_FILE_SEARCH_PATHS = (
+DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS = (
     # Yaml
     "/etc/msc_config.yaml",
     os.path.join(os.getenv("HOME", ""), ".config", "msc", "config.yaml"),
@@ -379,33 +380,47 @@ class StorageClientConfig:
 
     @staticmethod
     def from_file(profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":
-        config_file = os.getenv("MSC_CONFIG", None)
+        msc_config_file = os.getenv("MSC_CONFIG", None)
 
         # Search config paths
-        if config_file is None:
-            for filename in DEFAULT_CONFIG_FILE_SEARCH_PATHS:
+        if msc_config_file is None:
+            for filename in DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS:
                 if os.path.exists(filename):
-                    config_file = filename
+                    msc_config_file = filename
                     break
 
-            if config_file is None:
-                logger.warning(
-                    "Cannot find the MSC config file in any of the locations: %s; add a "
-                    "config file for sending client-side metrics to an OpenTelemetry service",
-                    DEFAULT_CONFIG_FILE_SEARCH_PATHS,
-                )
+        msc_config_dict = {}
 
-                return StorageClientConfig.from_dict(DEFAULT_POSIX_PROFILE, profile=profile)
+        # Parse MSC config file.
+        if msc_config_file:
+            with open(msc_config_file, "r", encoding="utf-8") as f:
+                content = f.read()
+                if msc_config_file.endswith(".json"):
+                    msc_config_dict = json.loads(content)
+                else:
+                    msc_config_dict = yaml.safe_load(content)
 
-        if not os.path.exists(config_file):
-            raise FileNotFoundError(f"Cannot find the config file at {config_file}")
+        # Parse rclone config file.
+        rclone_config_dict, rclone_config_file = read_rclone_config()
 
-        with open(config_file, "r", encoding="utf-8") as f:
-            content = f.read()
-            if config_file.endswith(".json"):
-                return StorageClientConfig.from_json(content, profile)
-            else:
-                return StorageClientConfig.from_yaml(content, profile)
+        # If no config file is found, use a default profile.
+        if not msc_config_file and not rclone_config_file:
+            search_paths = DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS + DEFAULT_RCLONE_CONFIG_FILE_SEARCH_PATHS
+            logger.warning(
+                "Cannot find the MSC config or rclone config file in any of the locations: %s",
+                search_paths,
+            )
+
+            return StorageClientConfig.from_dict(DEFAULT_POSIX_PROFILE, profile=profile)
+
+        # Merge config files.
+        merged_config, conflicted_keys = merge_dictionaries_no_overwrite(msc_config_dict, rclone_config_dict)
+        if conflicted_keys:
+            raise ValueError(
+                f'Conflicting keys found in configuration files "{msc_config_file}" and "{rclone_config_file}: {conflicted_keys}'
+            )
+
+        return StorageClientConfig.from_dict(merged_config, profile)
 
     @staticmethod
     def from_provider_bundle(config_dict: Dict[str, Any], provider_bundle: ProviderBundle) -> "StorageClientConfig":

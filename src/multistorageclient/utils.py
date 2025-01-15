@@ -18,7 +18,9 @@ import hashlib
 import importlib
 import os
 import re
-from typing import Any, List, Optional, Tuple
+import shutil
+from pathlib import Path
+from typing import Any, List, Optional, Tuple, Dict
 
 
 def split_path(path: str) -> Tuple[str, str]:
@@ -155,3 +157,59 @@ def extract_prefix_from_glob(s: str) -> str:
 
     prefix = "/".join(prefix_parts)
     return prefix
+
+
+def merge_dictionaries_no_overwrite(
+    dict1: Optional[Dict[str, Any]] = None,
+    dict2: Optional[Dict[str, Any]] = None,
+    conflicted_keys: Optional[List[str]] = None,
+) -> Tuple[Dict[str, Any], List[str]]:
+    """
+    Recursively merges two dictionaries without overwriting existing keys.
+
+    :param dict1: first dictionary to be merged
+    :param dict2: second dictionary to be merged
+    :param conflicted_keys: a list that collects any keys for which there is a collision.
+        If not provided, a new list is created.
+
+    :return: A tuple of:
+            - The merged dictionary from dict1 and dict2 with no overwritten keys.
+            - The list of keys that caused conflicts (if any).
+    """
+    if dict1 is None:
+        dict1 = {}
+
+    if dict2 is None:
+        dict2 = {}
+
+    if conflicted_keys is None:
+        conflicted_keys = []
+
+    for key, value2 in dict2.items():
+        if key not in dict1:
+            # If the key doesn't exist in dict1, set it.
+            dict1[key] = value2
+        else:
+            # Potential collision
+            value1 = dict1[key]
+
+            # If both values are dicts, recurse to check nested fields
+            if isinstance(value1, dict) and isinstance(value2, dict):
+                merge_dictionaries_no_overwrite(value1, value2, conflicted_keys)
+            else:
+                conflicted_keys.append(key)
+
+    return dict1, conflicted_keys
+
+
+def find_executable_path(executable_name: str) -> Optional[Path]:
+    """
+    Find the path of an executable in the PATH environment variable.
+
+    :param executable_name: Name of the executable to look for in PATH
+    :return: A Path object representing the full path of the executable, or None if not found
+    """
+    executable_path = shutil.which(executable_name)
+    if executable_path:
+        return Path(executable_path)
+    return None
