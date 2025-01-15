@@ -23,7 +23,11 @@ from typing import IO, Any, Callable, Iterator, Optional, Union
 import boto3
 from boto3.s3.transfer import TransferConfig
 from botocore.credentials import RefreshableCredentials
-from botocore.exceptions import ClientError, ReadTimeoutError
+from botocore.exceptions import (
+    ClientError,
+    ReadTimeoutError,
+    IncompleteReadError,
+)
 from botocore.session import get_session
 
 from ..types import (
@@ -225,7 +229,7 @@ class S3StorageProvider(BaseStorageProvider):
         except FileNotFoundError as error:
             status_code = -1
             raise error
-        except ReadTimeoutError as error:
+        except (ReadTimeoutError, IncompleteReadError) as error:
             status_code = -1
             raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
         except Exception as error:
