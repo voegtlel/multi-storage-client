@@ -48,6 +48,8 @@ def verify_storage_provider(config: StorageClientConfig) -> None:
     assert len(list(storage_client.list(f"{prefix}"))) == 1
 
     # is file
+    assert storage_client.is_file("/") is False
+    assert storage_client.is_file("/" + filename)
     assert storage_client.is_file(filename)
     assert not storage_client.is_file(f"{prefix}")
     assert not storage_client.is_file("not-exist-prefix")

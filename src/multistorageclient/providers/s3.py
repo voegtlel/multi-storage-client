@@ -313,7 +313,7 @@ class S3StorageProvider(BaseStorageProvider):
             # it is a "virtual prefix" that was never explicitly created.
             if self._is_dir(path):
                 return ObjectMetadata(
-                    key=self._append_delimiter(path),
+                    key=path,
                     type="directory",
                     content_length=0,
                     last_modified=datetime.min,
@@ -342,7 +342,7 @@ class S3StorageProvider(BaseStorageProvider):
                 path = self._append_delimiter(path)
                 if self._is_dir(path):
                     return ObjectMetadata(
-                        key=self._append_delimiter(path),
+                        key=path,
                         type="directory",
                         content_length=0,
                         last_modified=datetime.min,

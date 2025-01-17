@@ -47,7 +47,7 @@ class BaseStorageProvider(StorageProvider):
         return s
 
     def _realpath(self, path: str) -> str:
-        return os.path.join(self._base_path, path)
+        return os.path.join(self._base_path, path.lstrip("/"))
 
     def put_object(self, path: str, body: bytes) -> None:
         path = self._realpath(path)

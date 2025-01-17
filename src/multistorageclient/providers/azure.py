@@ -214,22 +214,65 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="DELETE", container=container_name, blob=blob_name)
 
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
-        container_name, blob_name = split_path(path)
+    def _is_dir(self, path: str) -> bool:
+        # Ensure the path ends with '/' to mimic a directory
+        path = self._append_delimiter(path)
+
+        container_name, prefix = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
-        def _invoke_api() -> ObjectMetadata:
-            blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-            properties = blob_client.get_blob_properties()
-            return ObjectMetadata(
-                key=path,
-                content_length=properties.size,
-                content_type=properties.content_settings.content_type,
-                last_modified=properties.last_modified,
-                etag=properties.etag.strip('"') if properties.etag else "",
-            )
+        def _invoke_api() -> bool:
+            # List objects with the given prefix
+            container_client = self._blob_service_client.get_container_client(container=container_name)
+            blobs = container_client.walk_blobs(name_starts_with=prefix, delimiter="/")
+            # Check if there are any contents or common prefixes
+            return any(True for _ in blobs)
 
-        return self._collect_metrics(_invoke_api, operation="HEAD", container=container_name, blob=blob_name)
+        return self._collect_metrics(_invoke_api, operation="LIST", container=container_name, blob=prefix)
+
+    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+        if path.endswith("/"):
+            # If path is a "directory", then metadata is not guaranteed to exist if
+            # it is a "virtual prefix" that was never explicitly created.
+            if self._is_dir(path):
+                return ObjectMetadata(
+                    key=self._append_delimiter(path),
+                    type="directory",
+                    content_length=0,
+                    last_modified=datetime.min,
+                )
+            else:
+                raise FileNotFoundError(f"Directory {path} does not exist.")
+        else:
+            container_name, blob_name = split_path(path)
+            self._refresh_blob_service_client_if_needed()
+
+            def _invoke_api() -> ObjectMetadata:
+                blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+                properties = blob_client.get_blob_properties()
+                return ObjectMetadata(
+                    key=path,
+                    content_length=properties.size,
+                    content_type=properties.content_settings.content_type,
+                    last_modified=properties.last_modified,
+                    etag=properties.etag.strip('"') if properties.etag else "",
+                )
+
+            try:
+                return self._collect_metrics(_invoke_api, operation="HEAD", container=container_name, blob=blob_name)
+            except FileNotFoundError as error:
+                # If the object does not exist on the given path, we will append a trailing slash and
+                # check if the path is a directory.
+                path = self._append_delimiter(path)
+                if self._is_dir(path):
+                    return ObjectMetadata(
+                        key=path,
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
+                else:
+                    raise error
 
     def _list_objects(
         self,

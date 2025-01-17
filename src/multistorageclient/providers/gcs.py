@@ -182,24 +182,70 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+    def _is_dir(self, path: str) -> bool:
+        # Ensure the path ends with '/' to mimic a directory
+        path = self._append_delimiter(path)
+
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
-        def _invoke_api() -> ObjectMetadata:
+        def _invoke_api() -> bool:
             bucket_obj = self._gcs_client.bucket(bucket)
-            blob = bucket_obj.get_blob(key)
-            if not blob:
-                raise NotFound(f"Blob {key} not found in bucket {bucket}")
-            return ObjectMetadata(
-                key=path,
-                content_length=blob.size or 0,
-                content_type=blob.content_type,
-                last_modified=blob.updated or datetime.min,
-                etag=blob.etag,
+            # List objects with the given prefix
+            blobs = bucket_obj.list_blobs(
+                prefix=key,
+                delimiter="/",
             )
+            # Check if there are any contents or common prefixes
+            return any(True for _ in blobs) or any(True for _ in blobs.prefixes)
 
-        return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
+        return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=key)
+
+    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+        if path.endswith("/"):
+            # If path is a "directory", then metadata is not guaranteed to exist if
+            # it is a "virtual prefix" that was never explicitly created.
+            if self._is_dir(path):
+                return ObjectMetadata(
+                    key=path,
+                    type="directory",
+                    content_length=0,
+                    last_modified=datetime.min,
+                )
+            else:
+                raise FileNotFoundError(f"Directory {path} does not exist.")
+        else:
+            bucket, key = split_path(path)
+            self._refresh_gcs_client_if_needed()
+
+            def _invoke_api() -> ObjectMetadata:
+                bucket_obj = self._gcs_client.bucket(bucket)
+                blob = bucket_obj.get_blob(key)
+                if not blob:
+                    raise NotFound(f"Blob {key} not found in bucket {bucket}")
+                return ObjectMetadata(
+                    key=path,
+                    content_length=blob.size or 0,
+                    content_type=blob.content_type,
+                    last_modified=blob.updated or datetime.min,
+                    etag=blob.etag,
+                )
+
+            try:
+                return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
+            except FileNotFoundError as error:
+                # If the object does not exist on the given path, we will append a trailing slash and
+                # check if the path is a directory.
+                path = self._append_delimiter(path)
+                if self._is_dir(path):
+                    return ObjectMetadata(
+                        key=path,
+                        type="directory",
+                        content_length=0,
+                        last_modified=datetime.min,
+                    )
+                else:
+                    raise error
 
     def _list_objects(
         self,

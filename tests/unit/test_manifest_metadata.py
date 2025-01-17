@@ -151,7 +151,7 @@ def test_file_metadata_and_update():
                     "storage_provider": {"type": "file", "options": {"base_path": f"{data_folderpath}"}},
                     "metadata_provider": {
                         "type": "manifest",
-                        "options": {"manifest_path": os.path.join(tmpdir, manifest_filepath), "writable": True},
+                        "options": {"manifest_path": manifest_filepath, "writable": True},
                     },
                 }
             }
@@ -266,6 +266,8 @@ def test_download_file_with_metadata(file_storage_config):
 
         # Create a unique profile name so that we do not re-use a cached instance of StorageClient
         profile_name = test_download_file_with_metadata.__name__
+        # set manifest_filepath relative to src_data_folderpath
+        manifest_filepath = manifest_filepath[len(src_data_folderpath) :]
         # msc config with metadata provider
         config_dict = {
             "profiles": {
@@ -273,12 +275,11 @@ def test_download_file_with_metadata(file_storage_config):
                     "storage_provider": {"type": "file", "options": {"base_path": src_data_folderpath}},
                     "metadata_provider": {
                         "type": "manifest",
-                        "options": {"manifest_path": os.path.join(tmpdir, manifest_filepath), "writable": True},
+                        "options": {"manifest_path": manifest_filepath, "writable": True},
                     },
                 }
             }
         }
-
         # Overwrite msc config with metadata provider info
         msc_config_path = file_storage_config
         with open(msc_config_path, "w") as conf_file:
