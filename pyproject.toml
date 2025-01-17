@@ -27,7 +27,7 @@ pyyaml = "^6"
 
 aistore = { version = ">=1.8.1", optional = true }
 azure-storage-blob = { version = ">=12.0.0", optional = true }
-boto3 = { version = ">=1.28.17", optional = true }
+boto3 = { version = ">=1.28.17,<1.36.0", optional = true }
 fsspec = { version = ">=2022.8.2", optional = true }
 google-cloud-storage = { version = ">=2.10.0", optional = true }
 oci = { version = ">=2.117.0", optional = true }
