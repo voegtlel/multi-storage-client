@@ -462,6 +462,9 @@ class ObjectFile(IO):
         else:
             self._upload_file()
 
+        if self._file:
+            self._file.close()
+
     def _upload_file(self) -> None:
         """
         Upload the file to object store.
@@ -469,7 +472,6 @@ class ObjectFile(IO):
         if self._mode in ("w", "wb"):
             self._file.seek(0)
             self._storage_provider.upload_file(self._remote_path, self._file)
-            self._file.close()
         elif self._mode in ("a", "ab"):
             # The append mode downloads the file first (if applicable), then upload it again with the appended content.
             temp_file_path = self._get_temp_file_path()
@@ -491,7 +493,6 @@ class ObjectFile(IO):
             with open(temp_file_path, self._mode, encoding=self._encoding) as fp:
                 self._file.seek(0)
                 fp.write(self._file.read())
-                self._file.close()
 
             self._storage_provider.upload_file(self._remote_path, temp_file_path)
             os.unlink(temp_file_path)
