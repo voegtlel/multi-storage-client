@@ -24,4 +24,3 @@
 ## Additional Information
 
 * Related to #(issue)
-
