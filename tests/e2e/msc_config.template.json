@@ -55,6 +55,21 @@
                 "type": "S3Credentials",
                 "options": {"access_key": "*****", "secret_key": "*****"}
             }
+        },
+        "test-azure-uswest": {
+            "storage_provider": {
+                "type": "azure",
+                "options": {
+                    "endpoint_url": "*****",
+                    "base_path": "msc-test"
+                }
+            },
+            "credentials_provider": {
+                "type": "AzureCredentials",
+                "options": {
+                    "connection": "*****"
+                }
+            }
         }
     }
 }
