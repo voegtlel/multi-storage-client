@@ -62,10 +62,9 @@ class OracleStorageProvider(BaseStorageProvider):
         **kwargs: Any,
     ) -> None:
         """
-        Initializes the :py:class:`OracleStorageProvider` with the region, compartment ID, and optional credentials provider.
+        Initializes an instance of :py:class:`OracleStorageProvider`.
 
-        :param region_name: The OCI region where the Object Storage is located.
-        :param compartment_id: The OCI compartment ID for the Object Storage.
+        :param namespace: The OCI Object Storage namespace. This is a unique identifier assigned to each tenancy.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         :param credentials_provider: The provider to retrieve OCI credentials.
         """
@@ -319,13 +318,14 @@ class OracleStorageProvider(BaseStorageProvider):
                 if not response:
                     return []
 
-                for directory in response.data.prefixes:
-                    yield ObjectMetadata(
-                        key=directory.rstrip("/"),
-                        type="directory",
-                        content_length=0,
-                        last_modified=datetime.min,
-                    )
+                if include_directories:
+                    for directory in response.data.prefixes:
+                        yield ObjectMetadata(
+                            key=directory.rstrip("/"),
+                            type="directory",
+                            content_length=0,
+                            last_modified=datetime.min,
+                        )
 
                 # OCI guarantees lexicographical order.
                 for response_object in response.data.objects:  # pyright: ignore [reportOptionalMemberAccess]
