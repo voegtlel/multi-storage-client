@@ -297,7 +297,7 @@ def test_download_file_with_metadata(file_storage_config):
             # Create the files specified in the metadata
             for file_meta in files_metadata:
                 # NOTE: The base_path will be resolved by looking up StorageProvider config
-                remote_file_path = f'msc://{profile_name}/{file_meta["key"]}'
+                remote_file_path = f"msc://{profile_name}/{file_meta['key']}"
                 local_file_path = os.path.join(dst_dir_path, file_meta["key"])
                 msc.download_file(url=remote_file_path, local_path=local_file_path)
 

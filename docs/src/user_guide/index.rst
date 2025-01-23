@@ -421,13 +421,16 @@ Note: ``Zarr`` supports fsspec URLs natively, so you can use Zarr standard inter
 
 Manifests
 =========
+
 Overview
 --------
+
 A manifest is a file (or group of files) describing the objects in a dataset, such as names, sizes, last-modified timestamps, and custom metadata tags. Manifests are optional but can greatly accelerate object listing and metadata retrieval for large datasets in object stores.
 A common approach is to prepare a manifest that includes metadata (e.g. object/file paths, sizes, custom tags) to speed up data loading and parallel processing of very large datasets. By reading a manifest, MSC can quickly discover (list) or filter (glob) objects without having to iterate over every object in the bucket or prefix.
 
 Manifest Format
---------------
+---------------
+
 The MSC supports a **manifest index** (JSON) that references one or more **parts manifests** (JSONL). The main manifest or manifest index:
 
 - Declares a version.
@@ -470,6 +473,7 @@ Example Parts Manifest (JSONL)
 
 Manifest Storage Organization
 -----------------------------
+
 his example demonstrates how manifests are organized. Here, we assume that manifests are stored alongside the data in the same bucket. However, this is not strictly required, as MSC also supports placing manifests in a different location.
 
 .. code-block:: text
@@ -490,10 +494,11 @@ his example demonstrates how manifests are organized. Here, we assume that manif
                    └── msc_manifest_part000003.jsonl
 
 Writing and Using Manifests Programmatically
--------------------------------------------
+--------------------------------------------
+
 MSC provides a :py:class:`multistorageclient.providers.ManifestMetadataProvider` to read from and write to manifests, and a :py:class:`multistorageclient.providers.manifest_metadata.ManifestMetadataGenerator` to generate the manifests. When manifests are configured as a “metadata provider,” MSC can utilize them for efficient object metadata retrieval.
 
-**Generating Manifests**  
+**Generating Manifests**
 Using the :py:class:`~multistorageclient.providers.manifest_metadata.ManifestMetadataGenerator` is straightforward. For example:
 
 .. code-block:: python
@@ -514,7 +519,7 @@ Using the :py:class:`~multistorageclient.providers.manifest_metadata.ManifestMet
        manifest_storage_client=manifest_storage_client
    )
 
-**Referencing Manifests in Configuration**  
+**Referencing Manifests in Configuration**
 When you set a profile’s ``metadata_provider`` to ``type: manifest``, you must also provide the ``manifest_path`` option, which refers to manifest path relative to the storage profile's `base_path`. For example:
 
 .. code-block:: yaml

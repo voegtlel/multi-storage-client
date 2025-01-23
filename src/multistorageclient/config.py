@@ -252,7 +252,7 @@ class StorageClientConfigLoader:
                 class_type = metadata_provider_dict["type"]
                 if "." not in class_type:
                     raise ValueError(
-                        "Expected a fully qualified class name (e.g., 'module.ClassName'); " f"got '{class_type}'."
+                        f"Expected a fully qualified class name (e.g., 'module.ClassName'); got '{class_type}'."
                     )
                 module_name, class_name = class_type.rsplit(".", 1)
                 cls = import_class(class_name, module_name)

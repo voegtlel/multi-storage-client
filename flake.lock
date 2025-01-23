@@ -2,11 +2,11 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1731890469,
-        "narHash": "sha256-D1FNZ70NmQEwNxpSSdTXCSklBH1z2isPR84J6DQrJGs=",
+        "lastModified": 1737525964,
+        "narHash": "sha256-3wFonKmNRWKq1himW9N3TllbeGIHFACI5vmLpk6moF8=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "5083ec887760adfe12af64830a66807423a859a7",
+        "rev": "5757bbb8bd7c0630a0cc4bb19c47e588db30b97c",
         "type": "github"
       },
       "original": {
@@ -16,26 +16,9 @@
         "type": "github"
       }
     },
-    "nixpkgs-python38": {
-      "locked": {
-        "lastModified": 1709684732,
-        "narHash": "sha256-a06TMGjl2mBAyxDfDs3pAeCAG5GWjdmwmfSPBj8YxAU=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "75b569f0a1bf5a6686bf1a4eca234b75e18d67a3",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "75b569f0a1bf5a6686bf1a4eca234b75e18d67a3",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-python38": "nixpkgs-python38"
+        "nixpkgs": "nixpkgs"
       }
     }
   },
