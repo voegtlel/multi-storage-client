@@ -70,6 +70,15 @@
                     "connection": "*****"
                 }
             }
+        },
+        "test-oci": {
+            "storage_provider": {
+                "type": "oci",
+                "options": {
+                    "namespace": "*****",
+                    "base_path": "msc-test"
+                }
+            }
         }
     }
 }
