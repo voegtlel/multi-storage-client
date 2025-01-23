@@ -77,8 +77,8 @@
               python311
               python310
               python39
-              # Poetry.
-              poetry
+              # uv.
+              uv
               # Ruff.
               ruff
               # Pyright.

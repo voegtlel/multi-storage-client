@@ -36,10 +36,11 @@ Build Package:
     - .default
   parallel:
     matrix:
-      - PYTHON_BINARY: python3.9
-      - PYTHON_BINARY: python3.10
-      - PYTHON_BINARY: python3.11
-      - PYTHON_BINARY: python3.12
+      - PYTHON_BINARY:
+          - python3.9
+          - python3.10
+          - python3.11
+          - python3.12
   script:
     - |
       nix develop --command bash -c "
@@ -67,25 +68,24 @@ Run Integration Tests:
     - .default
   variables:
     DOCKER_HOST: tcp://docker:2375
-    DOCKER_IMAGE_VERSION: 27.5.0
     DOCKER_TLS_CERTDIR: ""
     FF_NETWORK_PER_BUILD: "true"
-    FAKE_GCS_SERVER_IMAGE_VERSION: 1.52.1
   services:
-    - docker:${DOCKER_IMAGE_VERSION}-dind
-    - name: fsouza/fake-gcs-server:${FAKE_GCS_SERVER_IMAGE_VERSION}
-      alias: fake-gcs
+    - docker:27.5.0-dind
+    - name: fsouza/fake-gcs-server:1.52.1
+      alias: fake-gcs-server
       command: ["-backend", "memory", "-scheme", "http"]
   parallel:
     matrix:
-      - PYTHON_BINARY: python3.9
-      - PYTHON_BINARY: python3.10
-      - PYTHON_BINARY: python3.11
-      - PYTHON_BINARY: python3.12
+      - PYTHON_BINARY:
+          - python3.9
+          - python3.10
+          - python3.11
+          - python3.12
   script:
     - |
       nix develop --command bash -c "
-        export FAKE_GCS_SERVER="fake-gcs" &&
+        export FAKE_GCS_SERVER='fake-gcs-server' &&
         just start-storage-systems &&
         just python-binary=${PYTHON_BINARY} run-integration-tests &&
         just stop-storage-systems
