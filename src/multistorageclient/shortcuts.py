@@ -108,7 +108,10 @@ def glob(pattern: str) -> List[str]:
     :raises ValueError: If the URL's protocol does not match the expected protocol ``msc``.
     """
     client, path = resolve_storage_client(pattern)
-    return client.glob(path, include_url_prefix=True)
+    if not pattern.startswith(MSC_PROTOCOL) and client.profile == DEFAULT_POSIX_PROFILE_NAME:
+        return client.glob(path, include_url_prefix=False)
+    else:
+        return client.glob(path, include_url_prefix=True)
 
 
 def upload_file(url: str, local_path: str) -> None:

@@ -58,6 +58,14 @@ def test_resolve_storage_client(file_storage_config):
             assert results[i][0] is storage_client, "All threads should return the same StorageClient instance"
 
 
+def test_glob_with_posix_path(file_storage_config):
+    for filepath in msc.glob("/etc/**/*.conf"):
+        assert filepath.startswith("msc://") is False
+    
+    for filepath in msc.glob("msc://default/etc/**/*.conf"):
+        assert filepath.startswith("msc://")
+
+
 def test_open_url(file_storage_config):
     body = b"A" * 64 * MB
     tempdir = tempfile.mkdtemp()
