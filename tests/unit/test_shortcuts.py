@@ -61,7 +61,7 @@ def test_resolve_storage_client(file_storage_config):
 def test_glob_with_posix_path(file_storage_config):
     for filepath in msc.glob("/etc/**/*.conf"):
         assert filepath.startswith("msc://") is False
-    
+
     for filepath in msc.glob("msc://default/etc/**/*.conf"):
         assert filepath.startswith("msc://")
 
