@@ -307,9 +307,9 @@ def test_storage_provider_profile_unrecognized() -> None:
             """
         )
 
-    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" in str(e), (
-        f"Unexpected error message: {str(e)}"
-    )
+    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" in str(
+        e
+    ), f"Unexpected error message: {str(e)}"
 
 
 def test_storage_provider_profile_with_manifest() -> None:

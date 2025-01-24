@@ -81,7 +81,14 @@ class BaseStorageProvider(StorageProvider):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
         prefix = self._realpath(prefix)
-        return self._list_objects(prefix, start_after, end_at, include_directories)
+        if self._base_path:
+            # self.base_path will always contain bucket first, so we can safely split
+            _, base_prefix = split_path(self._base_path)
+            for object in self._list_objects(prefix, start_after, end_at, include_directories):
+                object.key = object.key.replace(base_prefix, "", 1).lstrip("/")
+                yield object
+        else:
+            return self._list_objects(prefix, start_after, end_at, include_directories)
 
     def upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
         remote_path = self._realpath(remote_path)
@@ -94,9 +101,7 @@ class BaseStorageProvider(StorageProvider):
     def glob(self, pattern: str) -> List[str]:
         prefix = extract_prefix_from_glob(pattern)
         if self._base_path:
-            # self.base_path will always contain bucket first, so we can safely split
-            _, base_prefix = split_path(self._base_path)
-            keys = [object.key.replace(base_prefix, "", 1).lstrip("/") for object in self.list_objects(prefix)]
+            keys = [object.key for object in self.list_objects(prefix)]
             return [key for key in glob(keys, pattern)]
         else:
             bucket, pattern = split_path(pattern)
