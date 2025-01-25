@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
       - uses: actions/checkout@v4
       - id: get-tag-message
         run: |
@@ -38,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
       - uses: actions/checkout@v4
       # Set locale for Sphinx.
       #
@@ -63,7 +61,6 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
       - uses: actions/checkout@v4
       # Skip creation if a release for the tag already exists.
       - run: |
