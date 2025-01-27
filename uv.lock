@@ -303,6 +303,12 @@ wheels = [
 ]
 
 [[package]]
+name = "circuitbreaker"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/ec/7f1dd19e3878f5391afb508e6a2fd8d9e5b176ca2992b90b55926c7341d8/circuitbreaker-1.4.0.tar.gz", hash = "sha256:80b7bda803d9a20e568453eb26f3530cd9bf602d6414f6ff6a74c611603396d2", size = 9727 }
+
+[[package]]
 name = "cloudpickle"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -318,15 +324,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
-]
-
-[[package]]
-name = "configparser"
-version = "4.0.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/16/4f/48975536bd488d3a272549eb795ac4a13a5f7fcdc8995def77fbef3532ee/configparser-4.0.2.tar.gz", hash = "sha256:c7d282687a5308319bf3d2e7706e575c635b0a470342641c93bea0ea3b5331df", size = 72498 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/2a/95ed0501cf5d8709490b1d3a3f9b5cf340da6c433f896bbe9ce08dbe6785/configparser-4.0.2-py2.py3-none-any.whl", hash = "sha256:254c1d9c79f60c45dfde850850883d5aaa7f19a23f13561243a050d5a7c3fe4c", size = 22828 },
 ]
 
 [[package]]
@@ -910,7 +907,7 @@ requires-dist = [
     { name = "google-cloud-storage", marker = "extra == 'google-cloud-storage'", specifier = "~=2.3" },
     { name = "jsonschema", specifier = "~=4.0" },
     { name = "numpy", marker = "extra == 'numpy'", specifier = "~=2.0" },
-    { name = "oci", marker = "extra == 'oci'", specifier = "~=2.40.1" },
+    { name = "oci", marker = "extra == 'oci'", specifier = "~=2.69.0" },
     { name = "opentelemetry-api", specifier = "~=1.24" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = "~=1.24" },
     { name = "opentelemetry-instrumentation", specifier = "~=0.44b0" },
@@ -1224,19 +1221,19 @@ wheels = [
 
 [[package]]
 name = "oci"
-version = "2.40.1"
+version = "2.69.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
-    { name = "configparser" },
+    { name = "circuitbreaker" },
     { name = "cryptography" },
     { name = "pyopenssl" },
     { name = "python-dateutil" },
     { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/69/bd01073a1c547ab9d12d41df5c54ce01180fb0ffd0914cf30be018a2d372/oci-2.40.1.tar.gz", hash = "sha256:217509a26e036209f4652acb23973fc42039a5113bbbaf3db9edda9a878fe729", size = 4576266 }
+sdist = { url = "https://files.pythonhosted.org/packages/39/ef/f35195146cb14f3513266738b0402bb942398568707500627d6c8defe482/oci-2.69.0.tar.gz", hash = "sha256:425ae9c7d52a6e837d8ff6f0e3c2d4d498c3d8939b5c3c76d1786311985a165c", size = 7105506 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/83/d956222150efbbea7084b3f04f3573968322122fd295870539d592763fff/oci-2.40.1-py2.py3-none-any.whl", hash = "sha256:5c8e29366b4c2b8ba23f634b3ef63866cc8028bfdb112bfd3bc0d2b833e4789e", size = 9532752 },
+    { url = "https://files.pythonhosted.org/packages/f4/91/0c00e4e7b3822b72915a7a199b27ece23e94d58c3d3cae80ae165c053010/oci-2.69.0-py2.py3-none-any.whl", hash = "sha256:451166305558de19cd73de0df8038398fa749d1eae34b4b3d506e6aa182e7e1e", size = 15158069 },
 ]
 
 [[package]]
