@@ -65,6 +65,9 @@ xarray = [
 zarr = [
     "zarr~=2.15"
 ]
+msal = [
+    "msal==1.31.1",
+]
 
 [dependency-groups]
 dev = [

@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import threading
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Optional
 
 import requests
 from opentelemetry import metrics, trace
@@ -31,6 +31,7 @@ from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSamp
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from requests.adapters import HTTPAdapter
 
+from .auth import AccessTokenProvider, AccessTokenProviderFactory
 from ..utils import import_class
 
 _TRACE_SAMPLER_MODULE_NAME = "opentelemetry.sdk.trace.sampling"
@@ -64,17 +65,39 @@ MAX_RETRIES = 5
 
 _setup_lock = threading.Lock()
 
+logger = logging.Logger(__name__)
 
-def create_retryable_session() -> requests.Session:
+
+class CustomHTTPAdapter(HTTPAdapter):
+    """
+    Custom HTTP adapter for retry and auth
+    """
+
+    def __init__(self, auth_provider, *args, **kwargs):
+        kwargs["max_retries"] = kwargs.get("max_retries", MAX_RETRIES)
+        super().__init__(*args, **kwargs)
+        self.auth_provider = auth_provider
+
+    def send(self, request, *args, **kwargs):
+        if self.auth_provider:
+            token = self.auth_provider.get_token()
+            if token:
+                request.headers["Authorization"] = f"Bearer {token}"
+            else:
+                logger.warning("Warning: Failed to retrieve authentication token. Request might fail.")
+        return super().send(request, *args, **kwargs)
+
+
+def create_session(auth_provider: Optional[AccessTokenProvider] = None) -> requests.Session:
     session = requests.Session()
 
     # Disable keep-alive
     session.headers.update({"Connection": "close"})
 
-    adapter = HTTPAdapter(max_retries=MAX_RETRIES)
+    # use adaptor for retry & auth
+    adapter = CustomHTTPAdapter(auth_provider, max_retries=MAX_RETRIES)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-
     return session
 
 
@@ -102,6 +125,10 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                     module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING[trace_exporter_dict["type"]].rsplit(".", 1)
                     options = trace_exporter_dict.get("options", {})
                     cls = import_class(class_name, module_name)
+                    auth_dict = trace_exporter_dict.get("auth", {})
+                    auth_provider = AccessTokenProviderFactory.create_access_token_provider(auth_dict)
+                    if class_name != "console":
+                        options["session"] = create_session(auth_provider)
                     exporter = cls(**options)
                 else:
                     # provide default console exporter if dict is not provided
@@ -113,8 +140,6 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                 if trace_sampler_dict:
                     class_name = trace_sampler_dict["type"]
                     options = trace_exporter_dict.get("options", {})
-                    if class_name != "console":
-                        options["session"] = create_retryable_session()
                     cls_or_obj = import_class(class_name, _TRACE_SAMPLER_MODULE_NAME)
                     if isinstance(cls_or_obj, StaticSampler):
                         sampler = cls_or_obj
@@ -135,8 +160,10 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                     exporter_type = metric_exporter_dict["type"]
                     module_name, class_name = _OTEL_METRIC_EXPORTER_MAPPING[exporter_type].rsplit(".", 1)
                     options = metric_exporter_dict.get("options", {})
+                    auth_dict = metric_exporter_dict.get("auth", {})
+                    auth_provider = AccessTokenProviderFactory.create_access_token_provider(auth_dict)
                     if exporter_type != "console":
-                        options["session"] = create_retryable_session()
+                        options["session"] = create_session(auth_provider)
                     cls = import_class(class_name, module_name)
                     exporter = cls(**options)
                 else:

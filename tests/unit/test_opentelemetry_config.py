@@ -30,6 +30,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, DEFAULT_ON
 from opentelemetry.trace import ProxyTracerProvider
 
+from multistorageclient.instrumentation.auth import AzureAccessTokenProvider
+
 """
 opentelemetry.trace and opentelemetry.metrics have global vars that can only be set once per process
 To bypass it we use pytest.mark.forked to create forked processes for each test cases
@@ -96,10 +98,27 @@ def test_otlp_config() -> None:
         "profiles": {"default": {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}},
         "opentelemetry": {
             "traces": {
-                "exporter": {"type": "otlp", "options": {"endpoint": f"{trace_endpoint}"}},
+                "exporter": {
+                    "type": "otlp",
+                    "options": {"endpoint": f"{trace_endpoint}"},
+                    "auth": {
+                        "type": "azure",
+                        "options": {
+                            "client_id": "your-client-id",
+                            "client_credential": "your-client-secret",
+                            "scopes": ["scope1"],
+                            "validate_authority": False,
+                        },
+                    },
+                },
                 "sampler": {"type": "ALWAYS_OFF", "options": {}},
             },
-            "metrics": {"exporter": {"type": "otlp", "options": {"endpoint": f"{metrics_endpoint}"}}},
+            "metrics": {
+                "exporter": {
+                    "type": "otlp",
+                    "options": {"endpoint": f"{metrics_endpoint}"},
+                }
+            },
         },
     }
 
@@ -116,6 +135,9 @@ def test_otlp_config() -> None:
     exporter = span_processor.span_exporter
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == trace_endpoint
+    adapter = exporter._session.adapters["https://"]
+    assert isinstance(adapter, multistorageclient.instrumentation.CustomHTTPAdapter)
+    assert isinstance(adapter.auth_provider, AzureAccessTokenProvider)
 
     # metrics
     meter_provider: MeterProvider = metrics.get_meter_provider()  # pyright: ignore [reportAssignmentType]
