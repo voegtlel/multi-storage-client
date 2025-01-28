@@ -67,11 +67,8 @@ Run Integration Tests:
   extends:
     - .default
   variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-    FF_NETWORK_PER_BUILD: "true"
+    FF_NETWORK_PER_BUILD: true
   services:
-    - docker:27.5.0-dind
     - name: fsouza/fake-gcs-server:1.52.1
       alias: fake-gcs-server
       command: ["-backend", "memory", "-scheme", "http"]

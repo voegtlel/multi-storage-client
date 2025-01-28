@@ -47,14 +47,25 @@ document: prepare-virtual-environment
     # Build the documentation website.
     uv run sphinx-build -b html docs/src docs/dist
 
+# Stop storage systems.
+stop-storage-systems:
+    # Ports used by storage systems:
+    # - Azurite -> 10000-10002
+    # - MinIO   -> 9000
+    # - GCS     -> 4443 (use `docker stop` instead)
+    for PID in $(lsof -i :9000,10000 -t); do kill $PID; done
+    -if [[ -z "${CI:-}" ]]; then docker stop fake-gcs-server; fi
+    # Remove persisted data.
+    -rm -rf .minio __blobstorage__ __queuestorage__ __azurite_*__.json
+
 # Start storage systems.
-start-storage-systems:
+start-storage-systems: stop-storage-systems
     # Start Azurite.
     azurite --inMemoryPersistence --silent --skipApiVersionCheck &
     # Start MinIO.
     minio --quiet server .minio &
     # Start FakeGCSServer.
-    if [[ -z "${CI:-}" ]]; then docker run --detach --name fake-gcs-server --publish 4443:4443 --rm fsouza/fake-gcs-server:1.52.1 -scheme http -data /tmp/fake-gcs-server/data; fi
+    if [[ -z "${CI:-}" ]]; then docker run --detach --name fake-gcs-server --publish 4443:4443 --rm fsouza/fake-gcs-server:1.52.1 -backend memory -scheme http; fi
 
     # Wait for Azurite.
     timeout 10s bash -c "until netcat --zero 127.0.0.1 10000; do sleep 1; done"
@@ -63,17 +74,6 @@ start-storage-systems:
 
     # Create a "files" bucket in FakeGCSServer.
     curl -X POST -H "Content-Type: application/json" -d '{"name":"files"}' "http://${FAKE_GCS_SERVER:-127.0.0.1}:4443/storage/v1/b?project=local-project-id"
-
-# Stop storage systems.
-stop-storage-systems:
-    # Ports used by storage systems:
-    # - Azurite => 10000-10002
-    # - MinIO   => 9000
-    # - GCS     => 4443 (use `docker stop` instead)
-    for PID in $(lsof -i :9000,10000 -t); do kill $PID; done
-    -if [[ -z "${CI:-}" ]]; then docker stop fake-gcs-server; fi
-    # Remove persisted data.
-    -rm -rf .minio __blobstorage__ __queuestorage__ __azurite_*__.json
 
 # Run integration tests.
 run-integration-tests: prepare-virtual-environment
