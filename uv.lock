@@ -845,6 +845,8 @@ dependencies = [
     { name = "jsonschema" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-instrumentation-system-metrics" },
     { name = "opentelemetry-sdk" },
     { name = "python-dateutil" },
     { name = "pyyaml" },
@@ -911,6 +913,8 @@ requires-dist = [
     { name = "oci", marker = "extra == 'oci'", specifier = "~=2.40.1" },
     { name = "opentelemetry-api", specifier = "~=1.24" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = "~=1.24" },
+    { name = "opentelemetry-instrumentation", specifier = "~=0.44b0" },
+    { name = "opentelemetry-instrumentation-system-metrics", specifier = "~=0.44b0" },
     { name = "opentelemetry-sdk", specifier = "~=1.24" },
     { name = "python-dateutil", specifier = "~=2.8" },
     { name = "pyyaml", specifier = "~=6.0.1" },
@@ -1279,6 +1283,34 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-instrumentation"
+version = "0.44b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "setuptools" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/5b/783fb2d3a1f9d6c826af3ee2f255ca7675a1d050478699ddc636945a30c9/opentelemetry_instrumentation-0.44b0.tar.gz", hash = "sha256:8213d02d8c0987b9b26386ae3e091e0477d6331673123df736479322e1a50b48", size = 23399 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/e3/b2a8260862d278ac2505c8cb61d11185349f5ea537946220f5c7d738de2a/opentelemetry_instrumentation-0.44b0-py3-none-any.whl", hash = "sha256:79560f386425176bcc60c59190064597096114c4a8e5154f1cb281bb4e47d2fc", size = 28402 },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-system-metrics"
+version = "0.44b0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "psutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/f5/78cb2afbad8b2dec8f0f99d9f4fbdad7346c3718fa42d58c14d55f9fd88d/opentelemetry_instrumentation_system_metrics-0.44b0.tar.gz", hash = "sha256:faf44a3a7176cee708db98b36a4b1fc157cb1fef80b3db07207ac9beed3aa270", size = 13027 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/9a/ae455d7d21e1d4dcb1688d803487df4ce312bde7ea74c1dcfb1d9692a059/opentelemetry_instrumentation_system_metrics-0.44b0-py3-none-any.whl", hash = "sha256:f94d488f7d78fd0ac9fabeb1ebc0891561309ed3aee499688ec1266f4aa246dc", size = 11978 },
+]
+
+[[package]]
 name = "opentelemetry-proto"
 version = "1.24.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1437,6 +1469,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f2/2d/3d28a1c513ae75808bd8663f517a9f38693aaf448a120a88788af9931832/protobuf-4.25.6-cp39-cp39-win32.whl", hash = "sha256:3f3b0b39db04b509859361ac9bca65a265fe9342e6b9406eda58029f5b1d10b2", size = 392500 },
     { url = "https://files.pythonhosted.org/packages/9d/35/0705d3ff52364af2bdd2989b09fce93c268ea7c3fc03bdc7174ec630048c/protobuf-4.25.6-cp39-cp39-win_amd64.whl", hash = "sha256:6ef2045f89d4ad8d95fd43cd84621487832a61d15b49500e4c1350e8a0ef96be", size = 413389 },
     { url = "https://files.pythonhosted.org/packages/71/eb/be11a1244d0e58ee04c17a1f939b100199063e26ecca8262c04827fe0bf5/protobuf-4.25.6-py3-none-any.whl", hash = "sha256:07972021c8e30b870cfc0863409d033af940213e0e7f64e27fe017b929d2c9f7", size = 156466 },
+]
+
+[[package]]
+name = "psutil"
+version = "5.9.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/c7/6dc0a455d111f68ee43f27793971cf03fe29b6ef972042549db29eec39a2/psutil-5.9.8.tar.gz", hash = "sha256:6be126e3225486dff286a8fb9a06246a5253f4c7c53b475ea5f5ac934e64194c", size = 503247 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/e3/07ae864a636d70a8a6f58da27cb1179192f1140d5d1da10886ade9405797/psutil-5.9.8-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:aee678c8720623dc456fa20659af736241f575d79429a0e5e9cf88ae0605cc81", size = 248702 },
+    { url = "https://files.pythonhosted.org/packages/b3/bd/28c5f553667116b2598b9cc55908ec435cb7f77a34f2bff3e3ca765b0f78/psutil-5.9.8-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8cb6403ce6d8e047495a701dc7c5bd788add903f8986d523e3e20b98b733e421", size = 285242 },
+    { url = "https://files.pythonhosted.org/packages/c5/4f/0e22aaa246f96d6ac87fe5ebb9c5a693fbe8877f537a1022527c47ca43c5/psutil-5.9.8-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d06016f7f8625a1825ba3732081d77c94589dca78b7a3fc072194851e88461a4", size = 288191 },
+    { url = "https://files.pythonhosted.org/packages/6e/f5/2aa3a4acdc1e5940b59d421742356f133185667dd190b166dbcfcf5d7b43/psutil-5.9.8-cp37-abi3-win32.whl", hash = "sha256:bc56c2a1b0d15aa3eaa5a60c9f3f8e3e565303b465dbf57a1b730e7a2b9844e0", size = 251252 },
+    { url = "https://files.pythonhosted.org/packages/93/52/3e39d26feae7df0aa0fd510b14012c3678b36ed068f7d78b8d8784d61f0e/psutil-5.9.8-cp37-abi3-win_amd64.whl", hash = "sha256:8db4c1b57507eef143a15a6884ca10f7c73876cdf5d51e713151c1236a0e68cf", size = 255090 },
+    { url = "https://files.pythonhosted.org/packages/05/33/2d74d588408caedd065c2497bdb5ef83ce6082db01289a1e1147f6639802/psutil-5.9.8-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:d16bbddf0693323b8c6123dd804100241da461e41d6e332fb0ba6058f630f8c8", size = 249898 },
 ]
 
 [[package]]
@@ -1705,6 +1751,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7e/19/f82e4af435a19b28bdbfba63f338ea20a264f4df4beaf8f2ab9bfa34072b/s3transfer-0.5.2.tar.gz", hash = "sha256:95c58c194ce657a5f4fb0b9e60a84968c808888aed628cd98ab8771fe1db98ed", size = 134873 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/9c/f51775ebe7df5a7aa4e7c79ed671bde94e154bd968aca8d65bb24aba0c8c/s3transfer-0.5.2-py3-none-any.whl", hash = "sha256:7a6f4c4d1fdb9a2b640244008e142cbc2cd3ae34b386584ef044dd0f27101971", size = 79534 },
+]
+
+[[package]]
+name = "setuptools"
+version = "75.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/ec/089608b791d210aec4e7f97488e67ab0d33add3efccb83a056cbafe3a2a6/setuptools-75.8.0.tar.gz", hash = "sha256:c5afc8f407c626b8313a86e10311dd3f661c6cd9c09d4bf8c15c0e11f9f2b0e6", size = 1343222 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/69/8a/b9dc7678803429e4a3bc9ba462fa3dd9066824d3c607490235c6a796be5a/setuptools-75.8.0-py3-none-any.whl", hash = "sha256:e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3", size = 1228782 },
 ]
 
 [[package]]

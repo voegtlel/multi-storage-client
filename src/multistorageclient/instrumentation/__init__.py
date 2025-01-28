@@ -28,6 +28,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSampler
+from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from requests.adapters import HTTPAdapter
 
 from ..utils import import_class
@@ -155,6 +156,9 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
                 ]
                 meter_provider = MeterProvider(resource=_RESOURCE, metric_readers=[metric_reader], views=custom_views)
                 metrics.set_meter_provider(meter_provider)
+
+                # Add system metrics such as CPU time and utilization.
+                SystemMetricsInstrumentor().instrument()
 
             # Only set the _IS_SETUP_DONE = true if the providers are successfully set once
             _IS_SETUP_DONE = True
