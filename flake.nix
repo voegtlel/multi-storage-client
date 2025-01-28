@@ -72,11 +72,11 @@
               # Just.
               just
               # Python.
-              python313
-              python312
-              python311
-              python310
               python39
+              python310
+              python311
+              python312
+              python313
               # uv.
               uv
               # Ruff.

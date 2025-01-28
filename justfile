@@ -4,7 +4,8 @@
 # https://just.systems/man/en
 #
 
-python-binary := "python3.9"
+# Default to the first Python binary on `PATH`.
+python-binary := "python"
 
 # List recipes.
 help:
