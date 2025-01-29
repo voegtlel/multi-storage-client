@@ -22,6 +22,7 @@ from typing import IO, Any, Callable, Iterator, Optional, Union
 
 import boto3
 from boto3.s3.transfer import TransferConfig
+import botocore
 from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import (
     ClientError,
@@ -113,6 +114,7 @@ class S3StorageProvider(BaseStorageProvider):
         self._region_name = region_name
         self._endpoint_url = endpoint_url
         self._credentials_provider = credentials_provider
+        self._signature_version = kwargs.get("signature_version", "")
         self._s3_client = self._create_s3_client()
         self._transfer_config = TransferConfig(
             multipart_threshold=int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD)),
@@ -160,6 +162,14 @@ class S3StorageProvider(BaseStorageProvider):
                 options["aws_secret_access_key"] = creds["secret_key"]
                 if creds["token"]:
                     options["aws_session_token"] = creds["token"]
+
+        if self._signature_version:
+            signature_config = botocore.config.Config(  # pyright: ignore[reportAttributeAccessIssue]
+                signature_version=botocore.UNSIGNED
+                if self._signature_version == "UNSIGNED"
+                else self._signature_version
+            )
+            options["config"] = options["config"].merge(signature_config)
 
         # Fallback to standard credential chain.
         return boto3.client("s3", **options)

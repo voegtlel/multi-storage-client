@@ -307,9 +307,9 @@ def test_storage_provider_profile_unrecognized() -> None:
             """
         )
 
-    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" in str(e), (
-        f"Unexpected error message: {str(e)}"
-    )
+    assert "Profile 'non-existent-profile' referenced by storage_provider_profile does not exist" in str(
+        e
+    ), f"Unexpected error message: {str(e)}"
 
 
 def test_storage_provider_profile_with_manifest() -> None:
@@ -396,3 +396,20 @@ def test_load_retry_config() -> None:
         )
 
     assert "Attempts must be at least 1." in str(e), f"Unexpected error message: {str(e)}"
+
+
+def test_s3_storage_provider_on_public_bucket() -> None:
+    config = StorageClientConfig.from_yaml(
+        """
+        profiles:
+          s3_public_profile:
+            storage_provider:
+              type: s3
+              options:
+                base_path: public-bucket
+                region_name: us-west-2
+                signature_version: UNSIGNED
+        """,
+        profile="s3_public_profile",
+    )
+    assert isinstance(config.storage_provider, S3StorageProvider)
