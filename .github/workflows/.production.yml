@@ -40,10 +40,16 @@ jobs:
       - uses: actions/checkout@v4
       # Set locale for Sphinx.
       #
+      # `locale` comes with most Unix-like operating systems.
+      #
       # https://github.com/sphinx-doc/sphinx/issues/11739
       - run: |
           nix develop --command bash -c "
-            LC_ALL=C.UTF-8 just document
+            echo 'All locales:' &&
+            locale --all-locales &&
+            echo 'Current locale:' &&
+            locale &&
+            LC_ALL=en_US.utf8 just document
           "
       - uses: actions/upload-pages-artifact@v3
         with:
