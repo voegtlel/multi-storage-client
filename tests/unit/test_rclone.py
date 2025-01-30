@@ -1,5 +1,4 @@
 import configparser
-import pytest
 
 from multistorageclient.rclone import _parse_from_config_parser
 
