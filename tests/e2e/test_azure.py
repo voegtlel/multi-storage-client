@@ -14,17 +14,14 @@
 # limitations under the License.
 
 import common
-import pytest
 
 
-@pytest.mark.skip(reason="Azure setup temporarily broken.")
 def test_azure_shortcuts():
     profiles = ["test-azure-uswest"]
     for profile in profiles:
         common.test_shortcuts(profile)
 
 
-@pytest.mark.skip(reason="Azure setup temporarily broken.")
 def test_azure_storage_client():
     profile = "test-azure-uswest"
     common.test_storage_client(profile)
