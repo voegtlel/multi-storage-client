@@ -230,18 +230,23 @@ class S3StorageProvider(BaseStorageProvider):
             return result
         except ClientError as error:
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
+            request_id = error.response["ResponseMetadata"].get("RequestId")
+            host_id = error.response["ResponseMetadata"].get("HostId")
+
+            request_info = f"request_id: {request_id}, host_id: {host_id}, status_code: {status_code}"
+
             if status_code == 404:
-                raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
+                raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {request_info}")  # pylint: disable=raise-missing-from
             elif status_code == 429:
-                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}") from error
+                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}. {request_info}") from error
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {request_info}") from error
         except FileNotFoundError as error:
             status_code = -1
             raise error
         except (ReadTimeoutError, IncompleteReadError) as error:
             status_code = -1
-            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key} due to network timeout or incomplete read.") from error
         except Exception as error:
             status_code = -1
             raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error

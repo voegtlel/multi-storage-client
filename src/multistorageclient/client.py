@@ -141,6 +141,7 @@ class StorageClient:
         else:
             self._storage_provider.download_file(remote_path, local_path)
 
+    @retry
     def upload_file(self, remote_path: str, local_path: str) -> None:
         """
         Uploads a file from the local file system to the storage provider.
@@ -160,6 +161,7 @@ class StorageClient:
             metadata = self._storage_provider.get_object_metadata(remote_path)
             self._metadata_provider.add_file(remote_path, metadata)
 
+    @retry
     def write(self, path: str, body: bytes) -> None:
         """
         Writes an object to the storage provider at the specified path.
