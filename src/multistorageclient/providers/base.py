@@ -88,7 +88,7 @@ class BaseStorageProvider(StorageProvider):
                 object.key = object.key.replace(base_prefix, "", 1).lstrip("/")
                 yield object
         else:
-            return self._list_objects(prefix, start_after, end_at, include_directories)
+            yield from self._list_objects(prefix, start_after, end_at, include_directories)
 
     def upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
         remote_path = self._realpath(remote_path)
