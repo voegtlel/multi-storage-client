@@ -30,6 +30,11 @@ source = "https://github.com/NVIDIA/multi-storage-client"
 documentation = "https://nvidia.github.io/multi-storage-client/"
 
 [project.optional-dependencies]
+# Observability.
+msal = [
+    "msal~=1.31.1"
+]
+
 # Storage providers.
 aistore = [
     "aistore~=1.8"
@@ -62,9 +67,6 @@ xarray = [
 ]
 zarr = [
     "zarr~=2.15"
-]
-msal = [
-    "msal==1.31.1",
 ]
 
 [dependency-groups]

@@ -921,7 +921,7 @@ requires-dist = [
     { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.9.0" },
     { name = "google-cloud-storage", marker = "extra == 'google-cloud-storage'", specifier = "~=2.3" },
     { name = "jsonschema", specifier = "~=4.0" },
-    { name = "msal", marker = "extra == 'msal'", specifier = "==1.31.1" },
+    { name = "msal", marker = "extra == 'msal'", specifier = "~=1.31.1" },
     { name = "numpy", marker = "extra == 'numpy'", specifier = "~=2.0" },
     { name = "oci", marker = "extra == 'oci'", specifier = "~=2.69.0" },
     { name = "opentelemetry-api", specifier = "~=1.24" },

@@ -33,6 +33,7 @@ class TestS3Local:
         self.endpoint_url = "http://localhost:9000"
 
         import boto3
+
         self.client = boto3.client(
             "s3",
             endpoint_url=self.endpoint_url,
@@ -144,7 +145,7 @@ def test_msc_shortcuts_with_s3() -> None:
     s3_test_helper = TestS3Local()
     s3_test_helper.setup_s3_local(base_path=s3_test_helper.bucket_name)
     try:
-        verify_shortcuts(profile="s3-iad", prefix=f"files")
+        verify_shortcuts(profile="s3-iad", prefix="files")
     finally:
         s3_test_helper.clean_bucket()
 
