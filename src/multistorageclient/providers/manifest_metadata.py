@@ -97,6 +97,18 @@ class Manifest:
         return json.dumps(data)
 
 
+def _metadata_to_manifest_dict(metadata: ObjectMetadata) -> dict:
+    """
+    Convert an ObjectMetadata instance to a dictionary suitable with manifest format,
+    replacing 'content_length' with 'size_bytes' and removing 'content_length'.
+    """
+    metadata_dict = metadata.to_dict()
+    # Pop out content_length, store it in size_bytes
+    size_bytes = metadata_dict.pop("content_length", None)
+    metadata_dict["size_bytes"] = size_bytes
+    return metadata_dict
+
+
 class ManifestMetadataProvider(MetadataProvider):
     _storage_provider: StorageProvider
     _files: Dict[str, ObjectMetadata]
@@ -254,9 +266,7 @@ class ManifestMetadataProvider(MetadataProvider):
         # Write single manifest part with metadata as JSON lines (each object on a new line)
         manifest_part_content = "\n".join(
             [
-                json.dumps({**metadata_dict, "size_bytes": metadata_dict.pop("content_length")})
-                for metadata in object_metadata
-                for metadata_dict in [metadata.to_dict()]
+                json.dumps(_metadata_to_manifest_dict(metadata)) for metadata in object_metadata
             ]
         )
         storage_provider.put_object(

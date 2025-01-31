@@ -238,7 +238,9 @@ class S3StorageProvider(BaseStorageProvider):
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {request_info}")  # pylint: disable=raise-missing-from
             elif status_code == 429:
-                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}. {request_info}") from error
+                raise RetryableError(
+                    f"Too many request to {operation} object(s) at {bucket}/{key}. {request_info}"
+                ) from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {request_info}") from error
         except FileNotFoundError as error:
@@ -246,7 +248,9 @@ class S3StorageProvider(BaseStorageProvider):
             raise error
         except (ReadTimeoutError, IncompleteReadError) as error:
             status_code = -1
-            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key} due to network timeout or incomplete read.") from error
+            raise RetryableError(
+                f"Failed to {operation} object(s) at {bucket}/{key} due to network timeout or incomplete read."
+            ) from error
         except Exception as error:
             status_code = -1
             raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
