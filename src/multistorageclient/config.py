@@ -47,8 +47,7 @@ STORAGE_PROVIDER_MAPPING = {
     "oci": "OracleStorageProvider",
     "azure": "AzureBlobStorageProvider",
     "ais": "AIStoreStorageProvider",
-    # Map swiftstack to S3StorageProvider for now
-    "s8k": "S3StorageProvider",
+    "s8k": "S8KStorageProvider",
 }
 
 CREDENTIALS_PROVIDER_MAPPING = {

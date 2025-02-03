@@ -37,12 +37,18 @@ except Exception:
     pass
 
 try:
+    from .s8k import S8KStorageProvider
+except Exception:
+    pass
+
+try:
     from .ais import AIStoreStorageProvider, StaticAISCredentialProvider
 except Exception:
     pass
 
 __all__ = [
     "S3StorageProvider",
+    "S8KStorageProvider",
     "StaticS3CredentialsProvider",
     "GoogleStorageProvider",
     "PosixFileStorageProvider",

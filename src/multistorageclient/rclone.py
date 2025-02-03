@@ -90,6 +90,8 @@ def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tup
     _set_if_exists(section, storage_provider_options, "region_name", "region")
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
+    _set_if_exists(section, storage_provider_options, "request_checksum_calculation", "request_checksum_calculation")
+    _set_if_exists(section, storage_provider_options, "response_checksum_validation", "response_checksum_validation")
 
     credentials_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "access_key", "access_key_id")

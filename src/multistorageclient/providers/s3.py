@@ -90,7 +90,7 @@ class StaticS3CredentialsProvider(CredentialsProvider):
 
 class S3StorageProvider(BaseStorageProvider):
     """
-    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Amazon S3 or SwiftStack.
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with Amazon S3 or S3-compatible object stores.
     """
 
     def __init__(
@@ -115,7 +115,10 @@ class S3StorageProvider(BaseStorageProvider):
         self._endpoint_url = endpoint_url
         self._credentials_provider = credentials_provider
         self._signature_version = kwargs.get("signature_version", "")
-        self._s3_client = self._create_s3_client()
+        self._s3_client = self._create_s3_client(
+            request_checksum_calculation=kwargs.get("request_checksum_calculation"),
+            response_checksum_validation=kwargs.get("response_checksum_validation"),
+        )
         self._transfer_config = TransferConfig(
             multipart_threshold=int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD)),
             max_concurrency=int(kwargs.get("max_concurrency", MAX_CONCURRENCY)),
@@ -124,10 +127,14 @@ class S3StorageProvider(BaseStorageProvider):
             use_threads=True,
         )
 
-    def _create_s3_client(self):
+    def _create_s3_client(
+        self, request_checksum_calculation: Optional[str] = None, response_checksum_validation: Optional[str] = None
+    ):
         """
         Creates and configures the boto3 S3 client, using refreshable credentials if possible.
 
+        :param request_checksum_calculation: When the underlying S3 client should calculate request checksums. See the equivalent option in the `AWS configuration file <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file>`_.
+        :param response_checksum_validation: When the underlying S3 client should validate response checksums. See the equivalent option in the `AWS configuration file <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file>`_.
         :return The configured S3 client.
         """
         options = {
@@ -137,6 +144,8 @@ class S3StorageProvider(BaseStorageProvider):
                 connect_timeout=BOTO3_CONNECT_TIMEOUT,
                 read_timeout=BOTO3_READ_TIMEOUT,
                 retries=dict(mode="standard"),
+                request_checksum_calculation=request_checksum_calculation,
+                response_checksum_validation=response_checksum_validation,
             ),
         }
         if self._endpoint_url:
@@ -242,8 +251,10 @@ class S3StorageProvider(BaseStorageProvider):
                     f"Too many request to {operation} object(s) at {bucket}/{key}. {request_info}"
                 ) from error
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {request_info}, "
-                                   f"error_type: {type(error).__name__}") from error
+                raise RuntimeError(
+                    f"Failed to {operation} object(s) at {bucket}/{key}. {request_info}, "
+                    f"error_type: {type(error).__name__}"
+                ) from error
         except FileNotFoundError as error:
             status_code = -1
             raise error
@@ -251,11 +262,13 @@ class S3StorageProvider(BaseStorageProvider):
             status_code = -1
             raise RetryableError(
                 f"Failed to {operation} object(s) at {bucket}/{key} due to network timeout or incomplete read. "
-                f"error_type: {type(error).__name__}") from error
+                f"error_type: {type(error).__name__}"
+            ) from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. "
-                               f"error type: {type(error).__name__}") from error
+            raise RuntimeError(
+                f"Failed to {operation} object(s) at {bucket}/{key}. error type: {type(error).__name__}"
+            ) from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
