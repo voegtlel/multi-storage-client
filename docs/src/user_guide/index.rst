@@ -91,6 +91,8 @@ Before using the MSC, we need to create an MSC configuration. This configuration
 
 MSC configurations can be file or dictionary-based.
 
+.. _file-based:
+
 File-Based
 ----------
 
@@ -218,6 +220,41 @@ The schema is the same as file-based configurations.
    )
 
    client = StorageClient(config=config)
+
+Rclone-Based
+------------
+
+MSC also supports using an rclone configuration file as the source for MSC profiles. This is particularly useful if you already have an rclone configuration file and want to leverage the same profiles for MSC.
+
+In an rclone configuration file, profiles are defined as INI sections, and the keys follow rclone's naming conventions. MSC will parse these files to create the corresponding provider configurations.
+
+.. code-block:: INI
+   :caption: Rclone-based configuration.
+   :linenos:
+
+   [my-profile]
+   type = s3
+   base_path = my-bucket
+   access_key_id = my-access-key-id
+   secret_key_id = my-secret-key-id
+   endpoint = https://my-endpoint
+   region = us-east-1
+
+MSC checks for rclone-based configurations with the following priority:
+
+#. The same directory as the ``rclone`` executable (if found in ``PATH``).
+#. ``XDG_CONFIG_HOME/rclone/rclone.conf`` (if ``XDG_CONFIG_HOME`` is set).
+#. ``/etc/rclone.conf``
+#. ``~/.config/rclone/rclone.conf``
+#. ``~/.rclone.conf``
+
+.. note::
+
+   MSC :ref:`file-based` configuration uses different configuration keys than rclone. For example, MSC uses ``endpoint_url`` for :py:class:`multistorageclient.StorageClient.S3StorageProvider` but rclone expects ``endpoint``. MSC aligns with rclone defaults so that if you have a rclone configuration, you can use it with MSC without any modifications on existing keys.
+
+.. note::
+
+   Rclone configuration primarily focus on storage access. Some MSC features such as caching and observability cannot be enabled with a rclone configuration. Therefore, MSC allows to use a rclone-based configuration for storage acceess alongside with a built-in :ref:`file-based` configuration for additional features. You can also use the built-in file-based configuration to add extra parameters to an individual profile such as ``metadata_provider``.
 
 .. _operations:
 
