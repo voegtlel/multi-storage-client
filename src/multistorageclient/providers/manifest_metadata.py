@@ -265,9 +265,7 @@ class ManifestMetadataProvider(MetadataProvider):
 
         # Write single manifest part with metadata as JSON lines (each object on a new line)
         manifest_part_content = "\n".join(
-            [
-                json.dumps(_metadata_to_manifest_dict(metadata)) for metadata in object_metadata
-            ]
+            [json.dumps(_metadata_to_manifest_dict(metadata)) for metadata in object_metadata]
         )
         storage_provider.put_object(
             os.path.join(manifest_folderpath, manifest_part_file_path), manifest_part_content.encode("utf-8")

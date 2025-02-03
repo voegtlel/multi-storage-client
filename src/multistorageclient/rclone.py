@@ -89,6 +89,7 @@ def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tup
     storage_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "region_name", "region")
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
+    _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     credentials_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "access_key", "access_key_id")
@@ -116,6 +117,7 @@ def _parse_azure_storage_provider_config(section: configparser.SectionProxy) -> 
     """
     storage_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
+    _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     credentials_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "connection", "connection")
@@ -141,6 +143,7 @@ def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> Tu
     storage_provider_options: Dict[str, Any] = {}
     # rclone uses 'project_number' for GCS.
     _set_if_exists(section, storage_provider_options, "project_id", "project_number")
+    _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}
 
@@ -156,6 +159,7 @@ def _parse_oci_storage_provider_config(section: configparser.SectionProxy) -> Tu
     """
     storage_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "namespace", "namespace")
+    _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}
 
@@ -171,6 +175,7 @@ def _parse_ais_storage_provider_config(section: configparser.SectionProxy) -> Tu
     """
     storage_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "endpoint", "endpoint")
+    _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}
 
@@ -199,32 +204,38 @@ def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
     # To infer the storage provider, use both:
     #   - MSC configuration storage type key (e.g. azure)
     #   - rclone default storage type key (e.g. azureblob)
+    #
+    # Then, convert to storage type to MSC configuration storage key (e.g. azure).
     if storage_type == "s3" or storage_type == "s8k":
         storage_provider_options, credentials_provider = _parse_s3_storage_provider_config(section)
+        storage_type = "s3"
     elif storage_type == "azure" or storage_type == "azureblob":
         storage_provider_options, credentials_provider = _parse_azure_storage_provider_config(section)
+        storage_type = "azure"
     elif storage_type == "gcs" or storage_type == "google cloud storage":
         storage_provider_options, credentials_provider = _parse_gcs_storage_provider_config(section)
+        storage_type = "gcs"
     elif storage_type == "oci" or storage_type == "oracleobjectstorage":
         storage_provider_options, credentials_provider = _parse_oci_storage_provider_config(section)
+        storage_type = "oci"
     elif storage_type == "ais":
         storage_provider_options, credentials_provider = _parse_ais_storage_provider_config(section)
-
-    # Second, gather all generic config keys.
-    generic_options = {k: v for k, v in section.items()}
-
-    # Combine the storage provider specific options with these generic options.
-    options = {**storage_provider_options, **generic_options}
+    else:
+        # Gather all generic config keys for unknown storage provider.
+        storage_provider_options = {k: v for k, v in section.items()}
 
     storage_provider: Dict[str, Any] = {
         "type": storage_type,
-        "options": options,
+        "options": storage_provider_options,
     }
 
-    return {
-        "storage_provider": storage_provider,
-        "credentials_provider": credentials_provider,
-    }
+    config = {}
+    if storage_provider:
+        config["storage_provider"] = storage_provider
+    if credentials_provider:
+        config["credentials_provider"] = credentials_provider
+
+    return config
 
 
 def _parse_from_config_parser(config: configparser.ConfigParser) -> Dict[str, Any]:

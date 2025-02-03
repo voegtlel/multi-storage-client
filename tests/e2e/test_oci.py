@@ -13,15 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import common
 
 
-def test_oci_shortcuts():
-    profiles = ["test-oci"]
-    for profile in profiles:
-        common.test_shortcuts(profile)
+@pytest.mark.parametrize("profile_name", ["test-oci"])
+@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
+def test_oci_shortcuts(profile_name, config_suffix):
+    profile = profile_name + config_suffix
+    common.test_shortcuts(profile)
 
 
-def test_oci_storage_client():
-    profile = "test-oci"
+@pytest.mark.parametrize("profile_name", ["test-oci"])
+@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
+def test_oci_storage_client(profile_name, config_suffix):
+    profile = profile_name + config_suffix
     common.test_storage_client(profile)

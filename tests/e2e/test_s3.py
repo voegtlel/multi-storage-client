@@ -13,15 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import common
 
 
-def test_s3_shortcuts():
-    profiles = ["test-s3-iad", "test-s3-iad-base-path-with-prefix"]
-    for profile in profiles:
-        common.test_shortcuts(profile)
+@pytest.mark.parametrize("profile_name", ["test-s3-iad", "test-s3-iad-base-path-with-prefix"])
+@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
+def test_s3_shortcuts(profile_name, config_suffix):
+    profile = profile_name + config_suffix
+    common.test_shortcuts(profile)
 
 
-def test_s3_storage_client():
-    profile = "test-s3-iad"
+@pytest.mark.parametrize("profile_name", ["test-s3-iad"])
+@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
+def test_s3_storage_client(profile_name, config_suffix):
+    profile = profile_name + config_suffix
     common.test_storage_client(profile)
