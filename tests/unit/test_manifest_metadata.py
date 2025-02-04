@@ -267,7 +267,7 @@ def test_download_file_with_metadata(file_storage_config):
         # Create a unique profile name so that we do not re-use a cached instance of StorageClient
         profile_name = test_download_file_with_metadata.__name__
         # set manifest_filepath relative to src_data_folderpath
-        manifest_filepath = manifest_filepath[len(src_data_folderpath):]
+        manifest_filepath = manifest_filepath[len(src_data_folderpath) :]
         # msc config with metadata provider
         config_dict = {
             "profiles": {
@@ -336,12 +336,13 @@ def test_commit_updates_load_manifest_with_new_storage_client():
                         "options": {
                             "manifest_path": ".msc_manifests",
                             "writable": True,
-                            "storage_provider_profile": "manifest_profile"},
+                            "storage_provider_profile": "manifest_profile",
+                        },
                     },
                 },
                 "manifest_profile": {
                     "storage_provider": {"type": "file", "options": {"base_path": f"{manifest_base_path}"}}
-                }
+                },
             }
         }
         storage_client = StorageClient(StorageClientConfig.from_dict(config_dict))

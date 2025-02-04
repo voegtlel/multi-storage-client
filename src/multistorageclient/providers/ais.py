@@ -241,7 +241,11 @@ class AIStoreStorageProvider(BaseStorageProvider):
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
 
     def _list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         bucket, prefix = split_path(prefix)
 
