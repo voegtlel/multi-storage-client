@@ -267,7 +267,7 @@ def test_download_file_with_metadata(file_storage_config):
         # Create a unique profile name so that we do not re-use a cached instance of StorageClient
         profile_name = test_download_file_with_metadata.__name__
         # set manifest_filepath relative to src_data_folderpath
-        manifest_filepath = manifest_filepath[len(src_data_folderpath) :]
+        manifest_filepath = manifest_filepath[len(src_data_folderpath):]
         # msc config with metadata provider
         config_dict = {
             "profiles": {
@@ -314,3 +314,71 @@ def test_download_file_with_metadata(file_storage_config):
                 content = file.read()
                 assert len(content) == file_meta["size_bytes"]
                 assert content == "x" * file_meta["size_bytes"]
+
+
+def test_commit_updates_load_manifest_with_new_storage_client():
+    # Test create manifest with write APIs
+    with tempfile.TemporaryDirectory() as tmpdir:
+        manifest_base_path = os.path.join(tmpdir, "test_manifests")
+        # Create manifest base folder
+        os.makedirs(manifest_base_path, exist_ok=True)
+
+        # Create data base folder
+        data_base_path = os.path.join(tmpdir, "test_data")
+        os.makedirs(os.path.join(tmpdir, data_base_path), exist_ok=True)
+
+        config_dict = {
+            "profiles": {
+                "default": {
+                    "storage_provider": {"type": "file", "options": {"base_path": f"{data_base_path}"}},
+                    "metadata_provider": {
+                        "type": "manifest",
+                        "options": {
+                            "manifest_path": ".msc_manifests",
+                            "writable": True,
+                            "storage_provider_profile": "manifest_profile"},
+                    },
+                },
+                "manifest_profile": {
+                    "storage_provider": {"type": "file", "options": {"base_path": f"{manifest_base_path}"}}
+                }
+            }
+        }
+        storage_client = StorageClient(StorageClientConfig.from_dict(config_dict))
+        assert storage_client._metadata_provider
+        # Ensure list returns nothing
+        assert len(list(storage_client.list())) == 0
+
+        body = b"A" * 8 * 64
+        storage_client.write(path="prefix/file1.bin", body=body)
+        storage_client.write(path="prefix/file2.bin", body=body)
+
+        # Glob should be 0 since we haven't committed updates
+        assert len(list(storage_client.list())) == 0
+        assert len(storage_client.glob(pattern="prefix/*")) == 0
+
+        # Commit and verify
+        storage_client.commit_updates()
+        assert len(list(storage_client.list())) == 2
+        assert len(storage_client.glob(pattern="prefix/*")) == 2
+
+        # Write two more files
+        storage_client.write(path="prefix/file3.bin", body=body)
+        storage_client.write(path="prefix/file4.bin", body=body)
+
+        # Commit and verify we have 4 files
+        storage_client.commit_updates()
+        assert len(storage_client.glob(pattern="prefix/*")) == 4
+
+        # Instantiate another storage client with the same config
+        storage_client = StorageClient(StorageClientConfig.from_dict(config_dict))
+        assert storage_client
+        # Verify we can still get 4 files
+        assert len(storage_client.glob(pattern="prefix/*")) == 4
+        # Write two more files
+        storage_client.write(path="prefix/file5.bin", body=body)
+        storage_client.write(path="prefix/file6.bin", body=body)
+
+        # Commit and verify we have 6 files
+        storage_client.commit_updates()
+        assert len(storage_client.glob(pattern="prefix/*")) == 6
