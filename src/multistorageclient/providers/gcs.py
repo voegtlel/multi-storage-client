@@ -37,28 +37,38 @@ class GoogleStorageProvider(BaseStorageProvider):
     """
 
     def __init__(
-        self, project_id: str, base_path: str = "", credentials_provider: Optional[CredentialsProvider] = None
+        self,
+        project_id: str,
+        endpoint_url: str = "",
+        base_path: str = "",
+        credentials_provider: Optional[CredentialsProvider] = None,
     ):
         """
         Initializes the :py:class:`GoogleStorageProvider` with the project ID and optional credentials provider.
 
         :param project_id: The Google Cloud project ID.
+        :param endpoint_url: The custom endpoint URL for the GCS service.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         :param credentials_provider: The provider to retrieve GCS credentials.
         """
         super().__init__(base_path=base_path, provider_name=PROVIDER)
 
         self._project_id = project_id
+        self._endpoint_url = endpoint_url
         self._credentials_provider = credentials_provider
         self._gcs_client = self._create_gcs_client()
 
     def _create_gcs_client(self) -> storage.Client:
+        client_options = {}
+        if self._endpoint_url:
+            client_options["api_endpoint"] = self._endpoint_url
+
         if self._credentials_provider:
             access_token = self._credentials_provider.get_credentials().token
             creds = GoogleCredentials(token=access_token)
-            return storage.Client(project=self._project_id, credentials=creds)
+            return storage.Client(project=self._project_id, credentials=creds, client_options=client_options)
         else:
-            return storage.Client(project=self._project_id)
+            return storage.Client(project=self._project_id, client_options=client_options)
 
     def _refresh_gcs_client_if_needed(self) -> None:
         """

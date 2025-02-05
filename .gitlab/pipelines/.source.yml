@@ -82,7 +82,6 @@ Run Integration Tests:
   script:
     - |
       nix develop --command bash -c "
-        export FAKE_GCS_SERVER='fake-gcs-server' &&
         just start-storage-systems &&
         just python-binary=${PYTHON_BINARY} run-integration-tests &&
         just stop-storage-systems

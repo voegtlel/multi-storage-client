@@ -145,6 +145,7 @@ def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> Tu
     storage_provider_options: Dict[str, Any] = {}
     # rclone uses 'project_number' for GCS.
     _set_if_exists(section, storage_provider_options, "project_id", "project_number")
+    _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}

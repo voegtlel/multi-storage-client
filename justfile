@@ -72,13 +72,10 @@ start-storage-systems: stop-storage-systems
     # Wait for MinIO.
     timeout 10s bash -c "until curl --fail --silent http://127.0.0.1:9000/minio/health/live; do sleep 1; done"
 
-    # Create a "files" bucket in FakeGCSServer.
-    curl -X POST -H "Content-Type: application/json" -d '{"name":"files"}' "http://${FAKE_GCS_SERVER:-127.0.0.1}:4443/storage/v1/b?project=local-project-id"
-
 # Run integration tests.
 run-integration-tests: prepare-virtual-environment
     # Integration test.
-    STORAGE_EMULATOR_HOST=http://${FAKE_GCS_SERVER:-127.0.0.1}:4443 uv run pytest tests/integ
+    uv run pytest tests/integ
 
 # Run E2E tests.
 run-e2e-tests: prepare-virtual-environment

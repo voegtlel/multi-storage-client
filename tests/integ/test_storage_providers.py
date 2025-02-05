@@ -351,6 +351,30 @@ def test_azure_local():
 
 
 def test_gcs_local():
+    from google.auth.credentials import AnonymousCredentials
+    from google.cloud import storage
+
+    project_id = "local-project-id"
+    endpoint_url = f"http://{'fake-gcs-server' if ('CI' in os.environ) else '127.0.0.1'}:4443"
+    bucket_name = "files"
+    bucket = storage.Bucket(
+        storage.Client(
+            project=project_id, credentials=AnonymousCredentials(), client_options={"api_endpoint": endpoint_url}
+        ),
+        name=bucket_name,
+    )
+
+    # Recreate the bucket.
+    try:
+        if bucket.exists():
+            for blob in bucket.list_blobs():
+                if blob.exists():
+                    blob.delete()
+            bucket.delete()
+    except Exception:
+        pass
+    bucket.create()
+
     # Delete files in the cache directory
     cache_dir = os.path.join(tempfile.gettempdir(), ".msc_cache")
     if os.path.exists(cache_dir):
@@ -362,7 +386,11 @@ def test_gcs_local():
                 "gcs": {
                     "storage_provider": {
                         "type": "gcs",
-                        "options": {"project_id": "local-project-id", "base_path": "files"},
+                        "options": {
+                            "project_id": project_id,
+                            "endpoint_url": endpoint_url,
+                            "base_path": bucket_name,
+                        },
                     }
                 }
             }
