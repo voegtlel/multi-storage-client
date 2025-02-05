@@ -47,6 +47,7 @@ Run E2E Tests:
       nix develop --command bash -c "
         export OCI_CONFIG_FILE=${OCI_CLIENT_CONFIGURATION_BETA} &&
         export MSC_CONFIG=${MULTI_STORAGE_CLIENT_CONFIGURATION_BETA} &&
+        export GOOGLE_APPLICATION_CREDENTIALS=${GCS_APPLICATION_DEFAULT_CREDENTIALS_BETA} &&
         cp ${MULTI_STORAGE_CLIENT_RCLONE_CONF_BETA} "~/.rclone.conf" &&
         just python-binary=${PYTHON_BINARY} run-e2e-tests
       "

@@ -79,6 +79,15 @@
                     "base_path": "msc-test"
                 }
             }
+        },
+        "test-gcs": {
+            "storage_provider": {
+                "type": "gcs",
+                "options": {
+                    "project_id": "data-platform-dev",
+                    "base_path": "nvdataplatformdev/msc-test"
+                }
+            }
         }
     }
 }
