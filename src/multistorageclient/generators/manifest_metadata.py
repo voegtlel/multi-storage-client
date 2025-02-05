@@ -45,9 +45,9 @@ class ManifestMetadataGenerator:
         """
         Generates a file metadata manifest.
 
-        The ``data_base_path`` argument should be set to the root path for data objects (e.g. ``my-bucket/my-data-prefix``).
+        The data storage client's base path should be set to the root path for data objects (e.g. ``my-bucket/my-data-prefix``).
 
-        The ``manifest_base_path`` argument should be set to the root path for manifest objects (e.g. ``my-bucket/my-manifest-prefix``).
+        The manifest storage client's base path should be set to the root path for manifest objects (e.g. ``my-bucket/my-manifest-prefix``).
 
         The following manifest objects will be written with the destination storage client (with the total number of manifest parts being variable)::
 
@@ -59,9 +59,7 @@ class ManifestMetadataGenerator:
                └── part99.jsonl
 
         :param data_storage_client: Storage client for reading data objects.
-        :param data_base_path: Base path for data objects.
         :param manifest_storage_client: Storage client for writing manifest objects.
-        :param manifest_base_path: Base path for manifest objects.
         """
         # Get respective StorageProviders. A StorageClient will always have a StorageProvider
         # TODO: Cleanup by exposing APIs from the client
