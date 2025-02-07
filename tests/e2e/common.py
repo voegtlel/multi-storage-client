@@ -89,6 +89,9 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     # open file
     with storage_client.open(filename, "wb") as fp:
         fp.write(body)
+        assert fp.name == filename
+        assert not fp.closed
+    assert fp.closed
 
     assert len(list(storage_client.list(prefix))) == 1
 

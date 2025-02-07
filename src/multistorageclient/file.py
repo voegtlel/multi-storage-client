@@ -55,6 +55,10 @@ class RemoteFileReader(IO[bytes]):
         self._storage_provider = storage_provider
         self._pos = 0
 
+    @property
+    def name(self) -> str:
+        return self._remote_path
+
     def readable(self) -> bool:
         return True
 
@@ -136,6 +140,10 @@ class RemoteFileReader(IO[bytes]):
 
     def close(self) -> None:
         pass
+
+    @property
+    def closed(self) -> bool:
+        return False
 
     def __enter__(self) -> RemoteFileReader:
         return self
@@ -355,6 +363,10 @@ class ObjectFile(IO):
         self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
         self._download_complete.set()
 
+    @property
+    def name(self) -> str:
+        return self._file.name
+
     @file_tracer
     def read(self, size: int = -1) -> Any:
         if self.readable():
@@ -465,6 +477,10 @@ class ObjectFile(IO):
         if self._file:
             self._file.close()
 
+    @property
+    def closed(self) -> bool:
+        return self._file.closed
+
     def _upload_file(self) -> None:
         """
         Upload the file to object store.
@@ -540,6 +556,10 @@ class PosixFile(IO):
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         self._file = open(path, mode=mode, encoding=encoding)
+
+    @property
+    def name(self) -> str:
+        return self._file.name
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
@@ -624,6 +644,10 @@ class PosixFile(IO):
     @file_tracer
     def close(self) -> None:
         self._file.close()
+
+    @property
+    def closed(self) -> bool:
+        return self._file.closed
 
     def get_local_path(self) -> Optional[str]:
         return self._file.name
