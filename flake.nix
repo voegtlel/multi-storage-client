@@ -18,9 +18,13 @@
   };
 
   outputs =
-    { self, nixpkgs, ... }:
+    {
+      self,
+      nixpkgs,
+      ...
+    }:
     let
-      # Systems to provide outputs for.
+      # Output systems.
       #
       # https://github.com/NixOS/nixpkgs/blob/master/lib/systems/flake-systems.nix
       systems = [
@@ -30,37 +34,43 @@
         "x86_64-linux"
       ];
 
-      # A function that creates an attribute set and provides a system-specific nixpkgs for each system.
-      forEachSystem =
+      # Return an attribute set of system to the result of applying `f`.
+      genSystemAttrs =
         f:
+        # https://nixos.org/manual/nixpkgs/stable#function-library-lib.attrsets.genAttrs
         nixpkgs.lib.genAttrs systems (
           system:
           f {
-            pkgs = import nixpkgs {
-              inherit system;
+            # System packages.
+            packages = {
+              self = self.packages.${system};
+
+              nixpkgs = import nixpkgs {
+                inherit system;
+              };
             };
           }
         );
     in
     {
-      # Formatter.
-      #
-      # For `nix fmt`.
-      formatter = forEachSystem ({ pkgs, ... }: pkgs.nixfmt-rfc-style);
-
       # Development shells.
       #
       # For `nix develop` and direnv's `use flake`.
-      devShells = forEachSystem (
-        { pkgs, ... }:
+      devShells = genSystemAttrs (
         {
-          default = pkgs.mkShell {
-            packages = with pkgs; [
+          packages,
+          ...
+        }:
+        {
+          # https://nixos.org/manual/nixpkgs/stable#sec-pkgs-mkShell
+          default = packages.nixpkgs.mkShell {
+            packages = with packages.nixpkgs; [
               # Nix.
               #
               # Nix is dynamically linked on some systems. If we set LD_LIBRARY_PATH,
               # running Nix commands with the system-installed Nix may fail due to mismatched library versions.
               nix
+              nixfmt-rfc-style
               # Utilities.
               coreutils
               curl
@@ -102,7 +112,7 @@
               # https://discourse.nixos.org/t/how-to-solve-libstdc-not-found-in-shell-nix/25458
               # https://discourse.nixos.org/t/poetry-pandas-issue-libz-so-1-not-found/17167
               export LD_LIBRARY_PATH=${
-                with pkgs;
+                with packages.nixpkgs;
                 lib.makeLibraryPath [
                   stdenv.cc.cc
                   zlib
