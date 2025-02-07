@@ -95,7 +95,7 @@ def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tup
 
     credentials_provider_options: Dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "access_key", "access_key_id")
-    _set_if_exists(section, credentials_provider_options, "secret_key", "secret_key_id")
+    _set_if_exists(section, credentials_provider_options, "secret_key", "secret_access_key")
     _set_if_exists(section, credentials_provider_options, "session_token", "session_token")
 
     credentials_provider: Dict[str, Any] = {}
@@ -225,6 +225,9 @@ def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
     else:
         # Gather all generic config keys for unknown storage provider.
         storage_provider_options = {k: v for k, v in section.items()}
+
+    # Set default base_path to make it compatible with rclone config
+    storage_provider_options["base_path"] = storage_provider_options.get("base_path", "")
 
     storage_provider: Dict[str, Any] = {
         "type": storage_type,

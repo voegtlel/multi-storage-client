@@ -42,9 +42,9 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
             await filesystem._pipe_file(file_path, b"test content")
         listed_files = await filesystem._ls(test_dir_path)
         expected_file_list = sorted([f"default{dir_path}file{i}.txt".lstrip("/") for i in range(3)])
-        assert sorted(f["name"] for f in listed_files) == expected_file_list, (
-            f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
-        )
+        assert (
+            sorted(f["name"] for f in listed_files) == expected_file_list
+        ), f"Expected {expected_file_list}, got {sorted(f['name'] for f in listed_files)}"
 
         # test _info on a file
         info = await filesystem._info(test_path)
@@ -98,9 +98,9 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
 
         with open(downloaded_file_path, "rb") as downloaded_file:
             downloaded_content = downloaded_file.read()
-        assert downloaded_content == expected_file_content, (
-            f"Expected downloaded content to be {expected_file_content}, got {downloaded_content}"
-        )
+        assert (
+            downloaded_content == expected_file_content
+        ), f"Expected downloaded content to be {expected_file_content}, got {downloaded_content}"
 
         # test _cp_file
         copy_file_path = f"{remote_file_path}.copy"

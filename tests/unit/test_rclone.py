@@ -21,7 +21,7 @@ def test_parse_from_config_parser_single_profile():
     cfg.set("s3-local", "region", "us-east-1")
     cfg.set("s3-local", "endpoint", "http://localhost:9000")
     cfg.set("s3-local", "access_key_id", "test-access")
-    cfg.set("s3-local", "secret_key_id", "test-secret")
+    cfg.set("s3-local", "secret_access_key", "test-secret")
     # A key that is not processed, to test leftover
     cfg.set("s3-local", "base_path", "my-bucket")
 
@@ -81,6 +81,7 @@ def test_parse_from_config_parser_multiple_profiles():
     assert s3_profile["storage_provider"]["type"] == "s3"
     s3_options = s3_profile["storage_provider"]["options"]
     assert s3_options["region_name"] == "us-east-2"
+    assert "base_path" in s3_options
 
     # Check FTP
     ais_profile = profiles["ftp"]
