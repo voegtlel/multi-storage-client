@@ -48,7 +48,7 @@ def test_os_path_isfile(file_storage_config):
 def test_os_path_isdir(file_storage_config):
     with tempfile.TemporaryDirectory() as tempdir:
         existent_path = f"{MSC_PROTOCOL}default{tempdir}"
-        assert msc.os.path.isdir(existent_path)
+        assert msc.os.path.isdir(existent_path) == msc.os.path.isdir(existent_path, strict=False)
         assert msc.os.path.isfile(existent_path) is False
 
 

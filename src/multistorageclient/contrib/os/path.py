@@ -37,26 +37,32 @@ def exists(path: str) -> bool:
         return _os_path.exists(path)
 
 
-def isdir(path: str) -> bool:
+def isdir(path: str, strict: bool = True) -> bool:
     """
     Check if a given path is a directory.
 
     :param path: The path to check. It can be a local filesystem path or a path prefixed with a custom protocol (msc://).
+    :param strict: If True, performs additional validation to ensure the directory exists by issuing extra LIST operations
+                   on object stores. This can help detect cases where a directory-like path exists but may incur
+                   additional latency due to extra API calls. Defaults to True.
     :return: True if the path is a directory, False otherwise.
     """
     if path.startswith(MSC_PROTOCOL):
-        storage_client, file_path = resolve_storage_client(path)
-        try:
-            # Append trailing slash
-            if not path.endswith("/"):
-                file_path += "/"
-            meta = storage_client.info(file_path)
-            return meta.type == "directory"
-        except FileNotFoundError:
-            return False
-        except Exception as e:
-            logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
-            return False
+        if strict:
+            storage_client, file_path = resolve_storage_client(path)
+            try:
+                # Append trailing slash
+                if not path.endswith("/"):
+                    file_path += "/"
+                meta = storage_client.info(file_path)
+                return meta.type == "directory"
+            except FileNotFoundError:
+                return False
+            except Exception as e:
+                logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
+                return False
+        else:
+            return not isfile(path)
     else:
         return _os_path.isdir(path)
 
