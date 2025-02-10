@@ -26,15 +26,19 @@ start-repl: prepare-virtual-environment
 # Build the package.
 build: prepare-virtual-environment
     # Remove package build artifacts.
-    rm -rf dist
+    rm -rf .reports/{ruff.json,unit} dist
     # Format.
-    ruff format
+    if [[ -z "${CI:-}" ]]; then ruff format; else ruff format --check; fi
     # Lint.
-    ruff check --fix
+    if [[ -z "${CI:-}" ]]; then ruff check --fix; else ruff check --output-format gitlab --output-file .reports/ruff.json; fi
     # Type check.
     uv run pyright
     # Unit test.
-    uv run pytest
+    uv run coverage run
+    uv run coverage combine
+    uv run coverage report
+    uv run coverage html
+    uv run coverage xml
     # Build the package archives.
     uv build
 
@@ -74,10 +78,14 @@ start-storage-systems: stop-storage-systems
 
 # Run integration tests.
 run-integration-tests: prepare-virtual-environment
+    # Remove test artifacts.
+    rm -rf .reports/integ
     # Integration test.
-    uv run pytest tests/integ
+    uv run pytest --junit-xml .reports/integ/pytest.xml tests/integ
 
 # Run E2E tests.
 run-e2e-tests: prepare-virtual-environment
+    # Remove test artifacts.
+    rm -rf .reports/e2e
     # E2E test.
-    uv run pytest tests/e2e
+    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/e2e

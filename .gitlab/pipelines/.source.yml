@@ -48,7 +48,15 @@ Build Package:
       "
   artifacts:
     paths:
+      - .reports/unit/coverage/
       - dist/
+    reports:
+      codequality: .reports/ruff.json
+      coverage_report:
+        coverage_format: cobertura
+        path: .reports/unit/coverage.xml
+      junit: .reports/unit/pytest.xml
+  coverage: '/TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
 
 Build Documentation:
   extends:
@@ -86,3 +94,6 @@ Run Integration Tests:
         just python-binary=${PYTHON_BINARY} run-integration-tests &&
         just stop-storage-systems
       "
+  artifacts:
+    reports:
+      junit: .reports/integ/pytest.xml

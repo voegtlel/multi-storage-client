@@ -18,6 +18,7 @@
 
 # Build.
 .pytest_cache
+.reports
 .ruff_cache
 .venv
 __pycache__
