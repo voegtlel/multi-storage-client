@@ -79,7 +79,7 @@ def isfile(path: str) -> bool:
         try:
             if path.endswith("/"):
                 return False
-            meta = storage_client.info(file_path)
+            meta = storage_client.info(file_path, strict=False)
             return meta.type == "file"
         except FileNotFoundError:
             return False

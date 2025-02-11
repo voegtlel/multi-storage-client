@@ -183,11 +183,12 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
+    def get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         """
         Retrieves metadata or information about an object stored in the provider.
 
         :param path: The path of the object.
+        :param strict: If True, performs additional validation to determine whether the path refers to a directory.
 
         :return: A metadata object containing the information about the object.
         """

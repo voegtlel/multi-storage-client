@@ -150,7 +150,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="DELETE", path=path)
 
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+    def _get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         is_dir = os.path.isdir(path)
         if is_dir:
             path = self._append_delimiter(path)

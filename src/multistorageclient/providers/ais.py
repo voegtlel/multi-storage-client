@@ -224,7 +224,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+    def _get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         bucket, key = split_path(path)
 
         def _invoke_api() -> ObjectMetadata:

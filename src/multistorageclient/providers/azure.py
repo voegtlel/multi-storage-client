@@ -230,7 +230,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", container=container_name, blob=prefix)
 
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+    def _get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         if path.endswith("/"):
             # If path is a "directory", then metadata is not guaranteed to exist if
             # it is a "virtual prefix" that was never explicitly created.
@@ -261,18 +261,18 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             try:
                 return self._collect_metrics(_invoke_api, operation="HEAD", container=container_name, blob=blob_name)
             except FileNotFoundError as error:
-                # If the object does not exist on the given path, we will append a trailing slash and
-                # check if the path is a directory.
-                path = self._append_delimiter(path)
-                if self._is_dir(path):
-                    return ObjectMetadata(
-                        key=path,
-                        type="directory",
-                        content_length=0,
-                        last_modified=datetime.min,
-                    )
-                else:
-                    raise error
+                if strict:
+                    # If the object does not exist on the given path, we will append a trailing slash and
+                    # check if the path is a directory.
+                    path = self._append_delimiter(path)
+                    if self._is_dir(path):
+                        return ObjectMetadata(
+                            key=path,
+                            type="directory",
+                            content_length=0,
+                            last_modified=datetime.min,
+                        )
+                raise error
 
     def _list_objects(
         self,

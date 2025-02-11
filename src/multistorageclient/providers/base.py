@@ -66,9 +66,9 @@ class BaseStorageProvider(StorageProvider):
         path = self._realpath(path)
         return self._delete_object(path)
 
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
+    def get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         path = self._realpath(path)
-        return self._get_object_metadata(path)
+        return self._get_object_metadata(path, strict=strict)
 
     def list_objects(
         self,
@@ -132,7 +132,7 @@ class BaseStorageProvider(StorageProvider):
         pass
 
     @abstractmethod
-    def _get_object_metadata(self, path: str) -> ObjectMetadata:
+    def _get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         pass
 
     @abstractmethod

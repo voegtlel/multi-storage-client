@@ -110,7 +110,7 @@ class StorageClient:
 
         return self._storage_provider.get_object(path, byte_range=byte_range)
 
-    def info(self, path: str) -> ObjectMetadata:
+    def info(self, path: str, strict: bool = True) -> ObjectMetadata:
         """
         Retrieves metadata or information about an object stored at the specified path.
 
@@ -121,7 +121,7 @@ class StorageClient:
         if self._metadata_provider:
             return self._metadata_provider.get_object_metadata(path)
         else:
-            return self._storage_provider.get_object_metadata(path)
+            return self._storage_provider.get_object_metadata(path, strict=strict)
 
     @retry
     def download_file(self, remote_path: str, local_path: str) -> None:
