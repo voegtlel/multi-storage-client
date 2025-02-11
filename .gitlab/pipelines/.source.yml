@@ -31,9 +31,19 @@ variables:
 .default:
   stage: Pipeline
 
-Build Package:
+Build:
   extends:
     - .default
+  variables:
+    FF_NETWORK_PER_BUILD: true
+  services:
+    - name: fsouza/fake-gcs-server:1.52.1
+      alias: fake-gcs-server
+      command:
+        - "-backend"
+        - "memory"
+        - "-scheme"
+        - "http"
   parallel:
     matrix:
       - PYTHON_BINARY:
@@ -50,6 +60,7 @@ Build Package:
     paths:
       - .reports/unit/coverage/
       - dist/
+      - docs/dist/
     reports:
       codequality: .reports/ruff.json
       coverage_report:
@@ -57,43 +68,3 @@ Build Package:
         path: .reports/unit/coverage.xml
       junit: .reports/unit/pytest.xml
   coverage: '/TOTAL.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
-
-Build Documentation:
-  extends:
-    - .default
-  script:
-    - |
-      nix develop --command bash -c "
-        just document
-      "
-  artifacts:
-    paths:
-      - docs/dist/
-    expose_as: Documentation
-
-Run Integration Tests:
-  extends:
-    - .default
-  variables:
-    FF_NETWORK_PER_BUILD: true
-  services:
-    - name: fsouza/fake-gcs-server:1.52.1
-      alias: fake-gcs-server
-      command: ["-backend", "memory", "-scheme", "http"]
-  parallel:
-    matrix:
-      - PYTHON_BINARY:
-          - python3.9
-          - python3.10
-          - python3.11
-          - python3.12
-  script:
-    - |
-      nix develop --command bash -c "
-        just start-storage-systems &&
-        just python-binary=${PYTHON_BINARY} run-integration-tests &&
-        just stop-storage-systems
-      "
-  artifacts:
-    reports:
-      junit: .reports/integ/pytest.xml

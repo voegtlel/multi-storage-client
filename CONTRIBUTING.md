@@ -150,6 +150,14 @@ Follow the [installation instructions on its website](https://direnv.net#basic-i
 
 It also has [editor integration](https://github.com/direnv/direnv/wiki#editor-integration). Note that some integrations won't automatically reload the environment after Nix flake changes unlike direnv itself so manual reloads may be needed.
 
+### Containerization
+
+Some local storage services are only vended as OCI containers. We use the Docker CLI so we'll need a container runtime accessible through the Docker daemon socket.
+
+Most people will use Docker Engine as the container runtime. This comes with [Docker Desktop](https://www.docker.com/products/docker-desktop) ([🍻](https://formulae.brew.sh/cask/docker)) and [Rancher Desktop](https://rancherdesktop.io) ([🍻](https://formulae.brew.sh/cask/rancher)).
+
+Alternatively you can use Podman as the container runtime. This comes with the [Podman CLI](https://podman.io) ([🍺](https://formulae.brew.sh/formula/podman), [Podman socket instructions](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html)) and [Podman Desktop](https://podman-desktop.io) ([🍻](https://formulae.brew.sh/cask/podman-desktop)).
+
 ## Developing
 
 Common recipes are provided as Just recipes. To list them, run:
@@ -158,9 +166,9 @@ Common recipes are provided as Just recipes. To list them, run:
 just
 ```
 
-### Building the Package
+### Building the Project
 
-To do a full release build (runs static analysis + unit tests), run:
+To do a full release build, run:
 
 ```shell
 just build
@@ -170,36 +178,6 @@ If you want to use a specific Python binary such as Python 3.9, run:
 
 ```shell
 just python-binary=python3.9 build
-```
-
-### Running Tests
-
-The project includes unit, integration, and end-to-end (E2E) tests. In most cases, you'll only run the unit and integration tests.
-
-#### Unit Tests
-
-Unit tests verify the functionality of individual components:
-
-```shell
-poetry run pytest tests/unit/
-```
-
-#### Integration Tests
-
-Integration tests verify interactions between components and local storage services:
-
-```shell
-just start-storage-systems
-
-just run-integration-tests
-
-just stop-storage-systems
-```
-
-If you want to use a specific Python binary such as Python 3.9, run:
-
-```shell
-just python-binary=python3.9 run-integration-tests
 ```
 
 ## Notes

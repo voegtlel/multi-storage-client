@@ -23,33 +23,16 @@ start-repl: prepare-virtual-environment
     # Start the Python REPL.
     uv run python
 
-# Build the package.
-build: prepare-virtual-environment
-    # Remove package build artifacts.
-    rm -rf .reports/{ruff.json,unit} dist
+# Run static analysis (format, lint, type check).
+analyze: prepare-virtual-environment
+    # Remove analysis artifacts.
+    rm -rf .reports/ruff.json
     # Format.
     if [[ -z "${CI:-}" ]]; then ruff format; else ruff format --check; fi
     # Lint.
     if [[ -z "${CI:-}" ]]; then ruff check --fix; else ruff check --output-format gitlab --output-file .reports/ruff.json; fi
     # Type check.
     uv run pyright
-    # Unit test.
-    uv run coverage run
-    uv run coverage combine
-    uv run coverage report
-    uv run coverage html
-    uv run coverage xml
-    # Build the package archives.
-    uv build
-
-# Build the documentation.
-document: prepare-virtual-environment
-    # Remove documentation build artifacts.
-    rm -rf docs/dist
-    # Format.
-    ruff format
-    # Build the documentation website.
-    uv run sphinx-build -b html docs/src docs/dist
 
 # Stop storage systems.
 stop-storage-systems:
@@ -76,12 +59,33 @@ start-storage-systems: stop-storage-systems
     # Wait for MinIO.
     timeout 10s bash -c "until curl --fail --silent http://127.0.0.1:9000/minio/health/live; do sleep 1; done"
 
-# Run integration tests.
-run-integration-tests: prepare-virtual-environment
+# Run unit tests.
+run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
     # Remove test artifacts.
-    rm -rf .reports/integ
-    # Integration test.
-    uv run pytest --junit-xml .reports/integ/pytest.xml tests/integ
+    rm -rf .reports/unit
+    # Unit test.
+    uv run coverage run
+    uv run coverage combine
+    uv run coverage report
+    uv run coverage html
+    uv run coverage xml
+
+# Create package archives.
+package: prepare-virtual-environment
+    # Remove package archives.
+    rm -rf dist
+    # Create package archives.
+    uv build
+
+# Build the documentation.
+document: prepare-virtual-environment
+    # Remove documentation artifacts.
+    rm -rf docs/dist
+    # Build the documentation website.
+    uv run sphinx-build -b html docs/src docs/dist
+
+# Release build.
+build: analyze run-unit-tests package document
 
 # Run E2E tests.
 run-e2e-tests: prepare-virtual-environment
