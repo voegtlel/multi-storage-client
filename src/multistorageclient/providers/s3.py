@@ -28,6 +28,7 @@ from botocore.exceptions import (
     ClientError,
     ReadTimeoutError,
     IncompleteReadError,
+    ResponseStreamingError,
 )
 from botocore.session import get_session
 
@@ -250,6 +251,10 @@ class S3StorageProvider(BaseStorageProvider):
                 raise RetryableError(
                     f"Too many request to {operation} object(s) at {bucket}/{key}. {request_info}"
                 ) from error
+            elif status_code == 503:
+                raise RetryableError(
+                    f"Service unavailable when {operation} object(s) at {bucket}/{key}. {request_info}"
+                ) from error
             else:
                 raise RuntimeError(
                     f"Failed to {operation} object(s) at {bucket}/{key}. {request_info}, "
@@ -258,7 +263,7 @@ class S3StorageProvider(BaseStorageProvider):
         except FileNotFoundError as error:
             status_code = -1
             raise error
-        except (ReadTimeoutError, IncompleteReadError) as error:
+        except (ReadTimeoutError, IncompleteReadError, ResponseStreamingError) as error:
             status_code = -1
             raise RetryableError(
                 f"Failed to {operation} object(s) at {bucket}/{key} due to network timeout or incomplete read. "
