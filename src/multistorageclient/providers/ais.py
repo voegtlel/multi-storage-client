@@ -23,7 +23,6 @@ from typing import IO, Any, Callable, Iterator, Optional, Tuple, Union
 from aistore.sdk import Client
 from aistore.sdk.authn import AuthNClient
 from aistore.sdk.errors import AISError
-from dateutil.parser import parse as dateutil_parser
 from requests.exceptions import HTTPError
 
 from ..types import (
@@ -230,11 +229,10 @@ class AIStoreStorageProvider(BaseStorageProvider):
         def _invoke_api() -> ObjectMetadata:
             obj = self.client.bucket(bck_name=bucket, provider=self.provider).object(obj_name=key)
             props = obj.head()
-            last_modified = datetime.fromtimestamp(int(props.get("Ais-Atime")) // 1_000_000_000)  # pyright: ignore [reportArgumentType]
             return ObjectMetadata(
                 key=key,
                 content_length=int(props.get("Content-Length")),  # pyright: ignore [reportArgumentType]
-                last_modified=last_modified,
+                last_modified=datetime.min,
                 etag=props.get("Ais-Checksum-Value", None),
             )
 
@@ -262,7 +260,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
                     yield ObjectMetadata(
                         key=key,
                         content_length=int(obj.props.size),
-                        last_modified=dateutil_parser(obj.props.access_time),
+                        last_modified=datetime.min,
                         etag=obj.props.checksum_value,
                     )
                 elif end_at is not None and end_at < key:
