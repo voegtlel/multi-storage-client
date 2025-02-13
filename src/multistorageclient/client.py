@@ -295,16 +295,12 @@ class StorageClient:
             realpath = self._storage_provider._realpath(path)  # type: ignore
             return PosixFile(path=realpath, mode=mode, encoding=encoding)
         else:
-            cache_manager = self._cache_manager
-            if disable_read_cache:
-                cache_manager = None
             return ObjectFile(
-                self._storage_provider,
+                self,
                 remote_path=path,
                 mode=mode,
                 encoding=encoding,
-                cache_manager=cache_manager,
-                metadata_provider=self._metadata_provider,
+                disable_read_cache=disable_read_cache,
             )
 
     def is_file(self, path: str) -> bool:

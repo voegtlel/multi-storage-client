@@ -21,7 +21,7 @@ import os
 import tempfile
 import threading
 from io import BytesIO, StringIO
-from typing import IO, Any, Iterator, List, Optional
+from typing import IO, TYPE_CHECKING, Any, Iterator, List, Optional
 
 from opentelemetry.trace import Span
 
@@ -32,7 +32,10 @@ from .instrumentation.utils import (
     collect_default_attributes,
     file_tracer,
 )
-from .types import MetadataProvider, ObjectMetadata, Range, StorageProvider
+from .types import Range
+
+if TYPE_CHECKING:
+    from .client import StorageClient
 
 # Threshold for file size to decide download behavior (512MB) when local cache is not enabled.
 # If a file's size exceeds this threshold, the file is not downloaded to memory.
@@ -49,11 +52,11 @@ class RemoteFileReader(IO[bytes]):
     range-based reading of large files without needing to load the entire file into memory.
     """
 
-    def __init__(self, remote_path: str, file_size: int, storage_provider: StorageProvider):
+    def __init__(self, remote_path: str, file_size: int, storage_client: StorageClient):
         self._remote_path = remote_path
         self._file_size = file_size
-        self._storage_provider = storage_provider
         self._pos = 0
+        self._storage_client = storage_client
 
     def readable(self) -> bool:
         return True
@@ -90,7 +93,7 @@ class RemoteFileReader(IO[bytes]):
 
         # Perform range read from storage provider
         bytes_range = Range(offset=offset, size=length)
-        data = self._storage_provider.get_object(self._remote_path, byte_range=bytes_range)
+        data = self._storage_client.read(self._remote_path, byte_range=bytes_range)
 
         # Update the position by the number of bytes read
         bytes_read = len(data)
@@ -171,8 +174,7 @@ class ObjectFile(IO):
     _file: IO
     _mode: str
     _remote_path: str
-    _storage_provider: StorageProvider
-    _metadata_provider: Optional[MetadataProvider] = None
+    _storage_client: StorageClient
     _cache_manager: Optional[CacheManager] = None
 
     _local_path: Optional[str] = None
@@ -180,53 +182,50 @@ class ObjectFile(IO):
 
     def __init__(
         self,
-        storage_provider: StorageProvider,
+        storage_client: StorageClient,
         remote_path: str,
         mode: str = "rb",
         encoding: Optional[str] = None,
-        cache_manager: Optional[CacheManager] = None,
-        metadata_provider: Optional[MetadataProvider] = None,
+        disable_read_cache: bool = False,
     ):
         """
         Initialize the ObjectFile instance.
 
-        :param storage_provider: The storage provider responsible for handling the remote file.
+        :param storage_client: The storage client responsible for handling the remote file.
         :param remote_path: The path to the remote file.
         :param mode: The file mode ('r', 'w', 'rb' or 'wb'). Defaults to 'rb'.
         :param encoding: The encoding to use for text mode. Defaults to None.
-        :param cache_manager: The cache manager responsible for local cache management.
-        :param metadata_provider: An optional metadata_provider to track updates.
+        :param disable_read_cache: When set to True, disables caching for the file content. This parameter is only applicable when the mode is "r" or "rb".
         """
 
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("ObjectFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
-        self._trace_span.set_attribute("storage_provider", str(storage_provider))
+        self._trace_span.set_attribute("profile", storage_client.profile)
+        self._trace_span.set_attribute("storage_provider", str(storage_client._storage_provider))
         self._trace_span.set_attribute("mode", mode)
-        self._trace_span.set_attribute("cache", bool(cache_manager))
         for k, v in collect_default_attributes().items():
             self._trace_span.set_attribute(k, v)
 
         if mode not in ("r", "w", "rb", "wb", "a", "ab"):
             raise ValueError(f'Invalid mode "{mode}", only "w", "r", "a", "wb", "rb" and "ab" are supported.')
 
-        if not storage_provider:
-            raise ValueError(f"Storage provider is required to download file {remote_path}")
-
         if not remote_path:
             raise ValueError('Missing parameter "remote_path"')
 
         self._mode = mode
         self._encoding = encoding
-        self._storage_provider = storage_provider
-        self._metadata_provider = metadata_provider
         self._remote_path = remote_path
-        self._cache_manager = cache_manager
+        self._storage_client = storage_client
+        self._cache_manager = storage_client._cache_manager
+
+        if disable_read_cache:
+            self._cache_manager = None
 
         if self._cache_manager:
             # Use local file as the fileobj
             if self._mode in ("r", "rb"):
                 # Read
-                self._object_metadata = self._get_object_metadata()
+                self._object_metadata = self._storage_client.info(self._remote_path)
                 self._download_complete = threading.Event()
                 self._download_thread = threading.Thread(target=self._download_file)
                 self._download_thread.start()
@@ -237,19 +236,13 @@ class ObjectFile(IO):
             # Use BytesIO or StringIO as the fileobj
             if self._mode in ("r", "rb"):
                 # Read
-                self._object_metadata = self._get_object_metadata()
+                self._object_metadata = self._storage_client.info(self._remote_path)
                 self._download_complete = threading.Event()
                 self._download_thread = threading.Thread(target=self._download_fileobj)
                 self._download_thread.start()
             else:
                 # Write or append
                 self._create_fileobj()
-
-    def _get_object_metadata(self) -> ObjectMetadata:
-        if self._metadata_provider:
-            return self._metadata_provider.get_object_metadata(self._remote_path)
-        else:
-            return self._storage_provider.get_object_metadata(self._remote_path)
 
     def _create_fileobj(self) -> None:
         """
@@ -293,7 +286,7 @@ class ObjectFile(IO):
                     if not self._cache_manager.contains(cache_path):
                         # The process writes the file to a temporary file and move it to the cache directory.
                         temp_file_path = self._get_temp_file_path()
-                        self._storage_provider.download_file(self._remote_path, temp_file_path)
+                        self._storage_client.download_file(self._remote_path, temp_file_path)
                         self._cache_manager.set(cache_path, temp_file_path)
 
                 file_object = self._cache_manager.open(cache_path, self._mode)
@@ -333,7 +326,7 @@ class ObjectFile(IO):
 
         try:
             self._create_fileobj()
-            self._storage_provider.download_file(self._remote_path, self._file)
+            self._storage_client.download_file(self._remote_path, self._file)
             self._file.seek(0)
         except Exception as e:
             raise IOError(f"Failed to download file {self._remote_path}") from e
@@ -352,7 +345,7 @@ class ObjectFile(IO):
                 f"Failed to open large file {self._remote_path} in text mode; "
                 f'use mode "rb" to open files larger than {IN_MEMORY_FILE_SIZE_THRESHOLD}.'
             )
-        self._file = RemoteFileReader(self._remote_path, file_size, self._storage_provider)
+        self._file = RemoteFileReader(self._remote_path, file_size, self._storage_client)
         self._download_complete.set()
 
     @file_tracer
@@ -471,12 +464,12 @@ class ObjectFile(IO):
         """
         if self._mode in ("w", "wb"):
             self._file.seek(0)
-            self._storage_provider.upload_file(self._remote_path, self._file)
+            self._storage_client.upload_file(self._remote_path, self._file)
         elif self._mode in ("a", "ab"):
             # The append mode downloads the file first (if applicable), then upload it again with the appended content.
             temp_file_path = self._get_temp_file_path()
             try:
-                self._storage_provider.download_file(self._remote_path, temp_file_path)
+                self._storage_client.download_file(self._remote_path, temp_file_path)
                 if os.path.getsize(temp_file_path) > IN_MEMORY_FILE_SIZE_THRESHOLD:
                     logger.warning(
                         "The append mode ('a' or 'ab') is not suitable for appending to large files. "
@@ -494,12 +487,8 @@ class ObjectFile(IO):
                 self._file.seek(0)
                 fp.write(self._file.read())
 
-            self._storage_provider.upload_file(self._remote_path, temp_file_path)
+            self._storage_client.upload_file(self._remote_path, temp_file_path)
             os.unlink(temp_file_path)
-
-        if self._metadata_provider:
-            metadata = self._storage_provider.get_object_metadata(self._remote_path)
-            self._metadata_provider.add_file(self._remote_path, metadata)
 
     def get_local_path(self) -> Optional[str]:
         """
