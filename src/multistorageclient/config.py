@@ -336,7 +336,7 @@ class StorageClientConfig:
     cache_manager: Optional[CacheManager]
     retry_config: Optional[RetryConfig]
 
-    _config_dict: Dict[str, Any]
+    _config_dict: Optional[Dict[str, Any]]
 
     def __init__(
         self,
@@ -424,10 +424,14 @@ class StorageClientConfig:
     @staticmethod
     def from_provider_bundle(config_dict: Dict[str, Any], provider_bundle: ProviderBundle) -> "StorageClientConfig":
         loader = StorageClientConfigLoader(config_dict, provider_bundle=provider_bundle)
-        return loader.build_config()
+        config = loader.build_config()
+        config._config_dict = None  # Explicitly mark as None to avoid confusing pickling errors
+        return config
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
+        if not state.get("_config_dict"):
+            raise ValueError("StorageClientConfig is not serializable")
         del state["credentials_provider"]
         del state["storage_provider"]
         del state["metadata_provider"]

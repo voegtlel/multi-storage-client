@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import pickle
 import sys
 
 import pytest
@@ -195,6 +196,12 @@ def test_load_direct_provider_bundle() -> None:
     assert isinstance(storage_client._credentials_provider, TestCredentialsProvider)
     assert isinstance(storage_client._metadata_provider, TestMetadataProvider)
     assert isinstance(storage_client._storage_provider, PosixFileStorageProvider)
+
+    # Expect an error if pickling this storage_client because it cannot be
+    # recreated in another process.
+    with pytest.raises(ValueError):
+        pickled_client = pickle.dumps(storage_client)
+        _ = pickle.loads(pickled_client)
 
 
 def test_swiftstack_storage_provider() -> None:
