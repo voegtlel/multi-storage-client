@@ -66,7 +66,6 @@ class CacheManager:
         self._cache_config = cache_config
         self._max_cache_size = cache_config.size_bytes()
         self._cache_refresh_interval = cache_refresh_interval
-        self._cache_load_factor = 0.7
         self._last_refresh_time = datetime.now()
 
         # Metrics
@@ -305,7 +304,7 @@ class CacheManager:
                 cache_size += file_size
 
         # Evict old files if necessary in case the existing files exceed cache size
-        while (cache_size / self._max_cache_size) > self._cache_load_factor:
+        while cache_size > self._max_cache_size:
             # Pop the first (oldest) item in the OrderedDict (LRU eviction)
             oldest_file, file_size = cache.popitem(last=False)
             cache_size -= file_size

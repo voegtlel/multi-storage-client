@@ -111,11 +111,9 @@ def test_multiprocessing_cache_manager(cache_dir):
     Test the CacheManager with multiple processes reading and writing to the cache.
     """
     num_procs = 8
+    max_cache_size = num_procs * 1024 * 1024
     keys = [f"file-{i:04d}.bin" for i in range(num_procs)]
     test_data = b"*" * 1 * 1024 * 1024
-
-    cache_config = CacheConfig(location=cache_dir, size_mb=num_procs, use_etag=False)
-    cache_manager = CacheManager(profile="test", cache_config=cache_config)
 
     # Queue for capturing the success or failure of each process
     result_queue = multiprocessing.Queue()
@@ -141,7 +139,9 @@ def test_multiprocessing_cache_manager(cache_dir):
             pytest.fail(f"Worker process failed with error: {result}")
 
     # Check the final cache size
-    assert cache_manager.cache_size() < num_procs * 1024 * 1024
+    cache_config = CacheConfig(location=cache_dir, size_mb=max_cache_size, use_etag=False)
+    cache_manager = CacheManager(profile="test", cache_config=cache_config)
+    assert cache_manager.cache_size() <= max_cache_size
 
 
 def test_multiprocessing_cache_manager_single_refresh(cache_dir):

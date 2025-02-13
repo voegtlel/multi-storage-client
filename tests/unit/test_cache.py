@@ -101,7 +101,7 @@ def test_cache_manager_refresh_cache(cache_manager):
         cache_manager.set(f"bucket/test_{i:04d}.bin", data_10mb)
 
     cache_manager.refresh_cache()
-    assert cache_manager.cache_size() <= 10 * 1024 * 1024 * cache_manager._cache_load_factor
+    assert cache_manager.cache_size() <= 10 * 1024 * 1024
 
 
 def test_cache_manager_metrics(profile_name, tmpdir, cache_manager):
