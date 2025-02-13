@@ -55,9 +55,9 @@ start-storage-systems: stop-storage-systems
     if [[ -z "${CI:-}" ]]; then docker run --detach --name fake-gcs-server --publish 4443:4443 --rm fsouza/fake-gcs-server:1.52.1 -backend memory -scheme http; fi
 
     # Wait for Azurite.
-    timeout 10s bash -c "until netcat --zero 127.0.0.1 10000; do sleep 1; done"
+    timeout 10s bash -c "until netcat --zero localhost 10000; do sleep 1; done"
     # Wait for MinIO.
-    timeout 10s bash -c "until curl --fail --silent http://127.0.0.1:9000/minio/health/live; do sleep 1; done"
+    timeout 10s bash -c "until curl --fail --silent http://localhost:9000/minio/health/live; do sleep 1; done"
 
 # Run unit tests.
 run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
