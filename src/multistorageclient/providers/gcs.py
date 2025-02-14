@@ -169,7 +169,14 @@ class GoogleStorageProvider(BaseStorageProvider):
             source_blob = source_bucket_obj.blob(src_key)
 
             destination_bucket_obj = self._gcs_client.bucket(dest_bucket)
-            source_bucket_obj.copy_blob(source_blob, destination_bucket_obj, dest_key)
+            destination_blob = destination_bucket_obj.blob(dest_key)
+
+            rewrite_tokens = [None]
+            while len(rewrite_tokens) > 0:
+                rewrite_token = rewrite_tokens.pop()
+                next_rewrite_token, _, _ = destination_blob.rewrite(source=source_blob, token=rewrite_token)
+                if next_rewrite_token is not None:
+                    rewrite_tokens.append(next_rewrite_token)
 
         src_object = self._get_object_metadata(src_path)
 
