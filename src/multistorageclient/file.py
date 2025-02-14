@@ -289,6 +289,8 @@ class ObjectFile(IO):
                         self._storage_client.download_file(self._remote_path, temp_file_path)
                         self._cache_manager.set(cache_path, temp_file_path)
 
+                self._cache_manager.delete_lock(file_lock)
+
                 file_object = self._cache_manager.open(cache_path, self._mode)
 
             if file_object is None:

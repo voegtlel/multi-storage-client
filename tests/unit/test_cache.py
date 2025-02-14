@@ -61,7 +61,8 @@ def test_cache_manager_read_delete_file(profile_name, tmpdir, cache_manager):
 
     key = "bucket/test_file.txt"
 
-    with cache_manager.acquire_lock(key):
+    lock = cache_manager.acquire_lock(key)
+    with lock:
         cache_manager.set(key, str(file))
 
     # Verify the lock file
@@ -69,12 +70,14 @@ def test_cache_manager_read_delete_file(profile_name, tmpdir, cache_manager):
 
     assert cache_manager.read(key) == b"cached data"
 
+    # Verify the lock file is deleted
+    cache_manager.delete_lock(lock)
+    assert not os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager._get_cache_key(key)}.lock"))
+
     cache_manager.delete(key)
 
     # Verify the file is deleted
     assert not os.path.exists(os.path.join(tmpdir, profile_name, cache_manager._get_cache_key(key)))
-
-    assert not os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager._get_cache_key(key)}.lock"))
 
 
 def test_cache_manager_open_file(profile_name, tmpdir, cache_manager):
