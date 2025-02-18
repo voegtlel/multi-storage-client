@@ -16,6 +16,7 @@
 import os
 from functools import wraps
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Tuple, Union
+import time
 
 import datasketches
 from opentelemetry import metrics, trace
@@ -27,6 +28,7 @@ METER = metrics.get_meter("opentelemetry.instrumentation.multistorageclient")
 TRACER = trace.get_tracer("opentelemetry.instrumentation.multistorageclient")
 
 MB = 1024 * 1024
+TRACE_INACTIVITY_TIMEOUT_IN_SECONDS = 0.1
 
 DURATION_HISTOGRAM = METER.create_histogram(
     name="storageclient_api_duration",
@@ -325,6 +327,13 @@ class StorageProviderMetricsHelper:
         return isinstance(get_meter_provider(), SdkMeterProvider)
 
 
+def _get_span_attribute(span: Any, key: str, default: Any = 0) -> Any:
+    """Safely get attribute from span, handling both recording and non-recording spans."""
+    if hasattr(span, "attributes") and hasattr(span.attributes, "get"):
+        return span.attributes.get(key, default)
+    return default
+
+
 def file_tracer(func: Callable) -> Callable:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -338,34 +347,85 @@ def file_tracer(func: Callable) -> Callable:
         else:
             context = None
 
-        with TRACER.start_as_current_span(function_name, context=context) as span:
-            span.set_attribute("function_name", function_name)
+        current_op_span = getattr(managed_file_instance, "_current_op_span", None)
+        current_op_type = getattr(managed_file_instance, "_current_op_type", None)
+        current_op_count = getattr(managed_file_instance, "_current_op_count", 0)
+        last_op_time = getattr(managed_file_instance, "_last_op_time", 0)
+
+        current_time = time.time()
+
+        # Decide whether to create new span
+        create_new_span = (
+            current_op_span is None
+            or current_op_type != function_name
+            or (current_time - last_op_time) > TRACE_INACTIVITY_TIMEOUT_IN_SECONDS
+        )
+
+        if create_new_span:
+            if current_op_span is not None:
+                # Set final operation count before ending the span
+                current_op_span.set_attribute("operation_count", current_op_count)  # pyright: ignore[reportOptionalMemberAccess]
+                current_op_span.end()
+
+            current_op_span = TRACER.start_span(function_name, context=context)
+            setattr(managed_file_instance, "_current_op_span", current_op_span)
+            setattr(managed_file_instance, "_current_op_type", function_name)
+            current_op_count = 1
+        else:
+            # Increment operation count for existing span
+            current_op_count += 1
+        setattr(managed_file_instance, "_current_op_count", current_op_count)
+        current_op_span.set_attribute("operation_count", current_op_count)  # pyright: ignore[reportOptionalMemberAccess]
+
+        try:
+            # Update span attributes
             if function_name in ["read", "readline", "truncate"]:
+                current_size = _get_span_attribute(current_op_span, "size", 0)
                 size = args[1] if len(args) > 1 else kwargs.get("size", -1)
-                span.set_attribute("size", size)
+                current_op_span.set_attribute("size", current_size + size)  # pyright: ignore[reportOptionalMemberAccess]
             elif function_name == "readlines":
                 hint = args[1] if len(args) > 1 else kwargs.get("hint", -1)
-                span.set_attribute("hint", hint)
+                current_op_span.set_attribute("hint", hint)  # pyright: ignore[reportOptionalMemberAccess]
             elif function_name == "write":
                 bytes_written = len(args[1]) if len(args) > 1 else len(kwargs.get("b", b""))
-                span.set_attribute("bytes_written", bytes_written)
+                current_bytes = _get_span_attribute(current_op_span, "bytes_written", 0)
+                current_op_span.set_attribute("bytes_written", current_bytes + bytes_written)  # pyright: ignore[reportOptionalMemberAccess]
             elif function_name == "writelines":
                 lines_written = len(args[1]) if len(args) > 1 else len(kwargs.get("lines", []))
-                span.set_attribute("lines_written", lines_written)
-            try:
+                current_lines = _get_span_attribute(current_op_span, "lines_written", 0)
+                current_op_span.set_attribute("lines_written", current_lines + lines_written)  # pyright: ignore[reportOptionalMemberAccess]
+
+            with trace.use_span(current_op_span):  # pyright: ignore[reportArgumentType]
                 result = func(*args, **kwargs)
+
                 if function_name in ["read", "readline"]:
-                    span.set_attribute("bytes_read", len(result))
+                    current_bytes = _get_span_attribute(current_op_span, "bytes_read", 0)
+                    current_op_span.set_attribute("bytes_read", current_bytes + len(result))  # pyright: ignore[reportOptionalMemberAccess]
                 elif function_name == "readlines":
-                    span.set_attribute("bytes_read", sum(map(len, result)))
-                span.set_status(StatusCode.OK)
+                    current_bytes = _get_span_attribute(current_op_span, "bytes_read", 0)
+                    current_op_span.set_attribute("bytes_read", current_bytes + sum(map(len, result)))  # pyright: ignore[reportOptionalMemberAccess]
+
+                setattr(managed_file_instance, "_last_op_time", current_time)
+                current_op_span.set_status(StatusCode.OK)  # pyright: ignore[reportOptionalMemberAccess]
                 return result
-            except Exception as e:
-                span.set_status(StatusCode.ERROR, f"Exception: {str(e)}")
-                raise e
-            finally:
-                # Close the parent trace span after closing the file
-                if function_name == "close" and parent_trace_span:
+        except Exception as e:
+            current_op_span.set_status(StatusCode.ERROR, f"Exception: {str(e)}")  # pyright: ignore[reportOptionalMemberAccess]
+            current_op_span.end()  # pyright: ignore[reportOptionalMemberAccess]
+            setattr(managed_file_instance, "_current_op_span", None)
+            setattr(managed_file_instance, "_current_op_type", None)
+            setattr(managed_file_instance, "_current_op_count", 0)
+            raise e
+        finally:
+            # Close spans when file is closed
+            if function_name == "close":
+                if current_op_span is not None:
+                    # Set final operation count before closing
+                    current_op_span.set_attribute("operation_count", current_op_count)  # pyright: ignore[reportOptionalMemberAccess]
+                    current_op_span.end()
+                    setattr(managed_file_instance, "_current_op_span", None)
+                    setattr(managed_file_instance, "_current_op_type", None)
+                    setattr(managed_file_instance, "_current_op_count", 0)
+                if parent_trace_span:
                     parent_trace_span.end()
                     managed_file_instance._trace_span = None
 
