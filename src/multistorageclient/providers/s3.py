@@ -119,6 +119,9 @@ class S3StorageProvider(BaseStorageProvider):
         self._s3_client = self._create_s3_client(
             request_checksum_calculation=kwargs.get("request_checksum_calculation"),
             response_checksum_validation=kwargs.get("response_checksum_validation"),
+            max_pool_connections=kwargs.get("max_pool_connections", BOTO3_MAX_POOL_CONNECTIONS),
+            connect_timeout=kwargs.get("connect_timeout", BOTO3_CONNECT_TIMEOUT),
+            read_timeout=kwargs.get("read_timeout", BOTO3_READ_TIMEOUT),
         )
         self._transfer_config = TransferConfig(
             multipart_threshold=int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD)),
@@ -129,7 +132,12 @@ class S3StorageProvider(BaseStorageProvider):
         )
 
     def _create_s3_client(
-        self, request_checksum_calculation: Optional[str] = None, response_checksum_validation: Optional[str] = None
+        self,
+        request_checksum_calculation: Optional[str] = None,
+        response_checksum_validation: Optional[str] = None,
+        max_pool_connections: int = BOTO3_MAX_POOL_CONNECTIONS,
+        connect_timeout: int = BOTO3_CONNECT_TIMEOUT,
+        read_timeout: int = BOTO3_READ_TIMEOUT,
     ):
         """
         Creates and configures the boto3 S3 client, using refreshable credentials if possible.
@@ -141,9 +149,9 @@ class S3StorageProvider(BaseStorageProvider):
         options = {
             "region_name": self._region_name,
             "config": boto3.session.Config(  # pyright: ignore [reportAttributeAccessIssue]
-                max_pool_connections=BOTO3_MAX_POOL_CONNECTIONS,
-                connect_timeout=BOTO3_CONNECT_TIMEOUT,
-                read_timeout=BOTO3_READ_TIMEOUT,
+                max_pool_connections=max_pool_connections,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
                 retries=dict(mode="standard"),
                 request_checksum_calculation=request_checksum_calculation,
                 response_checksum_validation=response_checksum_validation,
