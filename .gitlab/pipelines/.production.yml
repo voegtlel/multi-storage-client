@@ -50,7 +50,7 @@ Publish Package:
           --fail-no-op \
           ${URM_ARTIFACTORY_PATH} ||
         (
-          just build &&
+          just package &&
           jf rt upload \
             --url ${URM_ARTIFACTORY_URL} \
             --user ${URM_ARTIFACTORY_USERNAME} \
