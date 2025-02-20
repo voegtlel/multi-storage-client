@@ -73,6 +73,12 @@ class StorageClient:
     def _is_posix_file_storage_provider(self) -> bool:
         return isinstance(self._storage_provider, PosixFileStorageProvider)
 
+    def is_default_profile(self) -> bool:
+        """
+        Return True if the storage client is using the default profile.
+        """
+        return self._config.profile == "default"
+
     @property
     def profile(self) -> str:
         return self._config.profile

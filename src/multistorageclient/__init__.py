@@ -17,6 +17,7 @@ import importlib
 
 from .cache import CacheConfig
 from .client import StorageClient, StorageClientConfig
+from .pathlib import MultiStoragePath as Path
 from .shortcuts import (
     download_file,
     glob,
@@ -32,6 +33,7 @@ __all__ = [
     "StorageClient",
     "StorageClientConfig",
     "CacheConfig",
+    "Path",
     # Shortcuts
     "download_file",
     "glob",

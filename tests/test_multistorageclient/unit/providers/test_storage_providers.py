@@ -33,14 +33,14 @@ import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
         [tempdatastore.TemporarySwiftStackBucket],
     ],
 )
-def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+@pytest.mark.parametrize(argnames=["with_cache"], argvalues=[[True], [False]])
+def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDataStore], with_cache: bool):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
-        storage_client = StorageClient(
-            config=StorageClientConfig.from_dict(
-                config_dict={"profiles": {profile: temp_data_store.profile_config_dict()}}, profile=profile
-            )
-        )
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        if with_cache:
+            config_dict["cache"] = {"size_mb": 5000}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
 
         file_extension = ".txt"
         file_path_fragments = ["prefix", "infix", f"suffix{file_extension}"]
