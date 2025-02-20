@@ -40,37 +40,6 @@ def test_merge_attributes():
     assert merged_attributes == {"job_id": "training-job-00001", "operation": "GET"}
 
 
-@pytest.mark.forked
-def test_record_duration():
-    """
-    Test the record_duration method of MetricHelper.
-    """
-    mock_duration_histogram = MagicMock()
-    mock_object_size_histogram = MagicMock()
-    mock_duration_percentiles = MagicMock()
-
-    metrics_helper = StorageProviderMetricsHelper(attributes={"job_id": "training-job-00001"})
-    metrics_helper._duration_histogram = mock_duration_histogram
-    metrics_helper._object_size_histogram = mock_object_size_histogram
-    metrics_helper._duration_percentiles = mock_duration_percentiles
-    metrics_helper._is_metrics_enabled = Mock(return_value=True)
-
-    metrics_helper.record_duration(duration=2, provider="s3", operation="GET", bucket="my-bucket", status_code=200)
-
-    expected_attributes = {
-        "provider": "s3",
-        "operation": "GET",
-        "bucket": "my-bucket",
-        "status_code": 200,
-        "proc_id": os.getpid(),
-        "job_id": "training-job-00001",
-    }
-
-    # Duration should be converted to milliseconds (2 seconds * 1000 = 2000 ms)
-    mock_duration_histogram.record.assert_called_once_with(2000, attributes=expected_attributes)
-    mock_duration_percentiles.record.assert_called_once_with(2000, attributes=expected_attributes)
-
-
 def test_record_object_size():
     """
     Test the record_object_size method of MetricHelper.

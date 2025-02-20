@@ -64,11 +64,7 @@ run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storag
     # Remove test artifacts.
     rm -rf .reports/unit
     # Unit test.
-    uv run coverage run
-    uv run coverage combine
-    uv run coverage report
-    uv run coverage html
-    uv run coverage xml
+    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report=term --cov-report=html --cov-report=xml
 
 # Create package archives.
 package: prepare-virtual-environment
@@ -92,4 +88,4 @@ run-e2e-tests: prepare-virtual-environment
     # Remove test artifacts.
     rm -rf .reports/e2e
     # E2E test.
-    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/e2e
+    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/test_multistorageclient/e2e

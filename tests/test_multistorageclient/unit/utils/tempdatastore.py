@@ -17,6 +17,7 @@ from abc import abstractmethod
 import azure.storage.blob
 import boto3
 from contextlib import AbstractContextManager
+import copy
 import google.auth.credentials
 import google.cloud.exceptions
 import google.cloud.storage
@@ -39,7 +40,13 @@ class TemporaryDataStore(AbstractContextManager):
     """
 
     #: Profile configuration dictionary.
-    profile_config_dict: Dict[Any, Any]
+    _profile_config_dict: Dict[Any, Any]
+
+    def profile_config_dict(self) -> Dict[Any, Any]:
+        """
+        Return a multi-storage client profile configuration dictionary for the temporary data store.
+        """
+        return copy.deepcopy(self._profile_config_dict)
 
     def __exit__(
         self,
@@ -52,6 +59,9 @@ class TemporaryDataStore(AbstractContextManager):
 
     @abstractmethod
     def cleanup(self) -> None:
+        """
+        The temporary data store can be explicitly cleaned up by calling the ``cleanup()`` method.
+        """
         pass
 
 
@@ -71,7 +81,7 @@ class TemporaryPOSIXDirectory(TemporaryDataStore):
         # https://docs.python.org/3/library/tempfile.html
         self._directory = tempfile.TemporaryDirectory()
 
-        self.profile_config_dict = {
+        self._profile_config_dict = {
             "storage_provider": {"type": "file", "options": {"base_path": self._directory.name}}
         }
 
@@ -111,7 +121,7 @@ class TemporaryAWSS3Bucket(TemporaryDataStore):
 
         self._client.create_bucket(Bucket=self._bucket_name)
 
-        self.profile_config_dict = {
+        self._profile_config_dict = {
             "storage_provider": {
                 "type": "s3",
                 "options": {"endpoint_url": endpoint_url, "base_path": self._bucket_name},
@@ -166,7 +176,7 @@ class TemporaryAzureBlobStorageContainer(TemporaryDataStore):
 
         self._client.create_container(name=self._container_name)
 
-        self.profile_config_dict = {
+        self._profile_config_dict = {
             "storage_provider": {
                 "type": "azure",
                 "options": {"endpoint_url": endpoint_url, "base_path": self._container_name},
@@ -214,7 +224,7 @@ class TemporaryGoogleCloudStorageBucket(TemporaryDataStore):
 
         self._client.create_bucket(bucket_or_name=self._bucket_name)
 
-        self.profile_config_dict = {
+        self._profile_config_dict = {
             "storage_provider": {
                 "type": "gcs",
                 "options": {"project_id": project_id, "endpoint_url": endpoint_url, "base_path": self._bucket_name},
@@ -227,3 +237,15 @@ class TemporaryGoogleCloudStorageBucket(TemporaryDataStore):
             for blob in self._client.list_blobs(bucket_or_name=self._bucket_name):
                 bucket.delete_blob(blob_name=blob.name)
             bucket.delete()
+
+
+class TemporarySwiftStackBucket(TemporaryAWSS3Bucket):
+    """
+    This class creates a temporary SwiftStack bucket. The resulting object can be used as a context manager.
+    On completion of the context or destruction of the temporary data store object,
+    the newly created temporary data store and all its contents are removed.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._profile_config_dict["storage_provider"]["type"] = "s8k"

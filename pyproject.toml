@@ -75,10 +75,11 @@ dev = [
     "types-PyYAML~=6.0.1",
     "types-python-dateutil~=2.8",
     "types-requests~=2.25",
-    "pytest~=8.2",
-    "pytest-asyncio~=0.24",
-    "pytest-forked~=1.4",
-    "coverage[toml]~=7.6.11",
+    "pytest~=8.3.4",
+    "pytest-asyncio~=0.25.3",
+    "pytest-cov~=6.0.0",
+    "pytest-forked~=1.6",
+    "coverage[toml]~=7.6.12",
     "sphinx~=7.4.7",
     "sphinx-copybutton~=0.5.1",
     "sphinx-pyproject~=0.3",
@@ -93,11 +94,6 @@ msc = "multistorageclient.contrib.async_fs.MultiAsyncFileSystem"
 
 [tool.coverage.run]
 branch = true
-command_line = "-m pytest --junit-xml .reports/unit/pytest.xml"
-concurrency = [
-    "multiprocessing",
-    "thread"
-]
 data_file = ".reports/unit/.coverage"
 parallel = true
 source = [
@@ -128,8 +124,14 @@ include = [
 ]
 
 [tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib"
+]
+pythonpath = [
+    "tests"
+]
 testpaths = [
-    "tests/unit"
+    "tests/test_multistorageclient/unit"
 ]
 
 [tool.ruff]

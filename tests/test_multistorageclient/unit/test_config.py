@@ -139,7 +139,7 @@ def test_credentials_provider() -> None:
 
 def test_load_extensions() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from mock_module.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
 
     config = StorageClientConfig.from_yaml(
         """
@@ -150,9 +150,9 @@ def test_load_extensions() -> None:
               options:
                 base_path: /
             credentials_provider:
-              type: mock_module.mocks.TestCredentialsProvider
+              type: test_multistorageclient.unit.utils.mocks.TestCredentialsProvider
             metadata_provider:
-              type: mock_module.mocks.TestMetadataProvider
+              type: test_multistorageclient.unit.utils.mocks.TestMetadataProvider
         """
     )
 
@@ -163,14 +163,14 @@ def test_load_extensions() -> None:
 
 def test_load_provider_bundle() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from mock_module.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
 
     config = StorageClientConfig.from_yaml(
         """
         profiles:
           test-provider-bundle:
             provider_bundle:
-              type: mock_module.mocks.TestProviderBundle
+              type: test_multistorageclient.unit.utils.mocks.TestProviderBundle
         """,
         profile="test-provider-bundle",
     )
@@ -183,7 +183,7 @@ def test_load_provider_bundle() -> None:
 
 def test_load_direct_provider_bundle() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from mock_module.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
 
     bundle = SimpleProviderBundle(
         storage_provider_config=StorageProviderConfig(type="file", options={"base_path": "/"}),

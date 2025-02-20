@@ -13,19 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-import common
+"""
+Due to a pytest-forked bug, forked tests must be in their own module.
 
-
-@pytest.mark.parametrize("profile_name", ["test-gcs"])
-@pytest.mark.parametrize("config_suffix", [""])
-def test_gcs_shortcuts(profile_name, config_suffix):
-    profile = profile_name + config_suffix
-    common.test_shortcuts(profile)
-
-
-@pytest.mark.parametrize("profile_name", ["test-gcs"])
-@pytest.mark.parametrize("config_suffix", [""])
-def test_gcs_storage_client(profile_name, config_suffix):
-    profile = profile_name + config_suffix
-    common.test_storage_client(profile)
+https://github.com/pytest-dev/pytest-forked/issues/67#issuecomment-1964718720
+"""

@@ -14,17 +14,17 @@
 # limitations under the License.
 
 import pytest
-import common
+import test_multistorageclient.e2e.common as common
 
 
-@pytest.mark.parametrize("profile_name", ["test-swift-pdx", "test-swift-pdx-base-path-with-prefix"])
+@pytest.mark.parametrize("profile_name", ["test-s3-iad", "test-s3-iad-base-path-with-prefix"])
 @pytest.mark.parametrize("config_suffix", ["", "-rclone"])
 def test_s3_shortcuts(profile_name, config_suffix):
     profile = profile_name + config_suffix
     common.test_shortcuts(profile)
 
 
-@pytest.mark.parametrize("profile_name", ["test-swift-pdx"])
+@pytest.mark.parametrize("profile_name", ["test-s3-iad"])
 @pytest.mark.parametrize("config_suffix", ["", "-rclone"])
 def test_s3_storage_client(profile_name, config_suffix):
     profile = profile_name + config_suffix

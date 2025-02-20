@@ -14,18 +14,18 @@
 # limitations under the License.
 
 import pytest
-import common
+import test_multistorageclient.e2e.common as common
 
 
-@pytest.mark.parametrize("profile_name", ["test-azure-uswest"])
+@pytest.mark.parametrize("profile_name", ["test-oci"])
 @pytest.mark.parametrize("config_suffix", ["", "-rclone"])
-def test_azure_shortcuts(profile_name, config_suffix):
+def test_oci_shortcuts(profile_name, config_suffix):
     profile = profile_name + config_suffix
     common.test_shortcuts(profile)
 
 
-@pytest.mark.parametrize("profile_name", ["test-azure-uswest"])
+@pytest.mark.parametrize("profile_name", ["test-oci"])
 @pytest.mark.parametrize("config_suffix", ["", "-rclone"])
-def test_azure_storage_client(profile_name, config_suffix):
+def test_oci_storage_client(profile_name, config_suffix):
     profile = profile_name + config_suffix
     common.test_storage_client(profile)

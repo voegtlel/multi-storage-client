@@ -33,8 +33,8 @@ from opentelemetry.trace import ProxyTracerProvider
 from multistorageclient.instrumentation.auth import AzureAccessTokenProvider
 
 """
-opentelemetry.trace and opentelemetry.metrics have global vars that can only be set once per process
-To bypass it we use pytest.mark.forked to create forked processes for each test cases
+`opentelemetry.trace` and `opentelemetry.metrics` have global vars that can only be set once per process.
+To bypass it we use `@pytest.mark.forked` to create forked processes for each test cases.
 """
 
 
