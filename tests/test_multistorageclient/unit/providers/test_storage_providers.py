@@ -72,20 +72,17 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
 
         # Glob the file.
         assert len(storage_client.glob(pattern=f"*{file_extension}-nonexistent")) == 0
-        assert len(storage_client.glob(pattern=f"**/*{file_extension}-nonexistent")) == 0
-        assert len(storage_client.glob(pattern=f"**/*{file_extension}")) == 1
-        assert storage_client.glob(pattern=f"**/*{file_extension}")[0] == file_path
+        assert len(storage_client.glob(pattern=os.path.join("**", f"*{file_extension}-nonexistent"))) == 0
+        assert len(storage_client.glob(pattern=os.path.join("**", f"*{file_extension}"))) == 1
+        assert storage_client.glob(pattern=os.path.join("**", f"*{file_extension}"))[0] == file_path
 
         # Check the infix directory metadata.
-        #
-        # TODO: Enable for all providers. Currently only the POSIX file and S3 storage providers set `ObjectMetadata.type` for directories.
-        if temp_data_store_type in {tempdatastore.TemporaryAWSS3Bucket, tempdatastore.TemporaryPOSIXDirectory}:
-            for tail in ["", "/"]:
-                directory_path = os.path.join(*file_path_fragments[:2])
-                directory_info = storage_client.info(path=f"{directory_path}{tail}")
-                assert directory_info is not None
-                assert directory_info.key.endswith(f"{directory_path}/")
-                assert directory_info.type == "directory"
+        for tail in ["", "/"]:
+            directory_path = os.path.join(*file_path_fragments[:2])
+            directory_info = storage_client.info(path=f"{directory_path}{tail}")
+            assert directory_info is not None
+            assert directory_info.key.endswith(f"{directory_path}/")
+            assert directory_info.type == "directory"
 
         # List the infix directory.
         assert len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/", include_directories=True))) == 1

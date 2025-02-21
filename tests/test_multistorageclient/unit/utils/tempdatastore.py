@@ -40,9 +40,9 @@ class TemporaryDataStore(AbstractContextManager):
     """
 
     #: Profile configuration dictionary.
-    _profile_config_dict: Dict[Any, Any]
+    _profile_config_dict: Dict[str, Any]
 
-    def profile_config_dict(self) -> Dict[Any, Any]:
+    def profile_config_dict(self) -> Dict[str, Any]:
         """
         Return a multi-storage client profile configuration dictionary for the temporary data store.
         """

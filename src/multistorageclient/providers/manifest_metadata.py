@@ -27,6 +27,7 @@ from ..utils import glob
 
 DEFAULT_MANIFEST_BASE_DIR = ".msc_manifests"
 MANIFEST_INDEX_FILENAME = "msc_manifest_index.json"
+MANIFEST_PARTS_CHILD_DIR = "parts"
 MANIFEST_PART_PREFIX = "msc_manifest_part"
 MANIFEST_PART_SUFFIX = ".jsonl"  # Suffix for the manifest part files
 SEQUENCE_PADDING = 6  # Define padding for the sequence number (e.g., 6 for "000001")
@@ -258,7 +259,8 @@ class ManifestMetadataProvider(MetadataProvider):
         # We currently write only one part by default
         part_sequence_number = 1
         manifest_part_file_path = os.path.join(
-            "parts", f"{MANIFEST_PART_PREFIX}{part_sequence_number:0{SEQUENCE_PADDING}}{MANIFEST_PART_SUFFIX}"
+            MANIFEST_PARTS_CHILD_DIR,
+            f"{MANIFEST_PART_PREFIX}{part_sequence_number:0{SEQUENCE_PADDING}}{MANIFEST_PART_SUFFIX}",
         )
 
         manifest = Manifest(version="1", parts=[ManifestPartReference(path=manifest_part_file_path)])

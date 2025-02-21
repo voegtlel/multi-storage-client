@@ -51,12 +51,12 @@ class ManifestMetadataGenerator:
 
         The following manifest objects will be written with the destination storage client (with the total number of manifest parts being variable)::
 
-           .
-           ├── manifest_main.json
+           .msc_manifests/
+           ├── msc_manifest_index.json
            └── parts/
-               ├── part01.jsonl
+               ├── msc_manifest_part000001.jsonl
                ├── ...
-               └── part99.jsonl
+               └── msc_manifest_part999999.jsonl
 
         :param data_storage_client: Storage client for reading data objects.
         :param manifest_storage_client: Storage client for writing manifest objects.
