@@ -334,7 +334,7 @@ class OracleStorageProvider(BaseStorageProvider):
                         yield ObjectMetadata(
                             key=key,
                             content_length=response_object.size,
-                            last_modified=response_object.time_modified,
+                            last_modified=response_object.time_modified or response_object.time_created or datetime.min,
                             etag=response_object.etag,
                         )
                     elif start_after != key:
