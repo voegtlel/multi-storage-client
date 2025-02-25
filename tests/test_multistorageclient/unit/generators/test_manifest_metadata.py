@@ -50,26 +50,14 @@ import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         data_profile = "data"
-        manifest_profile = "manifest"
         data_with_manifest_profile = "data_with_manifest"
 
         data_profile_config_dict = temp_data_store.profile_config_dict()
-        data_profile_config_dict["storage_provider"]["options"]["base_path"] = os.path.join(
-            data_profile_config_dict["storage_provider"]["options"]["base_path"], "data"
-        )
-
-        manifest_profile_config_dict = temp_data_store.profile_config_dict()
-
-        data_with_manifest_profile_config_dict = copy.deepcopy(data_profile_config_dict)
-        data_with_manifest_profile_config_dict |= {
-            "manifest_provider": {
+        data_with_manifest_profile_config_dict = copy.deepcopy(data_profile_config_dict) | {
+            "metadata_provider": {
                 "type": "manifest",
                 "options": {
-                    "storage_provider_profile": data_profile,
-                    "manifest_path": os.path.join(
-                        manifest_profile_config_dict["storage_provider"]["options"]["base_path"],
-                        DEFAULT_MANIFEST_BASE_DIR,
-                    ),
+                    "manifest_path": DEFAULT_MANIFEST_BASE_DIR,
                 },
             }
         }
@@ -77,7 +65,6 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         storage_client_config_dict = {
             "profiles": {
                 data_profile: data_profile_config_dict,
-                manifest_profile: manifest_profile_config_dict,
                 data_with_manifest_profile: data_with_manifest_profile_config_dict,
             }
         }
@@ -95,24 +82,16 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         }
         for key, placeholder_file_info in expected_files_info.items():
             data_storage_client.write(path=key, body=b"\x00" * placeholder_file_info.content_length)
-            expected_files_info[key] = data_storage_client.info(path=key)
-
-        # Create the manifest storage client.
-        manifest_storage_client = StorageClient(
-            config=StorageClientConfig.from_dict(config_dict=storage_client_config_dict, profile=manifest_profile)
-        )
 
         # Generate a manifest.
         ManifestMetadataGenerator.generate_and_write_manifest(
-            data_storage_client=data_storage_client, manifest_storage_client=manifest_storage_client
+            data_storage_client=data_storage_client, manifest_storage_client=data_storage_client
         )
 
         # List the manifest.
         manifest_directories_info = [
             metadata
-            for metadata in manifest_storage_client.list(
-                prefix=f"{DEFAULT_MANIFEST_BASE_DIR}/", include_directories=True
-            )
+            for metadata in data_storage_client.list(prefix=f"{DEFAULT_MANIFEST_BASE_DIR}/", include_directories=True)
             if metadata.type == "directory"
         ]
         assert len(manifest_directories_info) == 1
@@ -122,7 +101,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
 
         # Check the manifest index.
         manifest_index_path = os.path.join(manifest_directories_info[0].key, MANIFEST_INDEX_FILENAME)
-        manifest_index_info = manifest_storage_client.info(path=manifest_index_path)
+        manifest_index_info = data_storage_client.info(path=manifest_index_path)
         assert manifest_index_info is not None
         assert manifest_index_info.key.endswith(manifest_index_path)
         assert manifest_index_info.type == "file"
@@ -130,7 +109,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         # List the manifest parts directory.
         manifest_parts_directories_info = [
             metadata
-            for metadata in manifest_storage_client.list(
+            for metadata in data_storage_client.list(
                 prefix=f"{manifest_directories_info[0].key}/", include_directories=True
             )
             if metadata.type == "directory" and metadata.key.endswith(MANIFEST_PARTS_CHILD_DIR)
@@ -139,7 +118,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
 
         # Check the manifest parts.
         manifest_parts_info = [
-            metadata for metadata in manifest_storage_client.list(prefix=f"{manifest_parts_directories_info[0].key}/")
+            metadata for metadata in data_storage_client.list(prefix=f"{manifest_parts_directories_info[0].key}/")
         ]
         assert len(manifest_parts_info) > 0
         for manifest_part_info in manifest_parts_info:
@@ -152,7 +131,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
                 is not None
             )
             assert manifest_part_info.type == "file"
-            with manifest_storage_client.open(path=manifest_part_info.key, mode="r") as manifest_part:
+            with data_storage_client.open(path=manifest_part_info.key, mode="r") as manifest_part:
                 for line in manifest_part:
                     assert DEFAULT_MANIFEST_BASE_DIR not in json.loads(line)["key"]
 
@@ -168,20 +147,24 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             file_info.key for file_info in data_with_manifest_storage_client.list()
         }
         for key, expected_file_info in expected_files_info.items():
-            assert data_with_manifest_storage_client.info(path=key) == expected_file_info
+            # Not all object metadata is preserved in manifests.
+            #
+            # Timestamp precision depends on the storage service, so skipping that too.
+            actual_file_info = data_with_manifest_storage_client.info(path=key)
+            assert actual_file_info.key == expected_file_info.key
+            assert actual_file_info.type == expected_file_info.type
+            assert actual_file_info.content_length == expected_file_info.content_length
 
         # Generate a manifest with a later timestamp.
         time.sleep(1)
         ManifestMetadataGenerator.generate_and_write_manifest(
-            data_storage_client=data_storage_client, manifest_storage_client=manifest_storage_client
+            data_storage_client=data_storage_client, manifest_storage_client=data_storage_client
         )
 
         # List the later manifest.
         later_manifest_directories_info = [
             metadata
-            for metadata in manifest_storage_client.list(
-                prefix=f"{DEFAULT_MANIFEST_BASE_DIR}/", include_directories=True
-            )
+            for metadata in data_storage_client.list(prefix=f"{DEFAULT_MANIFEST_BASE_DIR}/", include_directories=True)
             if metadata.type == "directory" and metadata.key != manifest_directories_info[0].key
         ]
         assert len(later_manifest_directories_info) == 1
