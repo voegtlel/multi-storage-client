@@ -42,8 +42,8 @@ class CacheConfig:
     location: str
     #: The maximum size of the cache in megabytes.
     size_mb: int
-    #: Use etag to update the cached files.
-    use_etag: bool
+    #: Use etag to update the cached files. Default is ``True``.
+    use_etag: bool = True
 
     def size_bytes(self) -> int:
         """
