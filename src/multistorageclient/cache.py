@@ -336,15 +336,3 @@ class CacheManager:
         hashed_name = self._get_cache_key(key)
         lock_file = os.path.join(self._cache_dir, self._profile, f".{hashed_name}.lock")
         return FileLock(lock_file, timeout=DEFAULT_LOCK_TIMEOUT)
-
-    def delete_lock(self, lock: BaseFileLock) -> None:
-        """
-        Delete the lock file.
-
-        :param key: :py:class:`filelock.FileLock` object.
-        """
-        try:
-            if os.path.exists(lock.lock_file):
-                os.unlink(lock.lock_file)
-        except OSError:
-            pass  # Ignore errors if the file is already deleted or inaccessible
