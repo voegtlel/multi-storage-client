@@ -26,7 +26,7 @@ import multistorageclient as msc
 from multistorageclient.client import StorageClient
 from multistorageclient.file import ObjectFile
 from multistorageclient.types import MSC_PROTOCOL
-from test_multistorageclient.unit.utils import tempdatastore, config
+from test_multistorageclient.unit.utils import config, tempdatastore
 
 MB = 1024 * 1024
 
@@ -46,6 +46,13 @@ def test_resolve_storage_client(file_storage_config):
     sc2, _ = msc.resolve_storage_client("file:///usr/local/fake/bucket/testfile.bin")
     sc3, _ = msc.resolve_storage_client("msc://default/usr/local/fake/bucket/testfile.bin")
     assert sc1 == sc2 == sc3
+
+    # verify that path works with multiple slashes
+    _, p1 = msc.resolve_storage_client("/etc/")
+    _, p2 = msc.resolve_storage_client("//etc/")
+    _, p3 = msc.resolve_storage_client("/////etc/")
+    assert p2 == "//etc"
+    assert p1 == p3 == "/etc"
 
     # Multithreading test to verify the storage_client instance is the same
     def storage_client_thread(number: int) -> Tuple[StorageClient, str]:
@@ -68,6 +75,10 @@ def test_glob_with_posix_path(file_storage_config):
 
     for filepath in msc.glob("msc://default/etc/**/*.conf"):
         assert filepath.startswith("msc://")
+
+    # Test that glob works with multiple slashes which is common in POSIX paths.
+    assert msc.glob("/etc/*") == msc.glob("//etc/*")
+    assert msc.glob("/etc/*") == msc.glob("/////etc/*")
 
 
 def test_open_url(file_storage_config):

@@ -14,10 +14,12 @@
 # limitations under the License.
 
 import mmap
-import pytest
-from multistorageclient import StorageClient, StorageClientConfig
-import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from typing import Type
+
+import pytest
+
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
+from multistorageclient import StorageClient, StorageClientConfig
 
 
 @pytest.mark.parametrize(

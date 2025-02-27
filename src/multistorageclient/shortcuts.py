@@ -19,14 +19,13 @@ import queue
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from .client import StorageClient
 from .config import StorageClientConfig
-from .file import ObjectFile, PosixFile, IN_MEMORY_FILE_SIZE_THRESHOLD
-from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, MSC_PROTOCOL_NAME, ObjectMetadata
+from .file import IN_MEMORY_FILE_SIZE_THRESHOLD, ObjectFile, PosixFile
+from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, ObjectMetadata
 
 _instance_cache: Dict[str, StorageClient] = {}
 _cache_lock = threading.Lock()
@@ -51,8 +50,8 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
 
     :raises ValueError: If the URL's protocol is neither ``msc`` nor a valid local file system path.
     """
-    pr = urlparse(url)
-    if pr.scheme == MSC_PROTOCOL_NAME:
+    if url.startswith(MSC_PROTOCOL):
+        pr = urlparse(url)
         profile = pr.netloc
 
         # Remove the leading slash
@@ -60,18 +59,26 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
             path = pr.path[1:]
         else:
             path = pr.path
-    elif pr.scheme == "" or pr.scheme == "file":
-        if Path(pr.path).is_absolute():
+    elif url.startswith("file://"):
+        pr = urlparse(url)
+        profile = DEFAULT_POSIX_PROFILE_NAME
+        path = pr.path
+    elif url.startswith("/"):
+        # POSIX paths (only absolute paths are supported)
+        url = os.path.normpath(url)
+        if os.path.isabs(url):
             profile = DEFAULT_POSIX_PROFILE_NAME
-            path = pr.path
+            path = url
         else:
             raise ValueError(f'Invalid POSIX path "{url}", only absolute path is allowed')
     else:
         raise ValueError(f'Unknown URL "{url}", expecting "{MSC_PROTOCOL}" or a POSIX path')
 
+    # Check if the profile has already been instantiated
     if profile in _instance_cache:
         return _instance_cache[profile], path
 
+    # Create a new StorageClient instance and cache it
     with _cache_lock:
         if profile in _instance_cache:
             return _instance_cache[profile], path
