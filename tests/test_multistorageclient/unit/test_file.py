@@ -13,111 +13,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import mmap
-import os
-import tempfile
-
 import pytest
 from multistorageclient import StorageClient, StorageClientConfig
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
+from typing import Type
 
 
-def verify_open_binary_mode(config: StorageClientConfig):
-    storage_client = StorageClient(config)
-    body = b"A" * 64 * 1024
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryPOSIXDirectory],
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+    ],
+)
+def test_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        storage_client = StorageClient(
+            config=StorageClientConfig.from_dict(
+                config_dict={"profiles": {profile: temp_data_store.profile_config_dict()}}, profile=profile
+            )
+        )
 
-    with tempfile.TemporaryDirectory(prefix="binary") as dirname:
-        filename = os.path.join(dirname, "testfile.bin")
+        file_path = "file.txt"
+        file_content_length = 1
+        file_body_bytes = b"\x00" * file_content_length
+        file_body_string = file_body_bytes.decode()
 
-        fp = storage_client.open(filename, "wb")
-        assert not fp.readable()
-        assert fp.writable()
-        fp.write(body)
-        assert 64 * 1024 == fp.tell()
+        # Open a file for writes (bytes).
+        with storage_client.open(path=file_path, mode="wb") as file:
+            assert not file.readable()
+            assert file.writable()
+            file.write(file_body_bytes)
+            assert file.tell() == file_content_length
 
-        # verify file is written
-        fp.close()
-        assert len(list(storage_client.list(dirname))) == 1
-        assert storage_client.info(filename).content_length == len(body)
+        # Check if the file's persisted.
+        file_info = storage_client.info(path=file_path)
+        assert file_info is not None
+        assert file_info.content_length == file_content_length
 
-        # verify file is readable
-        fp = storage_client.open(filename, "rb")
-        assert fp.readable()
-        assert not fp.writable()
-        assert fp.read(10) == b"A" * 10
-        buffer = bytearray(12)
-        assert 10 == fp.tell()
-        assert 12 == fp.readinto(buffer)
-        assert buffer == b"A" * 12
-        fp.close()
+        # Open the file for reads (bytes).
+        with storage_client.open(path=file_path, mode="rb") as file:
+            assert not file.isatty()
+            assert file.readable()
+            assert not file.writable()
+            assert file.read() == file_body_bytes
+            assert file.seekable()
+            file.seek(0)
+            assert file.readall() == file_body_bytes
+            file.seek(0)
+            buffer = bytearray(file_content_length)
+            file.readinto(buffer)
+            assert buffer == file_body_bytes
+            file.seek(0)
+            assert file.readline() == file_body_bytes
+            file.seek(0)
+            assert file.readlines() == [file_body_bytes]
 
-        storage_client.delete(filename)
+            # Check if it works with mmap.
+            #
+            # Only works with PosixFile.
+            if temp_data_store_type is tempdatastore.TemporaryPOSIXDirectory:
+                with mmap.mmap(file.fileno(), length=0, access=mmap.ACCESS_READ) as mmap_file:
+                    content = mmap_file[:]
+                    assert content == file_body_bytes
 
+        # Delete the file.
+        storage_client.delete(path=file_path)
         with pytest.raises(FileNotFoundError):
-            storage_client.open(os.path.join(dirname, "file-does-not-exist"), "r")
+            with storage_client.open(path=file_path, mode="rb") as file:
+                pass
 
+        # Open a file for writes (string).
+        with storage_client.open(path=file_path, mode="w") as file:
+            assert not file.readable()
+            assert file.writable()
+            file.write(file_body_string)
+            assert file.tell() == file_content_length
 
-def verify_open_text_mode(config: StorageClientConfig):
-    storage_client = StorageClient(config)
-    body = '{"text":"✅ Unicode Test ✅"}'
+        # Check if the file's persisted.
+        file_info = storage_client.info(path=file_path)
+        assert file_info is not None
+        assert file_info.content_length == file_content_length
 
-    with tempfile.TemporaryDirectory(prefix="text") as dirname:
-        filename = os.path.join(dirname, "testfile.json")
+        # Open the file for reads (string).
+        with storage_client.open(path=file_path, mode="r") as file:
+            assert not file.isatty()
+            assert file.readable()
+            assert not file.writable()
+            assert file.read() == file_body_string
+            assert file.seekable()
+            file.seek(0)
+            assert file.read() == file_body_string
+            file.seek(0)
+            assert file.readline() == file_body_string
+            file.seek(0)
+            assert file.readlines() == [file_body_string]
 
-        fp = storage_client.open(filename, "w")
-        assert not fp.readable()
-        assert fp.writable()
-        fp.write(body)
-
-        # verify file is written
-        fp.close()
-        assert len(list(storage_client.list(dirname))) == 1
-        assert storage_client.info(filename).content_length == len(body.encode("utf-8"))
-
-        # verify file is readable
-        fp = storage_client.open(filename, "r")
-        assert fp.readable()
-        assert not fp.writable()
-        assert fp.read() == body
-        fp.close()
-
-        storage_client.delete(filename)
-
-
-def verify_open_mmap(config: StorageClientConfig):
-    storage_client = StorageClient(config)
-    body = b"A" * 64 * 1024
-
-    with tempfile.TemporaryDirectory(prefix="text") as dirname:
-        filename = os.path.join(dirname, "testfile.json")
-
-        fp = storage_client.open(filename, "wb")
-        assert not fp.readable()
-        assert fp.writable()
-        fp.write(body)
-        fp.close()
-
-        with storage_client.open(filename, "rb") as fp:
-            with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
-                content = mm[:]
-                assert content == body
-
-
-def test_open_file():
-    config = StorageClientConfig.from_dict(
-        {
-            "profiles": {
-                "default": {
-                    "storage_provider": {
-                        "type": "file",
-                        "options": {
-                            "base_path": "/",
-                        },
-                    }
-                }
-            }
-        }
-    )
-
-    verify_open_binary_mode(config)
-    verify_open_text_mode(config)
+        # Delete the file.
+        storage_client.delete(path=file_path)
+        with pytest.raises(FileNotFoundError):
+            with storage_client.open(path=file_path, mode="r") as file:
+                pass
