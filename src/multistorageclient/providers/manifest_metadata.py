@@ -336,6 +336,7 @@ class ManifestMetadataProvider(MetadataProvider):
 
         for path in self._pending_removes:
             self._files.pop(path)
+        self._pending_removes = []
 
         # Collect metadata for each object to write out in this part file.
         object_metadata = [
