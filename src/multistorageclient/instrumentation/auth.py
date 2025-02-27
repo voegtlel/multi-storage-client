@@ -13,9 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import requests
+import time
 from typing import Dict, Any, Optional
 
 logger = logging.Logger(__name__)
+
+MAX_RETRIES = 5
+BACKOFF_FACTOR = 0.5
 
 
 class AccessTokenProvider:
@@ -42,26 +47,49 @@ class AzureAccessTokenProvider(AccessTokenProvider):
             raise e
 
         import msal
+        from requests.adapters import HTTPAdapter, Retry
 
-        self.msal_client = msal.ConfidentialClientApplication(**self.auth_options)
+        msal_session = requests.Session()
+        retries = Retry(
+            total=MAX_RETRIES,
+            backoff_factor=BACKOFF_FACTOR,
+            connect=MAX_RETRIES,
+            read=MAX_RETRIES,
+            status_forcelist=[408, 429, 500, 501, 502, 503, 504],
+        )
+        msal_session.mount("https://", HTTPAdapter(max_retries=retries))
+        self.msal_client = msal.ConfidentialClientApplication(http_client=msal_session, **self.auth_options)
 
     def get_token(self):
-        try:
-            # since msal 1.23, acquire_token_for_client stores tokens in cache and handles expired token automatically
-            result = self.msal_client.acquire_token_for_client(scopes=self.azure_scopes)
-            if result:
-                if "access_token" in result:
-                    return result["access_token"]
+        retry_count = 0
+        while retry_count < MAX_RETRIES:
+            try:
+                # since msal 1.23, acquire_token_for_client stores tokens in cache and handles expired token automatically
+                result = self.msal_client.acquire_token_for_client(scopes=self.azure_scopes)
+                if result:
+                    if "access_token" in result:
+                        return result["access_token"]
+                    else:
+                        logger.warning(
+                            f"no access token available in response: {result.get('error')}, description: {result.get('error_description')}"
+                        )
                 else:
-                    logger.warning(
-                        f"no access token available in response: {result.get('error')}, description: {result.get('error_description')}"
-                    )
-            else:
-                logger.warning("authn response from msal client is empty")
-            return None
-        except Exception as e:
-            logger.error(f"Exception during token fetching: {e}")
-            return None
+                    logger.warning("authn response from msal client is empty")
+                return None
+            except requests.exceptions.ConnectionError as e:
+                # This is a special case where we need to retry because the server closed the connection
+                # MSAL http client's retry mechanism doesn't handle this case properly
+                logger.debug(f"Getting token attempt {retry_count + 1} failed with error: {str(e)}")
+                retry_count += 1
+                if retry_count < MAX_RETRIES:
+                    sleep_time = min(BACKOFF_FACTOR * (2**retry_count), 60)
+                    time.sleep(sleep_time)
+            except Exception as e:
+                logger.error(f"Unexpected error during getting token attempt {retry_count + 1}: {str(e)}")
+                return None
+
+        logger.debug(f"All {MAX_RETRIES} token fetch attempts failed")
+        return None
 
 
 class AccessTokenProviderFactory:

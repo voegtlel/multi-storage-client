@@ -48,7 +48,7 @@ try:
 except ImportError:
     HAS_OBSERVABILITY_DEPS = False
 
-from requests.adapters import HTTPAdapter
+from requests.adapters import HTTPAdapter, Retry
 
 from .auth import AccessTokenProvider, AccessTokenProviderFactory
 from ..utils import import_class
@@ -74,6 +74,7 @@ LATENCY_HISTOGRAM_BUCKETS = [0, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 256
 OBJECT_SIZE_HISTOGRAM_BUCKETS = [0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120]
 
 MAX_RETRIES = 5
+BACKOFF_FACTOR = 0.5
 
 _setup_lock = threading.Lock()
 
@@ -86,7 +87,9 @@ class CustomHTTPAdapter(HTTPAdapter):
     """
 
     def __init__(self, auth_provider, *args, **kwargs):
-        kwargs["max_retries"] = kwargs.get("max_retries", MAX_RETRIES)
+        max_retries = kwargs.get("max_retries", MAX_RETRIES)
+        retry = Retry(total=max_retries, backoff_factor=BACKOFF_FACTOR, connect=max_retries, read=max_retries)
+        kwargs["max_retries"] = retry
         super().__init__(*args, **kwargs)
         self.auth_provider = auth_provider
 
