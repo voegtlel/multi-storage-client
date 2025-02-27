@@ -12,22 +12,42 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# pyright: reportPossiblyUnboundVariable=false
+
 import logging
 import threading
 from typing import Any, Dict, Union, Optional
 
 import requests
 from opentelemetry import metrics, trace
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    ConsoleMetricExporter,
-    PeriodicExportingMetricReader,
-)
-from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSampler
+
+
+# Try importing optional observability dependencies
+try:
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import (
+        ConsoleMetricExporter,
+        PeriodicExportingMetricReader,
+    )
+    from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSampler
+
+    _RESOURCE = Resource.create(
+        {
+            "service.name": "multistorageclient",
+            "service.namespace": "client",
+            "service.version": "1.0",
+        }
+    )
+
+    HAS_OBSERVABILITY_DEPS = True
+except ImportError:
+    HAS_OBSERVABILITY_DEPS = False
+
 from requests.adapters import HTTPAdapter
 
 from .auth import AccessTokenProvider, AccessTokenProviderFactory
@@ -45,13 +65,6 @@ _OTEL_METRIC_EXPORTER_MAPPING = {
     "otlp": "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter",
 }
 
-_RESOURCE = Resource.create(
-    {
-        "service.name": "multistorageclient",
-        "service.namespace": "client",
-        "service.version": "1.0",
-    }
-)
 
 _IS_SETUP_DONE = False
 
@@ -100,7 +113,7 @@ def create_session(auth_provider: Optional[AccessTokenProvider] = None) -> reque
     return session
 
 
-def setup_opentelemetry(config: Dict[str, Any]) -> None:
+def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
     """
     Setup global OpenTelemetry providers for trace/metrics
     """
@@ -185,3 +198,15 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
 
             # Only set the _IS_SETUP_DONE = true if the providers are successfully set once
             _IS_SETUP_DONE = True
+
+
+def setup_opentelemetry(config: Dict[str, Any]) -> None:
+    """
+    Setup global OpenTelemetry providers for trace/metrics.
+    When dependencies are not available, this becomes a no-op function.
+    """
+    if not HAS_OBSERVABILITY_DEPS:
+        logger.warning("Instrumentation dependencies not available. Skipping OpenTelemetry setup.")
+        return
+
+    _setup_opentelemetry_impl(config)

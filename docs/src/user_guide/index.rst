@@ -40,6 +40,16 @@ MSC is vended as the ``multi-storage-client`` package on PyPI.
 The base :term:`client` supports POSIX file systems by default, but there are extras for each :term:`storage service`
 which provide the necessary package dependencies for its corresponding storage provider.
 
+While MSC can be installed with minimal dependencies, we strongly recommend installing the ``observability-otel`` extra 
+dependencies to enable observability features. Without observability dependencies, you will have limited visibility into MSC's operations 
+and performance, making it harder to debug issues and optimize your application.
+
+.. code-block:: shell
+   :caption: Install MSC with observability dependencies.
+
+   pip install multi-storage-client[observability-otel]
+
+
 .. code-block:: shell
    :caption: Install MSC with storage provider dependencies.
 

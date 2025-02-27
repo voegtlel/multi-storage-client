@@ -13,16 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pyright: reportPossiblyUnboundVariable=false
+
 import os
 from functools import wraps
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Tuple, Union
 import time
 
-import datasketches
 from opentelemetry import metrics, trace
 from opentelemetry.trace import StatusCode, set_span_in_context
 from opentelemetry.metrics import get_meter_provider
-from opentelemetry.sdk.metrics import MeterProvider as SdkMeterProvider
+
+from . import HAS_OBSERVABILITY_DEPS
+
+# import optional dependencies if dependencies are available
+if HAS_OBSERVABILITY_DEPS:
+    import datasketches
+    from opentelemetry.sdk.metrics import MeterProvider as SdkMeterProvider
 
 METER = metrics.get_meter("opentelemetry.instrumentation.multistorageclient")
 TRACER = trace.get_tracer("opentelemetry.instrumentation.multistorageclient")
@@ -187,6 +194,9 @@ class TDigestPercentiles:
         Records an amount into the T-digest for the specified attribute combination and updates
         the P50, P99, and P99.9 gauges accordingly.
         """
+        if not HAS_OBSERVABILITY_DEPS:
+            return
+
         if not attributes:
             attributes = {}
         # Record the amount into the specific tdigest for this attribute combination
@@ -219,6 +229,7 @@ class TDigestPercentiles:
 
     def _deserialize_tdigests(self, tdigests: Mapping[Tuple, bytes]) -> MutableMapping[Tuple, Any]:
         """Deserialize tdigests objects from bytes."""
+
         m = {}
         for k, v in tdigests.items():
             m[k] = datasketches.tdigest_float.deserialize(v)  # pyright: ignore [reportAttributeAccessIssue]
@@ -324,7 +335,7 @@ class StorageProviderMetricsHelper:
         Returns:
             bool: True if metrics are enabled, False otherwise.
         """
-        return isinstance(get_meter_provider(), SdkMeterProvider)
+        return HAS_OBSERVABILITY_DEPS and isinstance(get_meter_provider(), SdkMeterProvider)
 
 
 def _get_span_attribute(span: Any, key: str, default: Any = 0) -> Any:

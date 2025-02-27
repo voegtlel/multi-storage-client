@@ -926,12 +926,9 @@ name = "multi-storage-client"
 version = "0.15.0"
 source = { editable = "." }
 dependencies = [
-    { name = "datasketches" },
     { name = "filelock" },
     { name = "jsonschema" },
     { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
     { name = "python-dateutil" },
     { name = "pyyaml" },
 ]
@@ -957,6 +954,11 @@ msal = [
 ]
 numpy = [
     { name = "numpy" },
+]
+observability-otel = [
+    { name = "datasketches" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
 ]
 oci = [
     { name = "oci" },
@@ -993,7 +995,7 @@ requires-dist = [
     { name = "aistore", marker = "extra == 'aistore'", specifier = "~=1.8" },
     { name = "azure-storage-blob", marker = "extra == 'azure-storage-blob'", specifier = "~=12.17" },
     { name = "boto3", marker = "extra == 'boto3'", specifier = "~=1.36" },
-    { name = "datasketches", specifier = "~=5.1" },
+    { name = "datasketches", marker = "extra == 'observability-otel'", specifier = "~=5.1" },
     { name = "filelock", specifier = "~=3.14" },
     { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.9.0" },
     { name = "google-cloud-storage", marker = "extra == 'google-cloud-storage'", specifier = "~=2.3" },
@@ -1002,8 +1004,8 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'numpy'", specifier = "~=2.0" },
     { name = "oci", marker = "extra == 'oci'", specifier = "~=2.69.0" },
     { name = "opentelemetry-api", specifier = "~=1.24" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = "~=1.24" },
-    { name = "opentelemetry-sdk", specifier = "~=1.24" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability-otel'", specifier = "~=1.24" },
+    { name = "opentelemetry-sdk", marker = "extra == 'observability-otel'", specifier = "~=1.24" },
     { name = "python-dateutil", specifier = "~=2.8" },
     { name = "pyyaml", specifier = "~=6.0.1" },
     { name = "torch", marker = "extra == 'torch'", specifier = "~=2.3" },

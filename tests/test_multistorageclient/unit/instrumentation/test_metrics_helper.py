@@ -294,11 +294,14 @@ def test_cache_manager_metrics_helper():
 
 
 def test_pickle_tdigest():
+    # Get a reference to the module itself
+    import multistorageclient.instrumentation.utils as instrument_utils
+
     p50_gauge = DURATION_P50_GAUGE
     p99_gauge = DURATION_P99_GAUGE
     p999_gauge = DURATION_P999_GAUGE
 
-    tdigest_percentiles = TDigestPercentiles(p50_gauge, p99_gauge, p999_gauge)
+    tdigest_percentiles = instrument_utils.TDigestPercentiles(p50_gauge, p99_gauge, p999_gauge)
     tdigest_percentiles.record(1000, attributes={"key": "value"})
 
     data = pickle.dumps(tdigest_percentiles)
