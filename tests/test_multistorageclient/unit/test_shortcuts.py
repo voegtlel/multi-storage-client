@@ -256,3 +256,31 @@ def test_glob_include_prefix(temp_data_store_type: Type[tempdatastore.TemporaryD
 
         with msc.open(results[0], "rb") as fp:
             assert fp.read(10) == b"A" * 10
+
+
+def test_download_and_sync_files(file_storage_config):
+    body = b"A" * 4 * MB
+    tempdir = tempfile.mkdtemp()
+
+    file_names = ["dir1/testfile1.bin", "dir1/testfile2.bin", "dir2/testfile3.bin"]
+
+    # Write three test files
+    for file_name in file_names:
+        remote_file_path = f"{MSC_PROTOCOL}default{tempdir}/{file_name}"
+        with msc.open(remote_file_path, "wb") as fp:
+            fp.write(body)
+        assert msc.is_file(url=remote_file_path)
+
+    # Sync to a different destination directory
+    sync_dest_tempdir = tempfile.mkdtemp()
+    msc.sync(source_url=f"{MSC_PROTOCOL}default{tempdir}/", target_url=f"{MSC_PROTOCOL}default{sync_dest_tempdir}/")
+
+    expected_synced_files = [f"{MSC_PROTOCOL}default{sync_dest_tempdir}/{file_name}" for file_name in file_names]
+
+    for synced_file in expected_synced_files:
+        with msc.open(synced_file, "rb") as fp:
+            synced_content = fp.read()
+        assert synced_content == body
+
+    # Test, by syncing again and verify the data hasn't changed?
+    msc.sync(source_url=f"{MSC_PROTOCOL}default{tempdir}/", target_url=f"{MSC_PROTOCOL}default{sync_dest_tempdir}/")

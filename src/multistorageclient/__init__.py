@@ -25,6 +25,7 @@ from .shortcuts import (
     is_file,
     open,
     resolve_storage_client,
+    sync,
     upload_file,
 )
 
@@ -41,6 +42,7 @@ __all__ = [
     "is_file",
     "open",
     "resolve_storage_client",
+    "sync",
     "upload_file",
 ]
 

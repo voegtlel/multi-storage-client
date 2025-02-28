@@ -13,18 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
+import queue
+import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 from urllib.parse import urlparse
 
 from .client import StorageClient
 from .config import StorageClientConfig
-from .file import ObjectFile, PosixFile
-from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, MSC_PROTOCOL_NAME
+from .file import ObjectFile, PosixFile, IN_MEMORY_FILE_SIZE_THRESHOLD
+from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, MSC_PROTOCOL_NAME, ObjectMetadata
 
 _instance_cache: Dict[str, StorageClient] = {}
 _cache_lock = threading.Lock()
+
+logger = logging.Logger(__name__)
 
 
 def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
@@ -173,3 +180,98 @@ def is_file(url: str) -> bool:
     """
     client, path = resolve_storage_client(url)
     return client.is_file(path=path)
+
+
+def sync(source_url: str, target_url: str) -> None:
+    """
+    Syncs files from the source storage to the target storage.
+
+    :param source_url: The URL for the source storage.
+    :param target_url: The URL for the target storage.
+    """
+    if source_url.startswith(target_url) or target_url.startswith(source_url):
+        raise ValueError("Source and target cannot overlap")
+
+    source_client, source_path = resolve_storage_client(source_url)
+    target_client, target_path = resolve_storage_client(target_url)
+
+    file_queue = queue.Queue(maxsize=2000)
+    stop_signal = object()
+
+    def match_file_metadata(source_info: ObjectMetadata, target_info: ObjectMetadata) -> bool:
+        # If target and source have valid etags defined, use etag and file size to compare.
+        if source_info.etag and target_info.etag:
+            return source_info.etag == target_info.etag and source_info.content_length == target_info.content_length
+        # Else, check file size is the same and the target's last_modified is newer than the source.
+        return (
+            source_info.content_length == target_info.content_length
+            and source_info.last_modified <= target_info.last_modified
+        )
+
+    def producer():
+        """Lists source files and adds them to the queue."""
+        source_iter = iter(source_client.list(prefix=source_path))
+        target_iter = iter(target_client.list(prefix=target_path))
+
+        source_file = next(source_iter, None)
+        target_file = next(target_iter, None)
+
+        while source_file or target_file:
+            if source_file and target_file:
+                source_key = source_file.key[len(source_path) :].lstrip("/")
+                target_key = target_file.key[len(target_path) :].lstrip("/")
+
+                if source_key < target_key:
+                    file_queue.put(source_file)
+                    source_file = next(source_iter, None)
+                elif source_key > target_key:
+                    target_file = next(target_iter, None)  # Skip unmatched target file
+                else:
+                    # Both exist, compare metadata
+                    if not match_file_metadata(source_file, target_file):
+                        file_queue.put(source_file)
+                    source_file = next(source_iter, None)
+                    target_file = next(target_iter, None)
+            elif source_file:
+                file_queue.put(source_file)
+                source_file = next(source_iter, None)
+            else:
+                target_file = next(target_iter, None)
+
+        file_queue.put(stop_signal)  # Signal consumers to stop
+
+    def consumer():
+        """Processes files from the queue and syncs them."""
+        while True:
+            file_metadata = file_queue.get()
+            if file_metadata is stop_signal:
+                file_queue.put(stop_signal)  # Ensure other consumers see stop signal
+                break
+
+            source_key = file_metadata.key[len(source_path) :].lstrip("/")
+            target_file_path = os.path.join(target_path, source_key)
+
+            logger.debug(f"sync {file_metadata.key} -> {target_file_path}")
+            if file_metadata.content_length < IN_MEMORY_FILE_SIZE_THRESHOLD:
+                file_content = source_client.read(file_metadata.key)
+                target_client.write(target_file_path, file_content)
+            else:
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_filename = temp_file.name
+
+                try:
+                    source_client.download_file(file_metadata.key, temp_filename)
+                    target_client.upload_file(target_file_path, temp_filename)
+                finally:
+                    os.remove(temp_filename)  # Ensure the temporary file is removed
+
+    producer_thread = threading.Thread(target=producer, daemon=True)
+    producer_thread.start()
+
+    num_workers = int(os.getenv("MSC_NUM_THREADS", "16"))
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = [executor.submit(consumer) for _ in range(num_workers)]
+        for future in futures:
+            future.result()  # Ensure all consumers complete
+
+    target_client.commit_updates()
