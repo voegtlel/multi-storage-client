@@ -18,7 +18,7 @@ import os
 import tempfile
 import time
 from datetime import datetime
-from typing import IO, Any, Callable, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobPrefix, BlobServiceClient
@@ -68,7 +68,11 @@ class AzureBlobStorageProvider(BaseStorageProvider):
     """
 
     def __init__(
-        self, endpoint_url: str, base_path: str = "", credentials_provider: Optional[CredentialsProvider] = None
+        self,
+        endpoint_url: str,
+        base_path: str = "",
+        credentials_provider: Optional[CredentialsProvider] = None,
+        **kwargs: Dict[str, Any],
     ):
         """
         Initializes the :py:class:`AzureBlobStorageProvider` with the endpoint URL and optional credentials provider.
@@ -81,6 +85,18 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         self._account_url = endpoint_url
         self._credentials_provider = credentials_provider
+        # https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-blob#optional-configuration
+        client_optional_configuration_keys = {
+            "retry_total",
+            "retry_connect",
+            "retry_read",
+            "retry_status",
+            "connection_timeout",
+            "read_timeout",
+        }
+        self._client_optional_configuration = {
+            key: value for key, value in kwargs.items() if key in client_optional_configuration_keys
+        }
         self._blob_service_client = self._create_blob_service_client()
 
     def _create_blob_service_client(self) -> BlobServiceClient:
@@ -91,9 +107,11 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         """
         if self._credentials_provider:
             credentials = self._credentials_provider.get_credentials()
-            return BlobServiceClient.from_connection_string(credentials.access_key)
+            return BlobServiceClient.from_connection_string(
+                credentials.access_key, **self._client_optional_configuration
+            )
         else:
-            return BlobServiceClient(account_url=self._account_url)
+            return BlobServiceClient(account_url=self._account_url, **self._client_optional_configuration)
 
     def _refresh_blob_service_client_if_needed(self) -> None:
         """

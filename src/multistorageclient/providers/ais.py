@@ -18,12 +18,13 @@ import io
 import os
 import time
 from datetime import datetime
-from typing import IO, Any, Callable, Iterator, Optional, Tuple, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Tuple, Union
 
 from aistore.sdk import Client
 from aistore.sdk.authn import AuthNClient
 from aistore.sdk.errors import AISError
 from requests.exceptions import HTTPError
+from urllib3.util import Retry
 
 from ..types import (
     Credentials,
@@ -95,6 +96,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
         skip_verify: bool = True,
         ca_cert: Optional[str] = None,
         timeout: Optional[Union[float, Tuple[float, float]]] = None,
+        retry: Optional[Dict[str, Any]] = None,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
         **kwargs: Any,
@@ -108,19 +110,27 @@ class AIStoreStorageProvider(BaseStorageProvider):
         :param timeout: Request timeout in seconds; a single float
             for both connect/read timeouts (e.g., ``5.0``), a tuple for separate connect/read
             timeouts (e.g., ``(3.0, 10.0)``), or ``None`` to disable timeout.
+        :param retry: ``urllib3.util.Retry`` parameters.
         :param token: Authorization token. If not provided, the ``AIS_AUTHN_TOKEN`` environment variable will be used.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         """
         super().__init__(base_path=base_path, provider_name=PROVIDER)
 
+        # https://aistore.nvidia.com/docs/python-sdk#client.Client
+        client_retry = None if retry is None else Retry(**retry)
         token = None
         if credentials_provider:
             token = credentials_provider.get_credentials().token
             self.client = Client(
-                endpoint=endpoint, skip_verify=skip_verify, ca_cert=ca_cert, timeout=timeout, token=token
+                endpoint=endpoint,
+                retry=client_retry,
+                skip_verify=skip_verify,
+                ca_cert=ca_cert,
+                timeout=timeout,
+                token=token,
             )
         else:
-            self.client = Client(endpoint=endpoint)
+            self.client = Client(endpoint=endpoint, retry=client_retry)
         self.provider = provider
 
     def _collect_metrics(

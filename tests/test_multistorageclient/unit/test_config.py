@@ -16,6 +16,7 @@
 import os
 import pickle
 import sys
+import tempfile
 
 import pytest
 from multistorageclient import StorageClient, StorageClientConfig
@@ -421,3 +422,227 @@ def test_s3_storage_provider_on_public_bucket() -> None:
         profile="s3_public_profile",
     )
     assert isinstance(config.storage_provider, S3StorageProvider)
+
+
+def test_ais_storage_provider_passthrough_options() -> None:
+    profile = "data"
+    StorageClient(
+        config=StorageClientConfig.from_dict(
+            config_dict={
+                "profiles": {
+                    profile: {
+                        "storage_provider": {
+                            "type": "ais",
+                            "options": {
+                                "base_path": "bucket",
+                                "endpoint": "http://127.0.0.1:51080",
+                                # Passthrough options.
+                                "timeout": (1.0, 2.0),
+                                "retry": {
+                                    "total": 2,
+                                    "connect": 1,
+                                    "read": 1,
+                                    "redirect": 1,
+                                    "status": 1,
+                                    "other": 0,
+                                    "allowed_methods": {"GET", "PUT", "POST"},
+                                    "status_forcelist": {"429", "500", "501", "502", "503", "504"},
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+            profile=profile,
+        )
+    )
+
+
+def test_azure_storage_provider_passthrough_options() -> None:
+    profile = "data"
+    StorageClient(
+        config=StorageClientConfig.from_dict(
+            config_dict={
+                "profiles": {
+                    profile: {
+                        "storage_provider": {
+                            "type": "azure",
+                            "options": {
+                                "base_path": "bucket",
+                                "endpoint_url": "http://localhost:10000/devstoreaccount1",
+                                # Passthrough options.
+                                "retry_total": 2,
+                                "retry_connect": 1,
+                                "retry_read": 1,
+                                "retry_status": 1,
+                                "connection_timeout": 1,
+                                "read_timeout": 1,
+                            },
+                        }
+                    }
+                }
+            },
+            profile=profile,
+        )
+    )
+
+
+def test_oci_storage_provider_passthrough_options() -> None:
+    with (
+        tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as oci_config_file,
+        tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as oci_key_file,
+    ):
+        # Placeholder PEM file from `openssl genrsa -out oci_api_key.pem 2048`.
+        #
+        # https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm#apisigningkey_topic_How_to_Generate_an_API_Signing_Key_Mac_Linux
+        oci_key_file_body = "\n".join(
+            [
+                "-----BEGIN PRIVATE KEY-----",
+                "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCneEzaM/KC4cAd",
+                "31AGTeHj+EwVic84K98uIiw85HBIv0ORIrX510oPleRkK1ElOHAS5bCJ20+UBKXB",
+                "URS9pU3d8UhBLpGyRhH9/L2k+4DEKOjuXLCRZ16r/AA3GPumKdY/OmgY1h2cJWxW",
+                "KQgkIfcQxFb1SVvDnmSWVyEjf313T+f63AWHqXZrIn+R66Le9MqJed0ChG4dklQa",
+                "+kXE2AKGoH3JmGQ18XHcygKq1s/BzO2g+bIdeFi/EoZqybAfuCQjssA2zhaykU+F",
+                "ODYrExqst5mVgn8QJIJR2BY4zrlbPY/mv9Tb3HkZTWGgnxpdN4rLNCNZeZaw5OpY",
+                "8c60WULDAgMBAAECggEAIoKOy7RCuCfPEBjRg8sOzox/GT0hv4CC6B3QoeetH8CS",
+                "KtlNSKPNtjJ8MwweF55useY1H+NanbTrd0+/B2mGB0NOUWhIS8VWtdEcP2A4Y7PO",
+                "dDgThpMXljdC0BfM26vpY3QkuWF+DoxDq+merNt27zSWestYJpKARd7EjG0cLLar",
+                "x0BiUu4nOC3mIAw+lwo43PeF1pCvzuytGPbXDkluuGzEC5VxC129Swgg10IN7JQp",
+                "p7awROqykZYgEbrOh+IWBUG7TXqR5c6qGs/jC9FnMoX3zI/U0G0b4oJE/NRyAl23",
+                "DEm3i7xXLFBrtvVKjKm+bfBOcHkNWNPCRl3EdIvfoQKBgQDnkUnnbZhvAoa+dbbT",
+                "iHUIPOiHc5MQAJNRJ1KBexmjVBJpZliRuSXT5ctC/D5wnzzJh+vzOw8essOiGLzP",
+                "6Zve2uqqTD4gcyaKRf+kc5x64gYQCitjA08WVpCXkNuYDRlQs55WFAVzIDPLo+Jk",
+                "XQsnIhEpJfY0jA+FggDuYsi30wKBgQC5I7cNQ1MWalmhV03M+2Gjy59AZuEFQVNT",
+                "v7LCxOj8FF4wIe/VzvRcHcCE0QVr9Mhl1uQUr74QeOmd5uULYULsc0Q8hojFPU1j",
+                "9L5EpbsmTfXUVZtwSRO+OD0Y9J5JTkxoG0nplroskuqJZLEBaIUyNe1rbeNhMsh7",
+                "pCg7IW3jUQKBgEQTAAjavQ8VTQs8i6yP1ue/EBSRs0/m+2fGCYkq6RSMqIT3o13j",
+                "ce1jBmgAw1JUXYhZPtHYMM+zebNzVj5AzKOs84NwumrLry7C+S4dFolBXMrmUm7f",
+                "ECbe9862tPd0ElcZFpjzdc6sTs20td8PQzIT37ua/0/fRMjYuPFbdOolAoGBAJMX",
+                "yibyd4AWrPGf8INMsk21yOgdFOjc9vxSEQ/n7IfjEtZBEFEaJVFOnheoDhuwlss6",
+                "yWmaG3Lw7gNzYEUDWG2OQwenh+DVjLg+yjC2UBPl2suB3IaAuPvnqLs8Fsp9N/16",
+                "uOWqyG4Dp+3TH0LULQcwi1pQK1idRWXejcw1Ch6RAoGAXpDFjN5lDuismPoYcTrD",
+                "1zwHjK0rsQIsbIqj1APosuZiEfdwB7uRw59omvE1rvhHBn+wMRcRM+Hz5aPKUzMY",
+                "hZ1f3HOEN33OfSBpFjopgcl07JDaJ0/Yaxtti7DpriWxouweXD+08/R1k6aQVzvp",
+                "mMEsnbNZO07g0D3mFCRUDY4=",
+                "-----END PRIVATE KEY-----",
+            ]
+        )
+        oci_key_file.write(oci_key_file_body)
+        oci_key_file.close()
+        oci_config_file_body = "\n".join(
+            [
+                "[DEFAULT]",
+                "user=ocid1.user.oc1..unique-id",
+                # Placeholder PEM file fingerprint from `openssl rsa -pubout -outform DER -in oci_api_key.pem | openssl md5 -c`.
+                #
+                # https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm#four
+                "fingerprint=26:b1:9b:2b:9b:9d:ec:57:32:bd:a5:1d:24:21:ec:68",
+                f"key_file={oci_key_file.name}",
+                "tenancy=ocid1.tenancy.oc1..unique-id",
+                "region=us-ashburn-1",
+            ]
+        )
+        oci_config_file.write(oci_config_file_body)
+        oci_config_file.close()
+        os.environ["OCI_CONFIG_FILE"] = oci_config_file.name
+
+        profile = "data"
+        StorageClient(
+            config=StorageClientConfig.from_dict(
+                config_dict={
+                    "profiles": {
+                        profile: {
+                            "storage_provider": {
+                                "type": "oci",
+                                "options": {
+                                    "base_path": "bucket",
+                                    "namespace": "oci-namespace",
+                                    # Passthrough options.
+                                    "retry_strategy": {
+                                        "max_attempts_check": True,
+                                        "service_error_check": True,
+                                        "total_elapsed_time_check": True,
+                                        "max_attempts": 2,
+                                        "total_elapsed_time_seconds": 1,
+                                        "service_error_retry_config": {429: ["TooManyRequests"]},
+                                        "service_error_retry_on_any_5xx": True,
+                                        "retry_base_sleep_time_seconds": 1,
+                                        "retry_exponential_growth_factor": 2,
+                                        "retry_max_wait_between_calls_seconds": 30,
+                                        "decorrelated_jitter": 1,
+                                        "backoff_type": "decorrelated_jitter",
+                                    },
+                                },
+                            }
+                        }
+                    }
+                },
+                profile=profile,
+            )
+        )
+
+
+def test_s3_storage_provider_passthrough_options() -> None:
+    profile = "data"
+    StorageClient(
+        config=StorageClientConfig.from_dict(
+            config_dict={
+                "profiles": {
+                    profile: {
+                        "storage_provider": {
+                            "type": "s3",
+                            "options": {
+                                "base_path": "bucket",
+                                "endpoint_url": "https://s3.us-east-1.amazonaws.com",
+                                # Passthrough options.
+                                "request_checksum_calculation": "when_required",
+                                "response_checksum_validation": "when_required",
+                                "max_pool_connections": 1,
+                                "connect_timeout": 1,
+                                "read_timeout": 1,
+                                "retries": {
+                                    "total_max_attempts": 2,
+                                    "max_attempts": 1,
+                                    "mode": "adaptive",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+            profile=profile,
+        )
+    )
+
+
+def test_s8k_storage_provider_passthrough_options() -> None:
+    profile = "data"
+    StorageClient(
+        config=StorageClientConfig.from_dict(
+            config_dict={
+                "profiles": {
+                    profile: {
+                        "storage_provider": {
+                            "type": "s8k",
+                            "options": {
+                                "base_path": "bucket",
+                                "endpoint_url": "https://pdx.s8k.io",
+                                # Passthrough options.
+                                "request_checksum_calculation": "when_required",
+                                "response_checksum_validation": "when_required",
+                                "max_pool_connections": 1,
+                                "connect_timeout": 1,
+                                "read_timeout": 1,
+                                "retries": {
+                                    "total_max_attempts": 2,
+                                    "max_attempts": 1,
+                                    "mode": "adaptive",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+            profile=profile,
+        )
+    )

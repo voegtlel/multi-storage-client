@@ -18,7 +18,7 @@ import os
 import tempfile
 import time
 from datetime import datetime
-from typing import IO, Any, Callable, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 import boto3
 from boto3.s3.transfer import TransferConfig
@@ -122,6 +122,7 @@ class S3StorageProvider(BaseStorageProvider):
             max_pool_connections=kwargs.get("max_pool_connections", BOTO3_MAX_POOL_CONNECTIONS),
             connect_timeout=kwargs.get("connect_timeout", BOTO3_CONNECT_TIMEOUT),
             read_timeout=kwargs.get("read_timeout", BOTO3_READ_TIMEOUT),
+            retries=kwargs.get("retries"),
         )
         self._transfer_config = TransferConfig(
             multipart_threshold=int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD)),
@@ -138,21 +139,28 @@ class S3StorageProvider(BaseStorageProvider):
         max_pool_connections: int = BOTO3_MAX_POOL_CONNECTIONS,
         connect_timeout: int = BOTO3_CONNECT_TIMEOUT,
         read_timeout: int = BOTO3_READ_TIMEOUT,
+        retries: Optional[Dict[str, Any]] = None,
     ):
         """
         Creates and configures the boto3 S3 client, using refreshable credentials if possible.
 
         :param request_checksum_calculation: When the underlying S3 client should calculate request checksums. See the equivalent option in the `AWS configuration file <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file>`_.
         :param response_checksum_validation: When the underlying S3 client should validate response checksums. See the equivalent option in the `AWS configuration file <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file>`_.
-        :return The configured S3 client.
+        :param max_pool_connections: The maximum number of connections to keep in a connection pool.
+        :param connect_timeout: The time in seconds till a timeout exception is thrown when attempting to make a connection.
+        :param read_timeout: The time in seconds till a timeout exception is thrown when attempting to read from a connection.
+        :param retries: A dictionary for configuration related to retry behavior.
+
+        :return: The configured S3 client.
         """
         options = {
             "region_name": self._region_name,
+            # https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
             "config": boto3.session.Config(  # pyright: ignore [reportAttributeAccessIssue]
                 max_pool_connections=max_pool_connections,
                 connect_timeout=connect_timeout,
                 read_timeout=read_timeout,
-                retries=dict(mode="standard"),
+                retries=retries or {"mode": "standard"},
                 request_checksum_calculation=request_checksum_calculation,
                 response_checksum_validation=response_checksum_validation,
             ),

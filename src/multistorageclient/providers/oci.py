@@ -18,7 +18,7 @@ import os
 import tempfile
 import time
 from datetime import datetime
-from typing import IO, Any, Callable, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 import oci
 from dateutil.parser import parse as dateutil_parser
@@ -29,7 +29,7 @@ from oci._vendor.requests.exceptions import (
 )
 from oci.exceptions import ServiceError
 from oci.object_storage import ObjectStorageClient, UploadManager
-from oci.retry import DEFAULT_RETRY_STRATEGY
+from oci.retry import DEFAULT_RETRY_STRATEGY, RetryStrategyBuilder
 
 from ..types import (
     CredentialsProvider,
@@ -59,6 +59,7 @@ class OracleStorageProvider(BaseStorageProvider):
         namespace: str,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
+        retry_strategy: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -67,11 +68,17 @@ class OracleStorageProvider(BaseStorageProvider):
         :param namespace: The OCI Object Storage namespace. This is a unique identifier assigned to each tenancy.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         :param credentials_provider: The provider to retrieve OCI credentials.
+        :param retry_strategy: ``oci.retry.RetryStrategyBuilder`` parameters.
         """
         super().__init__(base_path=base_path, provider_name=PROVIDER)
 
         self._namespace = namespace
         self._credentials_provider = credentials_provider
+        self._retry_strategy = (
+            DEFAULT_RETRY_STRATEGY
+            if retry_strategy is None
+            else RetryStrategyBuilder(**retry_strategy).get_retry_strategy()
+        )
         self._oci_client = self._create_oci_client()
         self._upload_manager = UploadManager(self._oci_client)
         self._multipart_threshold = int(kwargs.get("multipart_threshold", MULTIPART_THRESHOLD))
@@ -79,7 +86,7 @@ class OracleStorageProvider(BaseStorageProvider):
 
     def _create_oci_client(self) -> ObjectStorageClient:
         config = oci.config.from_file()
-        return ObjectStorageClient(config, retry_strategy=DEFAULT_RETRY_STRATEGY)
+        return ObjectStorageClient(config, retry_strategy=self._retry_strategy)
 
     def _refresh_oci_client_if_needed(self) -> None:
         """
