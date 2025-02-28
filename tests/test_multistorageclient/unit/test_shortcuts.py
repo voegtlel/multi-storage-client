@@ -223,6 +223,10 @@ def verify_shortcuts(profile: str, prefix: str):
         assert isinstance(fp, ObjectFile)
         assert fp._cache_manager is None
 
+    # delete files
+    for file_url in file_list:
+        msc.delete(file_url)
+
 
 @pytest.mark.parametrize(
     argnames=["temp_data_store_type"],
@@ -240,7 +244,11 @@ def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.Temporar
                 "profiles": {
                     "test": temp_data_store.profile_config_dict(),
                 },
-                "cache": {},
+                "cache": {
+                    "size_mb": 5000,
+                    "location": "/tmp/msc_cache",
+                    "use_etag": True,
+                },
             }
         )
 

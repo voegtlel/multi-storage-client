@@ -220,16 +220,13 @@ class StorageClient:
                 raise FileNotFoundError(f"The file at path '{path}' was not found.")
             self._metadata_provider.remove_file(path)
 
-        self._storage_provider.delete_object(path)
+        # Delete the cached file if it exists
+        if self._is_cache_enabled():
+            assert self._cache_manager is not None
+            cache_path = self._build_cache_path(path)
+            self._cache_manager.delete(cache_path)
 
-        # Delete cached files
-        try:
-            if self._is_cache_enabled():
-                assert self._cache_manager is not None
-                cache_path = self._build_cache_path(path)
-                self._cache_manager.delete(cache_path)
-        except FileNotFoundError:
-            pass  # file not found in cache
+        self._storage_provider.delete_object(path)
 
     def glob(self, pattern: str, include_url_prefix: bool = False) -> List[str]:
         """
