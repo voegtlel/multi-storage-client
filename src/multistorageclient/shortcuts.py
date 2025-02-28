@@ -20,7 +20,7 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Iterator, Optional
 from urllib.parse import urlparse
 
 from .client import StorageClient
@@ -275,3 +275,54 @@ def sync(source_url: str, target_url: str) -> None:
             future.result()  # Ensure all consumers complete
 
     target_client.commit_updates()
+
+
+def list(
+    url: str, start_after: Optional[str] = None, end_at: Optional[str] = None, include_directories: bool = False
+) -> Iterator[ObjectMetadata]:
+    """
+    Lists the contents of the specified URL prefix.
+
+    This function retrieves the corresponding :py:class:`multistorageclient.StorageClient`
+    for the given URL and returns an iterator of objects (files or directories) stored under the provided prefix.
+
+    :param url: The prefix to list objects under.
+    :param start_after: The key to start after (i.e. exclusive). An object with this key doesn't have to exist.
+    :param end_at: The key to end at (i.e. inclusive). An object with this key doesn't have to exist.
+    :param include_directories: Whether to include directories in the result. When True, directories are returned alongside objects.
+
+    :return: An iterator of :py:class:`ObjectMetadata` objects representing the files (and optionally directories)
+             accessible under the specified URL prefix. The returned keys will always be prefixed with msc://.
+    """
+    client, prefix = resolve_storage_client(url)
+    return client.list(
+        prefix=prefix,
+        start_after=start_after,
+        end_at=end_at,
+        include_directories=include_directories,
+        include_url_prefix=True,
+    )
+
+
+def write(url: str, body: bytes) -> None:
+    """
+    Writes an object to the storage provider at the specified path.
+
+    :param url: The path where the object should be written.
+    :param body: The content to write to the object.
+    """
+    client, path = resolve_storage_client(url)
+    client.write(path=path, body=body)
+
+
+def delete(url: str) -> None:
+    """
+    Deletes the specified object from the storage provider.
+
+    This function retrieves the corresponding :py:class:`multistorageclient.StorageClient`
+    for the given URL and deletes the object at the specified path.
+
+    :param url: The URL of the object to delete. (example: ``msc://profile/prefix/file.txt``)
+    """
+    client, path = resolve_storage_client(url)
+    client.delete(path)

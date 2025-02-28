@@ -27,6 +27,9 @@ from .shortcuts import (
     resolve_storage_client,
     sync,
     upload_file,
+    list,
+    write,
+    delete,
 )
 
 __all__ = [
@@ -44,6 +47,9 @@ __all__ = [
     "resolve_storage_client",
     "sync",
     "upload_file",
+    "list",
+    "write",
+    "delete",
 ]
 
 

@@ -22,6 +22,7 @@ from zarr.storage import BaseStore
 
 from ..shortcuts import resolve_storage_client
 from ..types import MSC_PROTOCOL
+import numpy as np
 
 if TYPE_CHECKING:
     from ..client import StorageClient
@@ -76,6 +77,8 @@ class LazyZarrStore(BaseStore):
 
     def __setitem__(self, key: str, value: Any) -> None:
         full_key = self.prefix + key
+        if isinstance(value, np.ndarray):
+            value = value.tobytes()
         self.storage_client.write(full_key, value)
 
     def __delitem__(self, key: str) -> None:

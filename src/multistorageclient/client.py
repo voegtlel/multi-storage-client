@@ -223,10 +223,13 @@ class StorageClient:
         self._storage_provider.delete_object(path)
 
         # Delete cached files
-        if self._is_cache_enabled():
-            assert self._cache_manager is not None
-            cache_path = self._build_cache_path(path)
-            self._cache_manager.delete(cache_path)
+        try:
+            if self._is_cache_enabled():
+                assert self._cache_manager is not None
+                cache_path = self._build_cache_path(path)
+                self._cache_manager.delete(cache_path)
+        except FileNotFoundError:
+            pass  # file not found in cache
 
     def glob(self, pattern: str, include_url_prefix: bool = False) -> List[str]:
         """

@@ -114,6 +114,57 @@ def test_download_file(file_storage_config):
     assert results[0] == f"{MSC_PROTOCOL}default{local_tempdir}/testfile.bin"
 
 
+def test_list(file_storage_config):
+    # Create test file
+    body = b"A" * 64 * MB
+    tempdir = tempfile.mkdtemp()
+
+    fp = msc.open(f"{MSC_PROTOCOL}default{tempdir}/testfile.bin", "wb")
+    fp.write(body)
+    fp.close()
+
+    # Test listing without glob pattern
+    results = list(msc.list(f"{MSC_PROTOCOL}default{tempdir}"))
+    assert len(results) == 1
+    assert "testfile.bin" in results[0].key
+
+
+def test_write(file_storage_config):
+    tempdir = tempfile.mkdtemp()
+    filepath = os.path.join(tempdir, "testfile.bin")
+
+    # Test writing bytes
+    body = b"A" * 64 * MB
+    msc.write(f"{MSC_PROTOCOL}default{filepath}", body)
+
+    # Verify content was written correctly
+    with msc.open(f"{MSC_PROTOCOL}default{filepath}", "rb") as fp:
+        content = fp.read()
+        assert body == content
+
+
+def test_delete(file_storage_config):
+    tempdir = tempfile.mkdtemp()
+    filepath = os.path.join(tempdir, "testfile.bin")
+
+    # Create test file
+    body = b"A" * 64 * MB
+    with msc.open(f"{MSC_PROTOCOL}default{filepath}", "wb") as fp:
+        fp.write(body)
+
+    # Verify file exists
+    with msc.open(f"{MSC_PROTOCOL}default{filepath}", "rb") as fp:
+        assert fp.read() == body
+
+    # Delete file
+    msc.delete(f"{MSC_PROTOCOL}default{filepath}")
+
+    # Verify file is deleted
+    with pytest.raises(FileNotFoundError):
+        with msc.open(f"{MSC_PROTOCOL}default{filepath}", "rb") as fp:
+            fp.read()
+
+
 def test_is_empty(file_storage_config):
     assert msc.is_empty("/usr/bin") is False
     assert msc.is_empty("/tmp/dir/not/exist")
