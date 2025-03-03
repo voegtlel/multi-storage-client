@@ -175,6 +175,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
         def _invoke_api() -> Iterator[ObjectMetadata]:
             # Assume the file system guarantees lexicographical order (some don't).
             for root, dirs, files in os.walk(prefix):
+                dirs.sort()
                 if include_directories:
                     for dir in dirs:
                         full_path = os.path.join(root, dir)
