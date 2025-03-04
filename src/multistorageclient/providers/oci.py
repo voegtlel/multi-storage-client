@@ -150,11 +150,15 @@ class OracleStorageProvider(BaseStorageProvider):
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
-                elapsed_time, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+                elapsed_time, provider=self._provider_name, operation=operation, bucket=bucket, status_code=status_code
             )
             if object_size:
                 self._metric_helper.record_object_size(
-                    object_size, provider=PROVIDER, operation=operation, bucket=bucket, status_code=status_code
+                    object_size,
+                    provider=self._provider_name,
+                    operation=operation,
+                    bucket=bucket,
+                    status_code=status_code,
                 )
 
     def _put_object(self, path: str, body: bytes) -> None:

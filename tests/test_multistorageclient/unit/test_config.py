@@ -224,6 +224,7 @@ def test_swiftstack_storage_provider() -> None:
     )
 
     assert isinstance(config.storage_provider, S3StorageProvider)
+    print(f"this is the config provider name: {config.storage_provider._provider_name}")
 
 
 def test_manifest_provider_bundle() -> None:

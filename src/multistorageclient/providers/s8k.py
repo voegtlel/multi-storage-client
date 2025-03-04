@@ -15,6 +15,8 @@
 
 from .s3 import S3StorageProvider
 
+PROVIDER = "s8k"
+
 
 class S8KStorageProvider(S3StorageProvider):
     """
@@ -25,3 +27,6 @@ class S8KStorageProvider(S3StorageProvider):
         kwargs["request_checksum_calculation"] = "when_required"
         kwargs["response_checksum_validation"] = "when_required"
         super().__init__(*args, **kwargs)
+
+        # override the provider name from "s3"
+        self._provider_name = PROVIDER
