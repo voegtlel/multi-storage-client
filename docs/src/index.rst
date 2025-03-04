@@ -6,27 +6,27 @@ The Multi-Storage Client (MSC) is a unified high-performance Python client for o
 
 It provides a generic interface to interact with objects and files across various storage services. This lets you spend less time learning each storage service's unique interface and lets you change where data is stored without having to change how your code accesses it.
 
-**********
-User Guide
-**********
+.. toctree::
+   :maxdepth: 2
+   :caption: Introduction
+
+   user_guide/concepts
+   user_guide/installation
 
 .. toctree::
    :maxdepth: 2
+   :caption: Basic Usage
 
-   user_guide/index
-
-*************
-API Reference
-*************
+   user_guide/quickstart
+   user_guide/manifests
+   user_guide/libraries
+   config/index
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :caption: API
 
    api_reference/index
-
-*******
-Indices
-*******
 
 .. toctree::
    :maxdepth: 2

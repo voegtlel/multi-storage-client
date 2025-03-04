@@ -29,6 +29,8 @@ extensions = [
 
 # Themes.
 html_theme = "furo"
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 
 # Syntax highlighting. `pygments_dark_style` is specific to the Furo theme.
 pygments_style = "solarized-light"

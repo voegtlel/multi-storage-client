@@ -1,7 +1,3 @@
-#############
-API Reference
-#############
-
 ****
 Core
 ****
@@ -23,6 +19,14 @@ Providers
 *********
 
 .. automodule:: multistorageclient.providers
+   :members:
+   :undoc-members:
+
+**********
+Generators
+**********
+
+.. automodule:: multistorageclient.generators
    :members:
    :undoc-members:
 

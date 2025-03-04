@@ -1,0 +1,4 @@
+/* Change monospace font globally */
+code, tt, pre {
+    font-family: "Fira Code", "Menlo", "Monaco", "Consolas", "Courier New", monospace;
+}
