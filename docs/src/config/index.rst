@@ -294,13 +294,11 @@ Options:
 
 .. code-block:: yaml
   :caption: Example configuration.
-
-  profiles:
-    my-profile:
-      cache:
-        location: /tmp/msc_cache
-        size_mb: 1000
-        use_etag: true
+  
+  cache:
+    location: /tmp/msc_cache
+    size_mb: 1000
+    use_etag: true
 
 *************
 OpenTelemetry
