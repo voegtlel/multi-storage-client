@@ -19,12 +19,14 @@ import logging
 import threading
 from typing import Any, Dict, Union, Optional
 
-import requests
 from opentelemetry import metrics, trace
 
 
 # Try importing optional observability dependencies
 try:
+    import requests
+    from requests.adapters import HTTPAdapter, Retry
+
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import (
         ConsoleMetricExporter,
@@ -36,6 +38,8 @@ try:
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSampler
 
+    from .auth import AccessTokenProvider, AccessTokenProviderFactory
+
     _RESOURCE = Resource.create(
         {
             "service.name": "multistorageclient",
@@ -44,13 +48,43 @@ try:
         }
     )
 
+    class CustomHTTPAdapter(HTTPAdapter):
+        """
+        Custom HTTP adapter for retry and auth
+        """
+
+        def __init__(self, auth_provider, *args, **kwargs):
+            max_retries = kwargs.get("max_retries", MAX_RETRIES)
+            retry = Retry(total=max_retries, backoff_factor=BACKOFF_FACTOR, connect=max_retries, read=max_retries)
+            kwargs["max_retries"] = retry
+            super().__init__(*args, **kwargs)
+            self.auth_provider = auth_provider
+
+        def send(self, request, *args, **kwargs):
+            if self.auth_provider:
+                token = self.auth_provider.get_token()
+                if token:
+                    request.headers["Authorization"] = f"Bearer {token}"
+                else:
+                    logger.warning("Warning: Failed to retrieve authentication token. Request might fail.")
+            return super().send(request, *args, **kwargs)
+
+    def create_session(auth_provider: Optional[AccessTokenProvider] = None) -> requests.Session:
+        session = requests.Session()
+
+        # Disable keep-alive
+        session.headers.update({"Connection": "close"})
+
+        # use adaptor for retry & auth
+        adapter = CustomHTTPAdapter(auth_provider, max_retries=MAX_RETRIES)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session
+
     HAS_OBSERVABILITY_DEPS = True
 except ImportError:
     HAS_OBSERVABILITY_DEPS = False
 
-from requests.adapters import HTTPAdapter, Retry
-
-from .auth import AccessTokenProvider, AccessTokenProviderFactory
 from ..utils import import_class
 
 _TRACE_SAMPLER_MODULE_NAME = "opentelemetry.sdk.trace.sampling"
@@ -79,41 +113,6 @@ BACKOFF_FACTOR = 0.5
 _setup_lock = threading.Lock()
 
 logger = logging.Logger(__name__)
-
-
-class CustomHTTPAdapter(HTTPAdapter):
-    """
-    Custom HTTP adapter for retry and auth
-    """
-
-    def __init__(self, auth_provider, *args, **kwargs):
-        max_retries = kwargs.get("max_retries", MAX_RETRIES)
-        retry = Retry(total=max_retries, backoff_factor=BACKOFF_FACTOR, connect=max_retries, read=max_retries)
-        kwargs["max_retries"] = retry
-        super().__init__(*args, **kwargs)
-        self.auth_provider = auth_provider
-
-    def send(self, request, *args, **kwargs):
-        if self.auth_provider:
-            token = self.auth_provider.get_token()
-            if token:
-                request.headers["Authorization"] = f"Bearer {token}"
-            else:
-                logger.warning("Warning: Failed to retrieve authentication token. Request might fail.")
-        return super().send(request, *args, **kwargs)
-
-
-def create_session(auth_provider: Optional[AccessTokenProvider] = None) -> requests.Session:
-    session = requests.Session()
-
-    # Disable keep-alive
-    session.headers.update({"Connection": "close"})
-
-    # use adaptor for retry & auth
-    adapter = CustomHTTPAdapter(auth_provider, max_retries=MAX_RETRIES)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
 
 
 def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
