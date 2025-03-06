@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import copy
-import os
 import tempfile
 import uuid
 from abc import abstractmethod
@@ -215,7 +214,7 @@ class TemporaryGoogleCloudStorageBucket(TemporaryDataStore):
         #
         # https://github.com/fsouza/fake-gcs-server
         project_id = "local"
-        endpoint_url = f"http://{'fake-gcs-server' if ('CI' in os.environ) else 'localhost'}:4443"
+        endpoint_url = "http://localhost:4443"
 
         self._client = google.cloud.storage.Client(
             project=project_id,

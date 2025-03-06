@@ -73,7 +73,6 @@ Key:
 │
 │   # Python documentation configuration.
 ├── docs/
-│   │
 │   │   # Python documentation build outputs.
 │   ├── dist/ 🤖
 │   │   └── ...
@@ -91,18 +90,14 @@ Key:
 │
 │   # Python package test source.
 ├── tests/
-│   │
-│   │   # Unit tests.
-│   ├── unit/
-│   │   └── ...
-│   │
-│   │   # Integration tests.
-│   ├── integ/
-│   │   └── ...
-│   │
-│   │   # End-to-end (E2E) tests.
-│   └── e2e/
-│       └── ...
+│   └── test_multistorageclient/
+│       │   # Unit tests.
+│       ├── unit
+│       │   └── ...
+│       │
+│       │   # End-to-end (E2E) tests.
+│       └── e2e
+│           └── ...
 │
 │   # GitLab pipeline entrypoint.
 ├── .gitlab-ci.yml
@@ -116,7 +111,7 @@ Key:
 │
 │   # Python package configuration.
 ├── pyproject.toml
-└── poetry.lock 🤖
+└── uv.lock 🤖
 ```
 
 ## Tools
@@ -149,14 +144,6 @@ __Unlike `nix develop` which drops you in a nested Bash shell, direnv extracts t
 Follow the [installation instructions on its website](https://direnv.net#basic-installation).
 
 It also has [editor integration](https://github.com/direnv/direnv/wiki#editor-integration). Note that some integrations won't automatically reload the environment after Nix flake changes unlike direnv itself so manual reloads may be needed.
-
-### Containerization
-
-Some local storage services are only vended as OCI containers. We use the Docker CLI so we'll need a container runtime accessible through the Docker daemon socket.
-
-Most people will use Docker Engine as the container runtime. This comes with [Docker Desktop](https://www.docker.com/products/docker-desktop) ([🍻](https://formulae.brew.sh/cask/docker)) and [Rancher Desktop](https://rancherdesktop.io) ([🍻](https://formulae.brew.sh/cask/rancher)).
-
-Alternatively you can use Podman as the container runtime. This comes with the [Podman CLI](https://podman.io) ([🍺](https://formulae.brew.sh/formula/podman), [Podman socket instructions](https://docs.podman.io/en/latest/markdown/podman-system-service.1.html)) and [Podman Desktop](https://podman-desktop.io) ([🍻](https://formulae.brew.sh/cask/podman-desktop)).
 
 ## Developing
 

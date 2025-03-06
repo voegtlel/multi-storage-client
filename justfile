@@ -37,11 +37,10 @@ analyze: prepare-virtual-environment
 # Stop storage systems.
 stop-storage-systems:
     # Ports used by storage systems:
-    # - Azurite -> 10000-10002
-    # - MinIO   -> 9000
-    # - GCS     -> 4443 (use `docker stop` instead)
-    for PID in $(lsof -i :9000,10000 -t); do kill $PID; done
-    -if [[ -z "${CI:-}" ]]; then docker stop fake-gcs-server; fi
+    # - Azurite         -> 10000-10002
+    # - fake-gcs-server -> 4443
+    # - MinIO           -> 9000
+    for PID in $(lsof -i :4443,9000,10000 -t); do kill $PID; done
     # Remove persisted data.
     -rm -rf .minio __blobstorage__ __queuestorage__ __azurite_*__.json
 
@@ -49,13 +48,15 @@ stop-storage-systems:
 start-storage-systems: stop-storage-systems
     # Start Azurite.
     azurite --inMemoryPersistence --silent --skipApiVersionCheck &
+    # Start fake-gcs-server.
+    TZ="UTC" fake-gcs-server -backend memory -log-level error -scheme http &
     # Start MinIO.
     minio --quiet server .minio &
-    # Start FakeGCSServer.
-    if [[ -z "${CI:-}" ]]; then docker run --detach --name fake-gcs-server --publish 4443:4443 --rm fsouza/fake-gcs-server:1.52.1 -backend memory -scheme http; fi
 
     # Wait for Azurite.
     timeout 10s bash -c "until netcat --zero localhost 10000; do sleep 1; done"
+    # Wait for fake-gcs-server.
+    timeout 10s bash -c "until curl --fail --silent http://localhost:4443/_internal/healthcheck; do sleep 1; done"
     # Wait for MinIO.
     timeout 10s bash -c "until curl --fail --silent http://localhost:9000/minio/health/live; do sleep 1; done"
 

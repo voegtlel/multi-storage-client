@@ -13,7 +13,7 @@
       type = "github";
       owner = "NixOS";
       repo = "nixpkgs";
-      ref = "nixpkgs-unstable";
+      ref = "refs/heads/nixos-unstable";
     };
   };
 
@@ -84,9 +84,8 @@
             pyright
             # Storage systems.
             azurite
+            fake-gcs-server
             minio
-            # Docker CLI.
-            docker
             # JFrog CLI.
             jfrog-cli
             # OpenSSH.

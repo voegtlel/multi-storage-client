@@ -34,16 +34,6 @@ variables:
 Build:
   extends:
     - .default
-  variables:
-    FF_NETWORK_PER_BUILD: true
-  services:
-    - name: fsouza/fake-gcs-server:1.52.1
-      alias: fake-gcs-server
-      command:
-        - "-backend"
-        - "memory"
-        - "-scheme"
-        - "http"
   parallel:
     matrix:
       - PYTHON_BINARY:
