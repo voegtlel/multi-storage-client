@@ -54,6 +54,13 @@ def test_resolve_storage_client(file_storage_config):
     assert p2 == "//etc"
     assert p1 == p3 == "/etc"
 
+    # verify that path works with special characters
+    _, p4 = msc.resolve_storage_client("msc://default/tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin")
+    assert p4 == "tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin"
+
+    _, p5 = msc.resolve_storage_client("file:///tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin")
+    assert p5 == "/tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin"
+
     # Multithreading test to verify the storage_client instance is the same
     def storage_client_thread(number: int) -> Tuple[StorageClient, str]:
         tempdir = tempfile.mkdtemp()

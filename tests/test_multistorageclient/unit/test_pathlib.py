@@ -184,6 +184,9 @@ def verify_pathlib(profile: str, prefix: str):
     assert not path3.is_file()
     assert list(path3.iterdir()) == []
 
+    path4 = msc.Path(f"msc://{profile}/{prefix}/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin")
+    assert str(path4) == f"msc://{profile}/{prefix}/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin"
+
 
 @pytest.mark.parametrize(
     argnames=["temp_data_store_type"],

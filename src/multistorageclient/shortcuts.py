@@ -20,7 +20,7 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 from .client import StorageClient
 from .config import StorageClientConfig
@@ -31,6 +31,21 @@ _instance_cache: Dict[str, StorageClient] = {}
 _cache_lock = threading.Lock()
 
 logger = logging.Logger(__name__)
+
+
+def _build_full_path(pr: ParseResult) -> str:
+    """
+    Helper function to construct the full path from a parsed URL, including query and fragment.
+
+    :param pr: The parsed URL result from urlparse
+    :return: The complete path including query and fragment if present
+    """
+    path = pr.path
+    if pr.query:
+        path += "?" + pr.query
+    if pr.fragment:
+        path += "#" + pr.fragment
+    return path
 
 
 def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
@@ -53,16 +68,13 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     if url.startswith(MSC_PROTOCOL):
         pr = urlparse(url)
         profile = pr.netloc
-
-        # Remove the leading slash
-        if pr.path.startswith("/"):
-            path = pr.path[1:]
-        else:
-            path = pr.path
+        path = _build_full_path(pr)
+        if path.startswith("/"):
+            path = path[1:]
     elif url.startswith("file://"):
         pr = urlparse(url)
         profile = DEFAULT_POSIX_PROFILE_NAME
-        path = pr.path
+        path = _build_full_path(pr)
     elif url.startswith("/"):
         # POSIX paths (only absolute paths are supported)
         url = os.path.normpath(url)
