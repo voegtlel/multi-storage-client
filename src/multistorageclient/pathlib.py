@@ -290,7 +290,7 @@ class MultiStoragePath:
     # Reading and writing files
 
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        return self._storage_client.open(str(self._internal_path), mode, encoding)
+        return self._storage_client.open(str(self._internal_path), mode=mode, buffering=buffering, encoding=encoding)
 
     def read_bytes(self) -> bytes:
         return self._storage_client.read(str(self._internal_path))

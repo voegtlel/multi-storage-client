@@ -278,13 +278,19 @@ class StorageClient:
             yield object
 
     def open(
-        self, path: str, mode: str = "rb", encoding: Optional[str] = None, disable_read_cache: bool = False
+        self,
+        path: str,
+        mode: str = "rb",
+        buffering: int = -1,
+        encoding: Optional[str] = None,
+        disable_read_cache: bool = False,
     ) -> Union[PosixFile, ObjectFile]:
         """
         Returns a file-like object from the storage provider at the specified path.
 
         :param path: The path of the object to read.
         :param mode: The file mode, only "w", "r", "a", "wb", "rb" and "ab" are supported.
+        :param buffering: The buffering mode. Only applies to PosixFile.
         :param encoding: The encoding to use for text files.
         :param disable_read_cache: When set to True, disables caching for the file content. This parameter is only applicable when the mode is "r" or "rb".
 
@@ -292,7 +298,7 @@ class StorageClient:
         """
         if self._is_posix_file_storage_provider():
             realpath = self._storage_provider._realpath(path)  # type: ignore
-            return PosixFile(path=realpath, mode=mode, encoding=encoding)
+            return PosixFile(path=realpath, mode=mode, buffering=buffering, encoding=encoding)
         else:
             return ObjectFile(
                 self,

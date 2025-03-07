@@ -59,7 +59,7 @@ def test_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore])
         assert file_info.content_length == file_content_length
 
         # Open the file for reads (bytes).
-        with storage_client.open(path=file_path, mode="rb") as file:
+        with storage_client.open(path=file_path, mode="rb", buffering=0) as file:
             assert not file.isatty()
             assert file.readable()
             assert not file.writable()

@@ -518,7 +518,7 @@ class PosixFile(IO):
     _file: IO
     _trace_span: Optional[Span] = None
 
-    def __init__(self, path: str, mode: str = "rb", encoding: Optional[str] = None):
+    def __init__(self, path: str, mode: str = "rb", buffering: int = -1, encoding: Optional[str] = None):
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("PosixFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
         self._trace_span.set_attribute("mode", mode)
@@ -528,7 +528,7 @@ class PosixFile(IO):
         # Ensure the parent directory exists
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        self._file = open(path, mode=mode, encoding=encoding)
+        self._file = open(path, mode=mode, buffering=buffering, encoding=encoding)
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
