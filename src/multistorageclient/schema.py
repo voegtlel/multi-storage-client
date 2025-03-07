@@ -139,6 +139,16 @@ CONFIG_SCHEMA = {
     "required": ["profiles"],
 }
 
+BENCHMARK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "processes": {"type": "array", "items": {"type": "integer"}},
+        "threads": {"type": "array", "items": {"type": "integer"}},
+        "tests_mixed": {"type": "object", "additionalProperties": {"type": "integer"}},
+    },
+    "additionalProperties": False,
+}
+
 
 def validate_config(config_dict: Dict[str, Any]) -> None:
     try:

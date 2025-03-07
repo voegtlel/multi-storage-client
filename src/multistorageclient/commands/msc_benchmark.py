@@ -14,34 +14,78 @@
 # limitations under the License.
 
 import argparse
+import json
 import os
 import statistics
 import time
 
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool, Manager
-from typing import Any, Dict, List
+from multiprocessing.managers import ListProxy
+from typing import Any, Dict, List, Union, Optional
 
 from multistorageclient import StorageClient, StorageClientConfig
+from multistorageclient.schema import BENCHMARK_SCHEMA, validate
 
-PROCESSES: List[int] = [8]
-THREADS: List[int] = [4]
-TESTS_MIXED: Dict[str, int] = {
-    "4MB": 12800,
-    "64MB": 800,
+# Default configuration
+DEFAULT_CONFIG = {
+    "processes": [8],
+    "threads": [4],
+    "tests_mixed": {
+        "4MB": 12800,
+        "64MB": 800,
+    },
 }
+
+
+def load_config(config_path: Optional[str]) -> Dict[str, Any]:
+    """
+    Load configuration from a JSON file.
+
+    :param config_path: Path to the configuration file
+    :return: Configuration dictionary
+    """
+    if config_path is None:
+        print(f"Config file {config_path} not found. Using default configuration.")
+        return DEFAULT_CONFIG
+    elif os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+
+            # Validate config against benchmark schema
+            validate(instance=config, schema=BENCHMARK_SCHEMA)
+
+            return config
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Error parsing config file {config_path}", e.doc, e.pos)
+        except Exception as e:
+            raise Exception(f"Encountered an exception loading config file: {e}")
+    else:
+        raise FileNotFoundError(f"No file found, config_path incorrect {config_path}")
 
 
 def size_to_bytes(size: str) -> int:
     return int(size[:-2]) * 1024 ** {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5}[size[-2:]]
 
 
-RANDOM_DATA = {k: os.urandom(size_to_bytes(k)) for k in TESTS_MIXED.keys()}
+def generate_random_data(tests_mixed: Dict[str, int]) -> Dict[str, bytes]:
+    """
+    Generate random data for each file size in the tests_mixed dictionary.
+
+    :param tests_mixed: Dictionary mapping size strings to number of files
+    :return: Dictionary mapping size strings to random data of that size
+    """
+    return {k: os.urandom(size_to_bytes(k)) for k in tests_mixed.keys()}
 
 
 class PerformanceMetrics:
     def __init__(
-        self, start_times: List[Any], end_times: List[Any], response_times: List[Any], object_sizes: List[Any]
+        self,
+        start_times: Union[List[Any], ListProxy],
+        end_times: Union[List[Any], ListProxy],
+        response_times: Union[List[Any], ListProxy],
+        object_sizes: Union[List[Any], ListProxy],
     ) -> None:
         self.start_times = start_times
         self.end_times = end_times
@@ -86,8 +130,10 @@ def pretty_print_bytes(byte_value: float) -> str:
     return f"{byte_value:.2f}".rstrip("0").rstrip(".") + " " + suffixes[i]
 
 
-def upload_object(storage_client: StorageClient, size: str, path: str, metrics: PerformanceMetrics) -> None:
-    data = RANDOM_DATA[size]
+def upload_object(
+    storage_client: StorageClient, size: str, path: str, metrics: PerformanceMetrics, random_data: Dict[str, bytes]
+) -> None:
+    data = random_data[size]
     start_time = time.time()
     try:
         storage_client.write(path=path, body=data)
@@ -116,14 +162,20 @@ def delete_object(storage_client: StorageClient, path: str) -> None:
 
 
 def task(
-    storage_client: StorageClient, test_type: str, bucket: str, size: str, i: int, metrics: PerformanceMetrics
+    storage_client: StorageClient,
+    test_type: str,
+    bucket: str,
+    size: str,
+    i: int,
+    metrics: PerformanceMetrics,
+    random_data: Dict[str, bytes],
 ) -> None:
     object_name_prefix = f"test-{size}"
     object_name = f"{object_name_prefix}-{i}"
     object_path = os.path.join(bucket, object_name)
 
     if test_type == "upload":
-        upload_object(storage_client, size, object_path, metrics)
+        upload_object(storage_client, size, object_path, metrics, random_data)
     elif test_type == "download":
         download_object(storage_client, object_path, metrics)
     elif test_type == "delete":
@@ -138,10 +190,11 @@ def process_task(
     batch_range: range,
     metrics: PerformanceMetrics,
     threads: int,
+    random_data: Dict[str, bytes],
 ) -> None:
     with ThreadPoolExecutor(max_workers=threads) as executor:
         for i in batch_range:
-            executor.submit(task, storage_client, test_type, bucket, size, i, metrics)
+            executor.submit(task, storage_client, test_type, bucket, size, i, metrics, random_data)
 
 
 def run_test(
@@ -152,6 +205,7 @@ def run_test(
     num_objects: int,
     processes: int,
     threads: int,
+    random_data: Dict[str, bytes],
 ) -> None:
     print(
         f"--- Running {test_type} test for {num_objects} x {size} objects with {processes} processes x {threads} threads ---"
@@ -164,7 +218,7 @@ def run_test(
         response_times = manager.list()
         object_sizes = manager.list()
 
-        metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)  # type: ignore
+        metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)
 
         # Split files into batches for each process
         batch_size = num_objects // processes + 1
@@ -173,7 +227,10 @@ def run_test(
         with Pool(processes=processes, maxtasksperchild=1) as pool:
             pool.starmap(
                 process_task,
-                [(storage_client, test_type, bucket, size, batches[i], metrics, threads) for i in range(len(batches))],
+                [
+                    (storage_client, test_type, bucket, size, batches[i], metrics, threads, random_data)
+                    for i in range(len(batches))
+                ],
             )
 
         if test_type != "delete":
@@ -182,22 +239,39 @@ def run_test(
             print("Delete complete")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Upload/Download performance tests with nv storage client")
+def main():
+    parser = argparse.ArgumentParser(description="Upload/Download performance tests with Multi-Storage Client")
     parser.add_argument("--prefix", type=str, default="", help="The path prefix to use for the test")
-    parser.add_argument("--profile", type=str, default="default", help="The storage client profile to use for the test")
+    parser.add_argument("--config", type=str, help="Path to configuration file")
+    parser.add_argument("--profile", type=str, required=True, help="MSC profile to use")
     args = parser.parse_args()
 
+    # Load configuration
+    config = load_config(args.config)
+    processes = config["processes"]
+    threads = config["threads"]
+    tests_mixed = config["tests_mixed"]
+
+    # Generate random data for tests
+    random_data = generate_random_data(tests_mixed)
+
+    # Initialize storage client
     storage_client_config = StorageClientConfig.from_file(profile=args.profile)
     storage_client = StorageClient(storage_client_config)
-    prefix = args.prefix
+    bucket = args.prefix
 
-    for size_str, objects in TESTS_MIXED.items():
-        for processes in PROCESSES:
-            for threads in THREADS:
-                run_test(storage_client, "upload", prefix, size_str, objects, processes, threads)
-                run_test(storage_client, "download", prefix, size_str, objects, processes, threads)
-                run_test(storage_client, "delete", prefix, size_str, objects, processes, threads)
+    # Run tests for each combination of processes and threads
+    for num_processes in processes:
+        for num_threads in threads:
+            for size, num_objects in tests_mixed.items():
+                # Upload test
+                run_test(storage_client, "upload", bucket, size, num_objects, num_processes, num_threads, random_data)
+
+                # Download test
+                run_test(storage_client, "download", bucket, size, num_objects, num_processes, num_threads, random_data)
+
+                # Delete test
+                run_test(storage_client, "delete", bucket, size, num_objects, num_processes, num_threads, random_data)
 
 
 if __name__ == "__main__":
