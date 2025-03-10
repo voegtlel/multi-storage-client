@@ -17,7 +17,6 @@
 import io
 import os
 import time
-from datetime import datetime
 from typing import IO, Any, Callable, Dict, Iterator, Optional, Tuple, Union
 
 from aistore.sdk import Client
@@ -31,6 +30,7 @@ from ..types import (
     CredentialsProvider,
     ObjectMetadata,
     Range,
+    AWARE_DATETIME_MIN,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -246,7 +246,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
             return ObjectMetadata(
                 key=key,
                 content_length=int(props.get("Content-Length")),  # pyright: ignore [reportArgumentType]
-                last_modified=datetime.min,
+                last_modified=AWARE_DATETIME_MIN,
                 etag=props.get("Ais-Checksum-Value", None),
             )
 
@@ -274,7 +274,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
                     yield ObjectMetadata(
                         key=key,
                         content_length=int(obj.props.size),
-                        last_modified=datetime.min,
+                        last_modified=AWARE_DATETIME_MIN,
                         etag=obj.props.checksum_value,
                     )
                 elif end_at is not None and end_at < key:

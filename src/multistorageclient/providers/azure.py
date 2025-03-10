@@ -17,7 +17,6 @@ import io
 import os
 import tempfile
 import time
-from datetime import datetime
 from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 from azure.core.exceptions import ResourceNotFoundError
@@ -28,6 +27,7 @@ from ..types import (
     CredentialsProvider,
     ObjectMetadata,
     Range,
+    AWARE_DATETIME_MIN,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -265,7 +265,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                     key=self._append_delimiter(path),
                     type="directory",
                     content_length=0,
-                    last_modified=datetime.min,
+                    last_modified=AWARE_DATETIME_MIN,
                 )
             else:
                 raise FileNotFoundError(f"Directory {path} does not exist.")
@@ -296,7 +296,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                             key=path,
                             type="directory",
                             content_length=0,
-                            last_modified=datetime.min,
+                            last_modified=AWARE_DATETIME_MIN,
                         )
                 raise error
 
@@ -324,7 +324,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                         key=blob.name.rstrip("/"),
                         type="directory",
                         content_length=0,
-                        last_modified=datetime.min,
+                        last_modified=AWARE_DATETIME_MIN,
                     )
                 else:
                     key = blob.name

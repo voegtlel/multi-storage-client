@@ -31,6 +31,13 @@ DEFAULT_POSIX_PROFILE = {
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_DELAY = 1.0
 
+# datetime.min is a naive datetime.
+#
+# This creates issues when doing datetime.astimezone(timezone.utc) since it assumes the local timezone for the naive datetime.
+# If the local timezone is offset behind UTC, it attempts to subtract off the offset which goes below the representable limit (i.e. an underflow).
+# A `ValueError: year 0 is out of range` is thrown as a result.
+AWARE_DATETIME_MIN = datetime.min.replace(tzinfo=timezone.utc)
+
 
 @dataclass
 class Credentials:

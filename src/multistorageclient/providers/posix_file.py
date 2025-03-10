@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from io import BytesIO, StringIO
 from typing import IO, Any, Callable, Iterator, List, Optional, Union
 
-from ..types import ObjectMetadata, Range
+from ..types import ObjectMetadata, Range, AWARE_DATETIME_MIN
 from .base import BaseStorageProvider
 
 PROVIDER = "file"
@@ -184,7 +184,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
                             key=relative_path,
                             content_length=0,
                             type="directory",
-                            last_modified=datetime.min,
+                            last_modified=AWARE_DATETIME_MIN,
                         )
 
                 # This is in reverse lexicographical order on some systems for some reason.

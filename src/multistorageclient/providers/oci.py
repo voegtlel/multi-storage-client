@@ -17,7 +17,6 @@ import io
 import os
 import tempfile
 import time
-from datetime import datetime
 from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 import oci
@@ -36,6 +35,7 @@ from ..types import (
     ObjectMetadata,
     Range,
     RetryableError,
+    AWARE_DATETIME_MIN,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -259,7 +259,7 @@ class OracleStorageProvider(BaseStorageProvider):
                     key=path,
                     type="directory",
                     content_length=0,
-                    last_modified=datetime.min,
+                    last_modified=AWARE_DATETIME_MIN,
                 )
             else:
                 raise FileNotFoundError(f"Directory {path} does not exist.")
@@ -291,7 +291,7 @@ class OracleStorageProvider(BaseStorageProvider):
                             key=path,
                             type="directory",
                             content_length=0,
-                            last_modified=datetime.min,
+                            last_modified=AWARE_DATETIME_MIN,
                         )
                 raise error
 
@@ -348,7 +348,7 @@ class OracleStorageProvider(BaseStorageProvider):
                             key=directory.rstrip("/"),
                             type="directory",
                             content_length=0,
-                            last_modified=datetime.min,
+                            last_modified=AWARE_DATETIME_MIN,
                         )
 
                 # OCI guarantees lexicographical order.

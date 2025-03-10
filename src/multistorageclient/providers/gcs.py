@@ -17,14 +17,13 @@ import io
 import os
 import tempfile
 import time
-from datetime import datetime
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
 from google.api_core.exceptions import NotFound
 from google.cloud import storage
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
-from ..types import CredentialsProvider, ObjectMetadata, Range
+from ..types import CredentialsProvider, ObjectMetadata, Range, AWARE_DATETIME_MIN
 from ..utils import split_path
 from .base import BaseStorageProvider
 
@@ -231,7 +230,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                     key=path,
                     type="directory",
                     content_length=0,
-                    last_modified=datetime.min,
+                    last_modified=AWARE_DATETIME_MIN,
                 )
             else:
                 raise FileNotFoundError(f"Directory {path} does not exist.")
@@ -248,7 +247,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                     key=path,
                     content_length=blob.size or 0,
                     content_type=blob.content_type,
-                    last_modified=blob.updated or datetime.min,
+                    last_modified=blob.updated or AWARE_DATETIME_MIN,
                     etag=blob.etag,
                 )
 
@@ -264,7 +263,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                             key=path,
                             type="directory",
                             content_length=0,
-                            last_modified=datetime.min,
+                            last_modified=AWARE_DATETIME_MIN,
                         )
                 raise error
 
@@ -315,7 +314,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                         key=directory.rstrip("/"),
                         type="directory",
                         content_length=0,
-                        last_modified=datetime.min,
+                        last_modified=AWARE_DATETIME_MIN,
                     )
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
