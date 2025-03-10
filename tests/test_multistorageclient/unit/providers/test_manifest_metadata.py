@@ -58,7 +58,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             }
         }
 
-        file_path = "file.txt"
+        file_path = "dir/file.txt"
         file_content_length = 1
         file_body_bytes = b"\x00" * file_content_length
 
@@ -78,10 +78,13 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
 
         # Check if the manifest metadata tracks no files.
         assert len(list(data_with_manifest_storage_client.list())) == 0
+        assert data_with_manifest_storage_client.is_empty(path="dir")
 
         # Write a file.
         data_with_manifest_storage_client.write(path=file_path, body=file_body_bytes)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 0
+        assert data_with_manifest_storage_client.is_empty(path="dir")
+
         data_with_manifest_storage_client.commit_updates()
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
 
@@ -92,6 +95,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             )
         )
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
+        assert not data_with_manifest_storage_client.is_empty(path="dir")
 
         # Check the file metadata.
         file_info = data_with_manifest_storage_client.info(path=file_path)

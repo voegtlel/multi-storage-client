@@ -343,7 +343,11 @@ class StorageClient:
 
         :return: ``True`` if no objects exist under the specified path prefix, ``False`` otherwise.
         """
-        objects = self._storage_provider.list_objects(path)
+        if self._metadata_provider:
+            objects = self._metadata_provider.list_objects(path)
+        else:
+            objects = self._storage_provider.list_objects(path)
+
         try:
             return next(objects) is None
         except StopIteration:
