@@ -100,6 +100,14 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert file_info.content_length == file_content_length
         assert file_info.type == "file"
 
+        listing = list(data_with_manifest_storage_client.list(prefix=""))
+        assert len(listing) == 1
+        listed_file = listing[0]
+        assert listed_file.key.endswith(file_path)
+        assert listed_file.content_length == file_content_length
+        assert listed_file.type == "file"
+        assert listed_file.last_modified == file_info.last_modified
+
         # Delete the file.
         data_with_manifest_storage_client.delete(path=file_path)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1

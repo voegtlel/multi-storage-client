@@ -295,7 +295,9 @@ class ManifestMetadataProvider(MetadataProvider):
 
         # Dictionaries don't guarantee lexicographical order.
         for key in sorted(keys):
-            yield ObjectMetadata(key=key, content_length=0, last_modified=datetime.now(timezone.utc))
+            obj = self._files[key]
+            obj.key = key  # use key without base_path
+            yield obj
 
     def get_object_metadata(self, path: str) -> ObjectMetadata:
         metadata = self._files.get(path, None)
