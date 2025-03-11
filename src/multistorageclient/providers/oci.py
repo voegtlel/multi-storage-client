@@ -306,6 +306,17 @@ class OracleStorageProvider(BaseStorageProvider):
         self._refresh_oci_client_if_needed()
 
         def _invoke_api() -> Iterator[ObjectMetadata]:
+            # ListObjects only includes object names by default.
+            #
+            # Request additional fields needed for creating an ObjectMetadata.
+            fields = ",".join(
+                [
+                    "etag",
+                    "name",
+                    "size",
+                    "timeModified",
+                ]
+            )
             next_start_with: Optional[str] = start_after
             while True:
                 if include_directories:
@@ -316,6 +327,7 @@ class OracleStorageProvider(BaseStorageProvider):
                         # This is ≥ instead of >.
                         start=next_start_with,
                         delimiter="/",
+                        fields=fields,
                     )
                 else:
                     response = self._oci_client.list_objects(
@@ -324,6 +336,7 @@ class OracleStorageProvider(BaseStorageProvider):
                         prefix=prefix,
                         # This is ≥ instead of >.
                         start=next_start_with,
+                        fields=fields,
                     )
 
                 if not response:
@@ -345,7 +358,7 @@ class OracleStorageProvider(BaseStorageProvider):
                         yield ObjectMetadata(
                             key=key,
                             content_length=response_object.size,
-                            last_modified=response_object.time_modified or response_object.time_created or datetime.min,
+                            last_modified=response_object.time_modified,
                             etag=response_object.etag,
                         )
                     elif start_after != key:
