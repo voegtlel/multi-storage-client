@@ -31,7 +31,7 @@ from multistorageclient.schema import BENCHMARK_SCHEMA, validate
 DEFAULT_CONFIG = {
     "processes": [8],
     "threads": [4],
-    "tests_mixed": {
+    "test_object_sizes": {
         "4MB": 12800,
         "64MB": 800,
     },
@@ -67,16 +67,6 @@ def load_config(config_path: Optional[str]) -> Dict[str, Any]:
 
 def size_to_bytes(size: str) -> int:
     return int(size[:-2]) * 1024 ** {"KB": 1, "MB": 2, "GB": 3, "TB": 4, "PB": 5}[size[-2:]]
-
-
-def generate_random_data(tests_mixed: Dict[str, int]) -> Dict[str, bytes]:
-    """
-    Generate random data for each file size in the tests_mixed dictionary.
-
-    :param tests_mixed: Dictionary mapping size strings to number of files
-    :return: Dictionary mapping size strings to random data of that size
-    """
-    return {k: os.urandom(size_to_bytes(k)) for k in tests_mixed.keys()}
 
 
 class PerformanceMetrics:
@@ -130,116 +120,138 @@ def pretty_print_bytes(byte_value: float) -> str:
     return f"{byte_value:.2f}".rstrip("0").rstrip(".") + " " + suffixes[i]
 
 
-def upload_object(
-    storage_client: StorageClient, size: str, path: str, metrics: PerformanceMetrics, random_data: Dict[str, bytes]
-) -> None:
-    data = random_data[size]
-    start_time = time.time()
-    try:
-        storage_client.write(path=path, body=data)
-    except Exception as e:
-        print(f"Error uploading {path}: {e}")
-    end_time = time.time()
-    metrics.record(start_time, end_time, size_to_bytes(size))
+class BenchmarkRunner:
+    def __init__(
+        self,
+        storage_client: StorageClient,
+        test_sizes: Optional[Dict[str, int]] = None,
+        processes: Optional[List[int]] = None,
+        threads: Optional[List[int]] = None,
+        prefix: str = "",
+    ) -> None:
+        """Initialize the benchmark runner with a storage client and test parameters.
+
+        Args:
+            storage_client: The storage client to use for benchmarking
+            test_sizes: Dictionary mapping size strings to number of objects, e.g. {"4MB": 12800}
+            processes: List of process counts to test with
+            threads: List of thread counts to test with
+            prefix: Path prefix to use for storing test objects
+        """
+        self.storage_client = storage_client
+        self.test_sizes = test_sizes or DEFAULT_CONFIG["test_object_sizes"]
+        self.processes = processes or DEFAULT_CONFIG["processes"]
+        self.threads = threads or DEFAULT_CONFIG["threads"]
+        self.prefix = prefix
+
+        # Pre-generate random data
+        self.random_data = {k: os.urandom(size_to_bytes(k)) for k in self.test_sizes.keys()}
+
+    def upload_object(self, size: str, path: str, metrics: PerformanceMetrics) -> None:
+        """Upload a single object of the specified size."""
+        data = self.random_data[size]  # Get pre-generated random data for this size
+        start_time = time.time()
+        try:
+            self.storage_client.write(path=path, body=data)
+        except Exception as e:
+            print(f"Error uploading {path}: {e}")
+        end_time = time.time()
+        metrics.record(start_time, end_time, size_to_bytes(size))
+
+    def download_object(self, path: str, metrics: PerformanceMetrics) -> None:
+        """Download a single object and record metrics."""
+        start_time = time.time()
+        size = 0
+        try:
+            size = len(self.storage_client.read(path=path))
+        except Exception as e:
+            print(f"Error downloading {path}: {e}")
+        end_time = time.time()
+        metrics.record(start_time, end_time, size)
+
+    def delete_object(self, path: str) -> None:
+        """Delete a single object."""
+        try:
+            self.storage_client.delete(path=path)
+        except Exception as e:
+            print(f"Error deleting {path}: {e}")
+
+    def task(self, test_type: str, bucket: str, size: str, i: int, metrics: PerformanceMetrics) -> None:
+        """Execute a single task (upload, download, or delete)."""
+        object_name_prefix = f"test-{size}"
+        object_name = f"{object_name_prefix}-{i}"
+        object_path = os.path.join(bucket, object_name)
+
+        if test_type == "upload":
+            self.upload_object(size, object_path, metrics)
+        elif test_type == "download":
+            self.download_object(object_path, metrics)
+        elif test_type == "delete":
+            self.delete_object(object_path)
+
+    def process_task(
+        self,
+        test_type: str,
+        bucket: str,
+        size: str,
+        batch_range: range,
+        metrics: PerformanceMetrics,
+        threads: int,
+    ) -> None:
+        """Process a batch of tasks using thread pool."""
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            for i in batch_range:
+                executor.submit(self.task, test_type, bucket, size, i, metrics)
+
+    def run_test(
+        self,
+        test_type: str,
+        bucket: str,
+        size: str,
+        num_objects: int,
+        processes: int,
+        threads: int,
+    ) -> None:
+        """Run a benchmark test with the specified parameters."""
+        print(
+            f"--- Running {test_type} test for {num_objects} x {size} objects with {processes} processes x {threads} threads ---"
+        )
+
+        with Manager() as manager:
+            # Create shared lists for metrics
+            start_times = manager.list()
+            end_times = manager.list()
+            response_times = manager.list()
+            object_sizes = manager.list()
+
+            metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)  # type: ignore
+
+            # Split files into batches for each process
+            batch_size = num_objects // processes + 1
+            batches = [range(i, min(i + batch_size, num_objects)) for i in range(0, num_objects, batch_size)]
+
+            with Pool(processes=processes, maxtasksperchild=1) as pool:
+                pool.starmap(
+                    self.process_task,
+                    [(test_type, bucket, size, batches[i], metrics, threads) for i in range(len(batches))],
+                )
+
+            if test_type != "delete":
+                metrics.calculate()
+            else:
+                print("Delete complete")
+
+    def run_all_tests(self) -> None:
+        """Run all benchmark tests with the configured parameters."""
+        for size_str, objects in self.test_sizes.items():
+            for processes in self.processes:
+                for threads in self.threads:
+                    self.run_test("upload", self.prefix, size_str, objects, processes, threads)
+                    self.run_test("download", self.prefix, size_str, objects, processes, threads)
+                    self.run_test("delete", self.prefix, size_str, objects, processes, threads)
 
 
-def download_object(storage_client: StorageClient, path: str, metrics: PerformanceMetrics) -> None:
-    start_time = time.time()
-    size = 0
-    try:
-        size = len(storage_client.read(path=path))
-    except Exception as e:
-        print(f"Error downloading {path}: {e}")
-    end_time = time.time()
-    metrics.record(start_time, end_time, size)
-
-
-def delete_object(storage_client: StorageClient, path: str) -> None:
-    try:
-        storage_client.delete(path=path)
-    except Exception as e:
-        print(f"Error deleting {path}: {e}")
-
-
-def task(
-    storage_client: StorageClient,
-    test_type: str,
-    bucket: str,
-    size: str,
-    i: int,
-    metrics: PerformanceMetrics,
-    random_data: Dict[str, bytes],
-) -> None:
-    object_name_prefix = f"test-{size}"
-    object_name = f"{object_name_prefix}-{i}"
-    object_path = os.path.join(bucket, object_name)
-
-    if test_type == "upload":
-        upload_object(storage_client, size, object_path, metrics, random_data)
-    elif test_type == "download":
-        download_object(storage_client, object_path, metrics)
-    elif test_type == "delete":
-        delete_object(storage_client, object_path)
-
-
-def process_task(
-    storage_client: StorageClient,
-    test_type: str,
-    bucket: str,
-    size: str,
-    batch_range: range,
-    metrics: PerformanceMetrics,
-    threads: int,
-    random_data: Dict[str, bytes],
-) -> None:
-    with ThreadPoolExecutor(max_workers=threads) as executor:
-        for i in batch_range:
-            executor.submit(task, storage_client, test_type, bucket, size, i, metrics, random_data)
-
-
-def run_test(
-    storage_client: StorageClient,
-    test_type: str,
-    bucket: str,
-    size: str,
-    num_objects: int,
-    processes: int,
-    threads: int,
-    random_data: Dict[str, bytes],
-) -> None:
-    print(
-        f"--- Running {test_type} test for {num_objects} x {size} objects with {processes} processes x {threads} threads ---"
-    )
-
-    with Manager() as manager:
-        # Create shared lists for metrics
-        start_times = manager.list()
-        end_times = manager.list()
-        response_times = manager.list()
-        object_sizes = manager.list()
-
-        metrics = PerformanceMetrics(start_times, end_times, response_times, object_sizes)
-
-        # Split files into batches for each process
-        batch_size = num_objects // processes + 1
-        batches = [range(i, min(i + batch_size, num_objects)) for i in range(0, num_objects, batch_size)]
-
-        with Pool(processes=processes, maxtasksperchild=1) as pool:
-            pool.starmap(
-                process_task,
-                [
-                    (storage_client, test_type, bucket, size, batches[i], metrics, threads, random_data)
-                    for i in range(len(batches))
-                ],
-            )
-
-        if test_type != "delete":
-            metrics.calculate()
-        else:
-            print("Delete complete")
-
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Upload/Download performance tests with Multi-Storage Client")
     parser.add_argument("--prefix", type=str, default="", help="The path prefix to use for the test")
     parser.add_argument("--config", type=str, help="Path to configuration file")
@@ -250,28 +262,17 @@ def main():
     config = load_config(args.config)
     processes = config["processes"]
     threads = config["threads"]
-    tests_mixed = config["tests_mixed"]
-
-    # Generate random data for tests
-    random_data = generate_random_data(tests_mixed)
+    test_object_sizes = config["test_object_sizes"]
 
     # Initialize storage client
     storage_client_config = StorageClientConfig.from_file(profile=args.profile)
     storage_client = StorageClient(storage_client_config)
-    bucket = args.prefix
 
-    # Run tests for each combination of processes and threads
-    for num_processes in processes:
-        for num_threads in threads:
-            for size, num_objects in tests_mixed.items():
-                # Upload test
-                run_test(storage_client, "upload", bucket, size, num_objects, num_processes, num_threads, random_data)
-
-                # Download test
-                run_test(storage_client, "download", bucket, size, num_objects, num_processes, num_threads, random_data)
-
-                # Delete test
-                run_test(storage_client, "delete", bucket, size, num_objects, num_processes, num_threads, random_data)
+    # Create and run the benchmark
+    benchmark = BenchmarkRunner(
+        storage_client, prefix=args.prefix, processes=processes, threads=threads, test_sizes=test_object_sizes
+    )
+    benchmark.run_all_tests()
 
 
 if __name__ == "__main__":
