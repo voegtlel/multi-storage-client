@@ -58,6 +58,14 @@ class RemoteFileReader(IO[bytes]):
         self._pos = 0
         self._storage_client = storage_client
 
+    @property
+    def name(self) -> str:
+        return self._remote_path
+
+    @property
+    def closed(self) -> bool:
+        return False
+
     def readable(self) -> bool:
         return True
 
@@ -213,9 +221,9 @@ class ObjectFile(IO):
             raise ValueError('Missing parameter "remote_path"')
 
         self._mode = mode
-        self._encoding = encoding
-        self._remote_path = remote_path
         self._storage_client = storage_client
+        self._remote_path = remote_path
+        self._encoding = encoding
         self._cache_manager = storage_client._cache_manager
 
         if disable_read_cache:
@@ -347,6 +355,14 @@ class ObjectFile(IO):
             )
         self._file = RemoteFileReader(self._remote_path, file_size, self._storage_client)
         self._download_complete.set()
+
+    @property
+    def name(self) -> str:
+        return self._remote_path
+
+    @property
+    def closed(self) -> bool:
+        return self._file.closed
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
@@ -513,22 +529,63 @@ class PosixFile(IO):
 
     This class provides a standardized interface to interact with local files, integrating features
     such as tracing file operations with OpenTelemetry spans.
+
+    The class implements atomic write semantics by writing to a temporary file and then renaming it
+    to the target file upon close. This ensures that other processes reading the file will either
+    see the old content or the new content, but never partial content.
     """
 
+    _storage_client: StorageClient
     _file: IO
     _trace_span: Optional[Span] = None
 
-    def __init__(self, path: str, mode: str = "rb", buffering: int = -1, encoding: Optional[str] = None):
+    def __init__(
+        self,
+        storage_client: StorageClient,
+        path: str,
+        mode: str = "rb",
+        buffering: int = -1,
+        encoding: Optional[str] = None,
+    ):
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("PosixFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
         self._trace_span.set_attribute("mode", mode)
         for k, v in collect_default_attributes().items():
             self._trace_span.set_attribute(k, v)
 
-        # Ensure the parent directory exists
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # If metadata provider is enabled, use the realpath to get the physical path for the storage provider.
+        if storage_client._metadata_provider:
+            realpath, exists = storage_client._metadata_provider.realpath(path)
+            if not exists:
+                raise FileNotFoundError(f"The file at path '{path}' was not found.")
+        else:
+            realpath = path
 
-        self._file = open(path, mode=mode, buffering=buffering, encoding=encoding)
+        # Required to get the absolute POSIX path.
+        self._real_path = storage_client._storage_provider._realpath(realpath)
+
+        self._path = path
+        self._mode = mode
+
+        # Ensure the parent directory exists
+        os.makedirs(os.path.dirname(self._real_path), exist_ok=True)
+
+        if "w" in mode:
+            # Create a temporary file in the same directory as the target file
+            self._temp_path = os.path.join(
+                os.path.dirname(self._real_path), f".{os.path.basename(self._real_path)}.tmp"
+            )
+            self._file = open(self._temp_path, mode=mode, buffering=buffering, encoding=encoding)
+        else:
+            self._file = open(self._real_path, mode=mode, buffering=buffering, encoding=encoding)
+
+    @property
+    def name(self) -> str:
+        return self._path
+
+    @property
+    def closed(self) -> bool:
+        return self._file.closed
 
     @file_tracer
     def read(self, size: int = -1) -> Any:
@@ -613,6 +670,10 @@ class PosixFile(IO):
     @file_tracer
     def close(self) -> None:
         self._file.close()
+
+        if "w" in self._mode:
+            # Rename the temporary file to the target file
+            os.rename(self._temp_path, self._real_path)
 
     def get_local_path(self) -> Optional[str]:
         return self._file.name

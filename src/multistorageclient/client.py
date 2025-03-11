@@ -305,15 +305,7 @@ class StorageClient:
         :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
         if self._is_posix_file_storage_provider():
-            if self._metadata_provider:
-                realpath, exists = self._metadata_provider.realpath(path)
-                if not exists:
-                    raise FileNotFoundError(f"The file at path '{path}' was not found.")
-            else:
-                realpath = path
-
-            realpath = self._storage_provider._realpath(realpath)  # type: ignore
-            return PosixFile(path=realpath, mode=mode, buffering=buffering, encoding=encoding)
+            return PosixFile(self, path=path, mode=mode, buffering=buffering, encoding=encoding)
         else:
             return ObjectFile(
                 self,

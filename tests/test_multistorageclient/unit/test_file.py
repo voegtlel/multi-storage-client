@@ -48,7 +48,9 @@ def test_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore])
 
         # Open a file for writes (bytes).
         with storage_client.open(path=file_path, mode="wb") as file:
+            assert not file.closed
             assert not file.readable()
+            assert file.name == file_path
             assert file.writable()
             file.write(file_body_bytes)
             assert file.tell() == file_content_length
@@ -121,3 +123,17 @@ def test_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore])
         with pytest.raises(FileNotFoundError):
             with storage_client.open(path=file_path, mode="r") as file:
                 pass
+
+        # Verify the file creation is atomic.
+        fp1 = storage_client.open(path=file_path, mode="w")
+        fp1.write(file_body_string)
+
+        with pytest.raises(FileNotFoundError):
+            storage_client.info(path=file_path)
+
+        # The file is written only after the file is closed.
+        fp1.close()
+
+        file_info = storage_client.info(path=file_path)
+        assert file_info is not None
+        assert file_info.content_length == file_content_length
