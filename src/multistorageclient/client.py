@@ -268,7 +268,7 @@ class StorageClient:
         :return: An iterator over objects.
         """
         if self._metadata_provider:
-            objects = self._metadata_provider.list_objects(prefix, start_after, end_at)
+            objects = self._metadata_provider.list_objects(prefix, start_after, end_at, include_directories)
         else:
             objects = self._storage_provider.list_objects(prefix, start_after, end_at, include_directories)
 

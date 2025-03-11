@@ -279,7 +279,11 @@ class ManifestMetadataProvider(MetadataProvider):
         storage_provider.put_object(manifest_file_path, manifest_content.encode("utf-8"))
 
     def list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
@@ -293,11 +297,37 @@ class ManifestMetadataProvider(MetadataProvider):
             and (end_at is None or key <= end_at)
         )
 
-        # Dictionaries don't guarantee lexicographical order.
+        pending_directory: Optional[ObjectMetadata] = None
         for key in sorted(keys):
+            if include_directories:
+                subdirectory = key.split("/", 1)[0] if "/" in key else None
+
+                if subdirectory:
+                    directory_name = f"{prefix}{subdirectory}/"
+
+                    if pending_directory and pending_directory.key != directory_name:
+                        yield pending_directory
+
+                    obj_metadata = self.get_object_metadata(key)
+                    if not pending_directory or pending_directory.key != directory_name:
+                        pending_directory = ObjectMetadata(
+                            key=directory_name,
+                            type="directory",
+                            last_modified=obj_metadata.last_modified,
+                            content_length=0,
+                        )
+                    else:
+                        pending_directory.last_modified = max(
+                            pending_directory.last_modified, obj_metadata.last_modified
+                        )
+                    continue  # Skip yielding this key as it's part of a directory
+
             obj = self._files[key]
             obj.key = key  # use key without base_path
             yield obj
+
+        if include_directories and pending_directory:
+            yield pending_directory
 
     def get_object_metadata(self, path: str) -> ObjectMetadata:
         metadata = self._files.get(path, None)

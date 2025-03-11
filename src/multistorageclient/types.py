@@ -268,7 +268,11 @@ class MetadataProvider(ABC):
 
     @abstractmethod
     def list_objects(
-        self, prefix: str, start_after: Optional[str] = None, end_at: Optional[str] = None
+        self,
+        prefix: str,
+        start_after: Optional[str] = None,
+        end_at: Optional[str] = None,
+        include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         """
         Lists objects in the storage provider under the specified prefix.
@@ -276,6 +280,7 @@ class MetadataProvider(ABC):
         :param prefix: The prefix or path to list objects under.
         :param start_after: The key to start after (i.e. exclusive). An object with this key doesn't have to exist.
         :param end_at: The key to end at (i.e. inclusive). An object with this key doesn't have to exist.
+        :param include_directories: Whether to include directories in the result. When True, directories are returned alongside objects.
 
         :return: A iterator over objects metadata under the specified prefix.
         """

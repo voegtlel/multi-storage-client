@@ -162,6 +162,11 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         data_with_manifest_storage_client.commit_updates(prefix=f"{file_directory}/")
         assert len(list(data_with_manifest_storage_client.list(prefix=f"{file_directory}/"))) == file_count
 
+        # Test listing with directories
+        with_dirs = list(data_with_manifest_storage_client.list(prefix="", include_directories=True))
+        assert len(with_dirs) == 1
+        assert with_dirs[0].key == file_directory + "/"
+
 
 def test_nonexistent_and_read_only():
     with tempdatastore.TemporaryPOSIXDirectory() as temp_data_store:
