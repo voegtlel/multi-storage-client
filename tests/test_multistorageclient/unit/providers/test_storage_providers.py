@@ -60,15 +60,23 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert file_info.key.endswith(file_path)
         assert file_info.content_length == len(file_body_bytes)
         assert file_info.type == "file"
+        assert file_info.last_modified is not None
         for lead in ["", "/"]:
             assert storage_client.is_file(path=f"{lead}{file_path}")
             assert not storage_client.is_file(path=lead)
             assert not storage_client.is_file(path=f"{lead}{file_path_fragments[0]}-nonexistent")
             assert not storage_client.is_file(path=f"{lead}{file_path_fragments[0]}")
 
-        # List the file.
         assert len(list(storage_client.list(prefix=file_path_fragments[0]))) == 1
-        assert len(list(storage_client.list(prefix=os.path.join(*file_path_fragments[:2])))) == 1
+        file_info_list = list(storage_client.list(prefix=os.path.join(*file_path_fragments[:2])))
+        assert len(file_info_list) == 1
+        listed_file_info = file_info_list[0]
+        assert listed_file_info is not None
+        assert listed_file_info.key.endswith(file_path)
+        assert listed_file_info.content_length == file_info.content_length
+        assert listed_file_info.type == file_info.type
+        # There's some timestamp precision differences. Truncate to second.
+        assert listed_file_info.last_modified.replace(microsecond=0) == file_info.last_modified.replace(microsecond=0)
 
         # Glob the file.
         assert len(storage_client.glob(pattern=f"*{file_extension}-nonexistent")) == 0

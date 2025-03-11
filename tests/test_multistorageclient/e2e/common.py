@@ -107,9 +107,20 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     assert storage_client.read(filename) == body
     info = storage_client.info(filename)
     assert info is not None
+    assert info.key.endswith(filename)
     assert info.content_length == len(body)
-    assert storage_client.is_file(filename)
-    assert not storage_client.is_file(prefix)
+    assert info.type == "file"
+    assert info.last_modified is not None
+
+    info_list = list(storage_client.list(filename))
+    assert len(info_list) == 1
+    listed_info = info_list[0]
+    assert listed_info is not None
+    assert listed_info.key.endswith(filename)
+    assert listed_info.content_length == info.content_length
+    assert listed_info.type == info.type
+    # There's some timestamp precision differences. Truncate to second.
+    assert listed_info.last_modified.replace(microsecond=0) == info.last_modified.replace(microsecond=0)
 
     # upload
     temp_file = tempfile.NamedTemporaryFile(delete=False)
