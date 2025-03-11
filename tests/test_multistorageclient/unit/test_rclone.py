@@ -87,9 +87,9 @@ def test_parse_from_config_parser_multiple_profiles():
 
     result = _parse_from_config_parser(cfg)
     profiles = result["profiles"]
-    assert len(profiles) == 2
+    assert len(profiles) == 1
     assert "s3-local" in profiles
-    assert "ftp" in profiles
+    assert "ftp" not in profiles
 
     # Check S3
     s3_profile = profiles["s3-local"]
@@ -97,10 +97,3 @@ def test_parse_from_config_parser_multiple_profiles():
     s3_options = s3_profile["storage_provider"]["options"]
     assert s3_options["region_name"] == "us-east-2"
     assert "base_path" in s3_options
-
-    # Check FTP
-    ais_profile = profiles["ftp"]
-    assert ais_profile["storage_provider"]["type"] == "ftp"
-    ftp_options = ais_profile["storage_provider"]["options"]
-    assert ftp_options["authn_endpoint"] == "ftp://namespace.com"
-    assert ftp_options["username"] == "myuser"

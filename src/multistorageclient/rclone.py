@@ -222,9 +222,11 @@ def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
         storage_type = "oci"
     elif storage_type == "ais":
         storage_provider_options, credentials_provider = _parse_ais_storage_provider_config(section)
-    else:
-        # Gather all generic config keys for unknown storage provider.
+    elif storage_type in ("file"):
+        # Gather all generic config keys for all other supported storage providers.
         storage_provider_options = {k: v for k, v in section.items()}
+    else:
+        return {}
 
     # Set default base_path to make it compatible with rclone config
     storage_provider_options["base_path"] = storage_provider_options.get("base_path", "")
@@ -263,6 +265,8 @@ def _parse_from_config_parser(config: configparser.ConfigParser) -> Dict[str, An
     config_entries = {}
     for section in config.sections():
         config_entry = _parse_config_section(config[section])
+        if not config_entry:
+            continue
         config_entry["name"] = section
         config_entries[section] = config_entry
 
