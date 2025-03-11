@@ -16,11 +16,48 @@
 import os
 import tempfile
 import time
+from typing import Callable, Iterable, TypeVar
 import uuid
 
 import multistorageclient as msc
 
+T = TypeVar("T")
 MB = 1024 * 1024
+
+
+def wait(
+    waitable: Callable[[], T],
+    should_wait: Callable[[T], bool],
+    max_attempts: int = 60,
+    attempt_interval_seconds: int = 1,
+) -> T:
+    """
+    Wait for the return value of a function ``waitable`` to satisfy a wait condition.
+
+    Defaults to 60 attempts at 1 second intervals.
+
+    For handling storage services with eventually consistent operations.
+    """
+    assert max_attempts >= 1
+    assert attempt_interval_seconds >= 0
+
+    for attempt in range(max_attempts):
+        value = waitable()
+        if should_wait(value) and attempt < max_attempts - 1 and attempt_interval_seconds > 0:
+            time.sleep(attempt_interval_seconds)
+        else:
+            return value
+
+    raise AssertionError(f"Waitable didn't return a desired value within {max_attempts} attempt(s)!")
+
+
+def len_should_wait(expected_len: int) -> Callable[[Iterable], bool]:
+    """
+    Returns a wait condition on the length of an iterable return value.
+
+    For list and glob operations.
+    """
+    return lambda value: len(list(value)) != expected_len
 
 
 def delete_files(storage_client: msc.StorageClient, prefix: str) -> None:
@@ -31,12 +68,15 @@ def delete_files(storage_client: msc.StorageClient, prefix: str) -> None:
 def verify_shortcuts(profile: str, prefix: str) -> None:
     body = b"A" * (16 * MB)
 
-    for i in range(10):
+    object_count = 10
+    for i in range(object_count):
         with msc.open(f"msc://{profile}/{prefix}/data-{i}.bin", "wb") as fp:
             fp.write(body)
 
-    results = msc.glob(f"msc://{profile}/{prefix}/**/*.bin")
-    assert len(results) == 10
+    results = wait(
+        waitable=lambda: msc.glob(f"msc://{profile}/{prefix}/**/*.bin"),
+        should_wait=len_should_wait(expected_len=object_count),
+    )
 
     for res in results:
         with msc.open(res, "rb") as fp:
@@ -50,7 +90,8 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     # write file
     filename = f"{prefix}/testfile.bin"
     storage_client.write(filename, body)
-    assert len(list(storage_client.list(prefix))) == 1
+
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
 
     # is file
     assert storage_client.is_file(filename)
@@ -90,7 +131,7 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     with storage_client.open(filename, "wb") as fp:
         fp.write(body)
 
-    assert len(list(storage_client.list(prefix))) == 1
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
 
     with storage_client.open(filename, "rb") as fp:
         content = fp.read()
@@ -100,16 +141,14 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     # delete file
     storage_client.delete(filename)
 
-    # For CSPs that do not support strong consistency.
-    time.sleep(1)
-    assert len(list(storage_client.list(prefix))) == 0
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=0))
 
     # large file
     body_large = b"*" * (550 * MB)
     with storage_client.open(filename, "wb") as fp:
         fp.write(body_large)
 
-    assert len(list(storage_client.list(prefix))) == 1
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
 
     with storage_client.open(filename, "rb") as fp:
         read_size = 128 * MB
@@ -126,14 +165,15 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
 
     # delete file
     storage_client.delete(filename)
-    assert len(list(storage_client.list(prefix))) == 0
+
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=0))
 
     # unicode file
     filename = f"{prefix}/testfile.txt"
     with storage_client.open(filename, "w") as fp:
         fp.write(text)
 
-    assert len(list(storage_client.list(prefix))) == 1
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
 
     with storage_client.open(filename, "r") as fp:
         content = fp.read()
@@ -143,9 +183,7 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     # delete file
     storage_client.delete(filename)
 
-    # For CSPs that do not support strong consistency.
-    time.sleep(1)
-    assert len(list(storage_client.list(prefix))) == 0
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=0))
 
 
 def test_shortcuts(profile: str):
