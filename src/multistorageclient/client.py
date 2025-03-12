@@ -196,6 +196,10 @@ class StorageClient:
         :param dest_path: The path of the destination.
         """
         if self._metadata_provider:
+            src_path, exists = self._metadata_provider.realpath(src_path)
+            if not exists:
+                raise FileNotFoundError(f"The file at path '{src_path}' was not found.")
+
             dest_path, exists = self._metadata_provider.realpath(dest_path)
             if exists:
                 raise FileExistsError(
