@@ -439,7 +439,8 @@ class StorageClientConfig:
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
-        loader = StorageClientConfigLoader(state["_config_dict"], state["profile"])
+        self.profile = state["profile"]
+        loader = StorageClientConfigLoader(state["_config_dict"], self.profile)
         new_config = loader.build_config()
         self.storage_provider = new_config.storage_provider
         self.credentials_provider = new_config.credentials_provider
