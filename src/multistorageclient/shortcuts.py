@@ -24,7 +24,8 @@ from urllib.parse import ParseResult, urlparse
 
 from .client import StorageClient
 from .config import StorageClientConfig
-from .file import IN_MEMORY_FILE_SIZE_THRESHOLD, ObjectFile, PosixFile
+from .constants import MEMORY_LOAD_LIMIT
+from .file import ObjectFile, PosixFile
 from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, ObjectMetadata
 
 _instance_cache: Dict[str, StorageClient] = {}
@@ -271,7 +272,7 @@ def sync(source_url: str, target_url: str) -> None:
             target_file_path = os.path.join(target_path, source_key)
 
             logger.debug(f"sync {file_metadata.key} -> {target_file_path}")
-            if file_metadata.content_length < IN_MEMORY_FILE_SIZE_THRESHOLD:
+            if file_metadata.content_length < MEMORY_LOAD_LIMIT:
                 file_content = source_client.read(file_metadata.key)
                 target_client.write(target_file_path, file_content)
             else:

@@ -15,7 +15,7 @@
 
 import functools
 from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.file import IN_MEMORY_FILE_SIZE_THRESHOLD
+from multistorageclient.constants import MEMORY_LOAD_LIMIT
 import os
 import pytest
 import tempfile
@@ -162,13 +162,13 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         storage_client.delete(path=file_path)
 
         # Open the file for writes + reads (bytes).
-        large_file_body_bytes = b"\x00" * (IN_MEMORY_FILE_SIZE_THRESHOLD + 1)
+        large_file_body_bytes = b"\x00" * (MEMORY_LOAD_LIMIT + 1)
         with storage_client.open(path=file_path, mode="wb") as file:
             file.write(large_file_body_bytes)
         assert storage_client.is_file(path=file_path)
         with storage_client.open(path=file_path, mode="rb") as file:
             content = b""
-            for chunk in iter(functools.partial(file.read, (IN_MEMORY_FILE_SIZE_THRESHOLD // 2)), b""):
+            for chunk in iter(functools.partial(file.read, (MEMORY_LOAD_LIMIT // 2)), b""):
                 content += chunk
             assert len(content) == len(large_file_body_bytes)
 

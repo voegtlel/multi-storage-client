@@ -17,6 +17,7 @@ import os
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from .config import StorageClientConfig
+from .constants import MEMORY_LOAD_LIMIT
 from .file import ObjectFile, PosixFile
 from .instrumentation.utils import instrumented
 from .providers.posix_file import PosixFileStorageProvider
@@ -292,6 +293,7 @@ class StorageClient:
         buffering: int = -1,
         encoding: Optional[str] = None,
         disable_read_cache: bool = False,
+        memory_load_limit: int = MEMORY_LOAD_LIMIT,
     ) -> Union[PosixFile, ObjectFile]:
         """
         Returns a file-like object from the storage provider at the specified path.
@@ -300,7 +302,10 @@ class StorageClient:
         :param mode: The file mode, only "w", "r", "a", "wb", "rb" and "ab" are supported.
         :param buffering: The buffering mode. Only applies to PosixFile.
         :param encoding: The encoding to use for text files.
-        :param disable_read_cache: When set to True, disables caching for the file content. This parameter is only applicable when the mode is "r" or "rb".
+        :param disable_read_cache: When set to True, disables caching for the file content.
+            This parameter is only applicable to ObjectFile when the mode is "r" or "rb".
+        :param memory_load_limit: Size limit in bytes for loading files into memory. Defaults to 512MB.
+            This parameter is only applicable to ObjectFile when the mode is "r" or "rb".
 
         :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
@@ -313,6 +318,7 @@ class StorageClient:
                 mode=mode,
                 encoding=encoding,
                 disable_read_cache=disable_read_cache,
+                memory_load_limit=memory_load_limit,
             )
 
     def is_file(self, path: str) -> bool:

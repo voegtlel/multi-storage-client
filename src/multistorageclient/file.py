@@ -26,6 +26,7 @@ from typing import IO, TYPE_CHECKING, Any, Iterator, List, Optional
 from opentelemetry.trace import Span
 
 from .cache import CacheManager
+from .constants import MEMORY_LOAD_LIMIT
 from .instrumentation.utils import (
     DEFAULT_ATTRIBUTES,
     TRACER,
@@ -36,10 +37,6 @@ from .types import Range
 
 if TYPE_CHECKING:
     from .client import StorageClient
-
-# Threshold for file size to decide download behavior (512MB) when local cache is not enabled.
-# If a file's size exceeds this threshold, the file is not downloaded to memory.
-IN_MEMORY_FILE_SIZE_THRESHOLD = 512 * 1024 * 1024  # 512MB
 
 logger = logging.Logger(__name__)
 
@@ -195,6 +192,7 @@ class ObjectFile(IO):
         mode: str = "rb",
         encoding: Optional[str] = None,
         disable_read_cache: bool = False,
+        memory_load_limit: int = MEMORY_LOAD_LIMIT,
     ):
         """
         Initialize the ObjectFile instance.
@@ -204,8 +202,8 @@ class ObjectFile(IO):
         :param mode: The file mode ('r', 'w', 'rb' or 'wb'). Defaults to 'rb'.
         :param encoding: The encoding to use for text mode. Defaults to None.
         :param disable_read_cache: When set to True, disables caching for the file content. This parameter is only applicable when the mode is "r" or "rb".
+        :param memory_load_limit: Size limit in bytes for loading files into memory. Defaults to 512MB. This parameter is only applicable when the mode is "r" or "rb".
         """
-
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("ObjectFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
         self._trace_span.set_attribute("profile", storage_client.profile)
@@ -225,6 +223,7 @@ class ObjectFile(IO):
         self._remote_path = remote_path
         self._encoding = encoding
         self._cache_manager = storage_client._cache_manager
+        self._memory_load_limit = memory_load_limit
 
         if disable_read_cache:
             self._cache_manager = None
@@ -329,7 +328,7 @@ class ObjectFile(IO):
         """
         file_size = self._object_metadata.content_length
 
-        if file_size > IN_MEMORY_FILE_SIZE_THRESHOLD:
+        if file_size > self._memory_load_limit:
             return self._open_large_file()
 
         try:
@@ -351,7 +350,7 @@ class ObjectFile(IO):
         if self._mode == "r":
             raise ValueError(
                 f"Failed to open large file {self._remote_path} in text mode; "
-                f'use mode "rb" to open files larger than {IN_MEMORY_FILE_SIZE_THRESHOLD}.'
+                f'use mode "rb" to open files larger than {self._memory_load_limit}.'
             )
         self._file = RemoteFileReader(self._remote_path, file_size, self._storage_client)
         self._download_complete.set()
@@ -486,14 +485,14 @@ class ObjectFile(IO):
             temp_file_path = self._get_temp_file_path()
             try:
                 self._storage_client.download_file(self._remote_path, temp_file_path)
-                if os.path.getsize(temp_file_path) > IN_MEMORY_FILE_SIZE_THRESHOLD:
+                if os.path.getsize(temp_file_path) > self._memory_load_limit:
                     logger.warning(
                         "The append mode ('a' or 'ab') is not suitable for appending to large files. "
                         "The file at '%s' exceeds the recommended size threshold "
                         "(%d bytes). This operation will result in poor performance "
                         "due to the need to download and re-upload the entire file.",
                         self._remote_path,
-                        IN_MEMORY_FILE_SIZE_THRESHOLD,
+                        self._memory_load_limit,
                     )
             except FileNotFoundError:
                 pass
