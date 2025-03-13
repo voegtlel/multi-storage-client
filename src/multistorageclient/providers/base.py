@@ -68,7 +68,10 @@ class BaseStorageProvider(StorageProvider):
 
     def get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         path = self._realpath(path)
-        return self._get_object_metadata(path, strict=strict)
+        metadata = self._get_object_metadata(path, strict=strict)
+        # Remove base_path from key
+        metadata.key = metadata.key.replace(self._base_path, "", 1).lstrip("/")
+        return metadata
 
     def list_objects(
         self,

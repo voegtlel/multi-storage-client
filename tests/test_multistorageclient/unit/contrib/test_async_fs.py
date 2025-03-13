@@ -48,21 +48,21 @@ async def test_multi_async_filesystem(file_storage_config_with_cache):
 
         # test _info on a file
         info = await filesystem._info(test_path)
-        assert info["name"] == filename, f"Expected name {filename}, got {info['name']}"
+        assert info["name"] == test_path, f"Expected name {test_path}, got {info['name']}"
         assert info["type"] == "file"
 
         # test should ignore the first / in the path
         info = await filesystem._info("/" + test_path)
-        assert info["name"] == filename, f"Expected name {filename}, got {info['name']}"
+        assert info["name"] == test_path, f"Expected name {test_path}, got {info['name']}"
         assert info["type"] == "file"
 
         # test _info on a "directory" both with and without an ending "/"
         info = await filesystem._info(test_dir_path)
-        assert info["name"] == dir_path, f"Expected name {dir_path}, got {info['name']}"
+        assert info["name"] == test_dir_path, f"Expected name {test_dir_path}, got {info['name']}"
         assert info["type"] == "directory"
 
         info = await filesystem._info(test_dir_path.removesuffix("/"))
-        assert info["name"] == dir_path, f"Expected name {dir_path}, got {info['name']}"
+        assert info["name"] == test_dir_path, f"Expected name {test_dir_path}, got {info['name']}"
         assert info["type"] == "directory"
 
         # test _open

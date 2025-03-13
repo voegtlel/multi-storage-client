@@ -334,8 +334,8 @@ class MetadataProvider(ABC):
         Add a file to be tracked by the :py:class:`MetadataProvider`. Does not have to be
         reflected in listing until a :py:meth:`MetadataProvider.commit_updates` forces a persist.
 
-        :param path: User-supplied path
-        :param metadata: file metadata
+        :param path: User-supplied virtual path
+        :param metadata: physical file metadata from StorageProvider
         """
         pass
 

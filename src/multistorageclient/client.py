@@ -155,17 +155,18 @@ class StorageClient:
         :param remote_path: The path where the file should be stored in the storage provider.
         :param local_path: The local path of the file to upload.
         """
+        virtual_path = remote_path
         if self._metadata_provider:
             remote_path, exists = self._metadata_provider.realpath(remote_path)
             if exists:
                 raise FileExistsError(
-                    f"The file at path '{remote_path}' already exists; "
+                    f"The file at path '{virtual_path}' already exists; "
                     f"overwriting is not yet allowed when using a metadata provider."
                 )
         self._storage_provider.upload_file(remote_path, local_path)
         if self._metadata_provider:
             metadata = self._storage_provider.get_object_metadata(remote_path)
-            self._metadata_provider.add_file(remote_path, metadata)
+            self._metadata_provider.add_file(virtual_path, metadata)
 
     @retry
     def write(self, path: str, body: bytes) -> None:
@@ -175,26 +176,28 @@ class StorageClient:
         :param path: The path where the object should be written.
         :param body: The content to write to the object.
         """
+        virtual_path = path
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
             if exists:
                 raise FileExistsError(
-                    f"The file at path '{path}' already exists; "
+                    f"The file at path '{virtual_path}' already exists; "
                     f"overwriting is not yet allowed when using a metadata provider."
                 )
         self._storage_provider.put_object(path, body)
         if self._metadata_provider:
             # TODO(NGCDP-3016): Handle eventual consistency of Swiftstack, without wait.
             metadata = self._storage_provider.get_object_metadata(path)
-            self._metadata_provider.add_file(path, metadata)
+            self._metadata_provider.add_file(virtual_path, metadata)
 
     def copy(self, src_path: str, dest_path: str) -> None:
         """
         Copies an object from source to destination in the storage provider.
 
-        :param src_path: The path of the source object to copy.
-        :param dest_path: The path of the destination.
+        :param src_path: The virtual path of the source object to copy.
+        :param dest_path: The virtual path of the destination.
         """
+        virtual_dest_path = dest_path
         if self._metadata_provider:
             src_path, exists = self._metadata_provider.realpath(src_path)
             if not exists:
@@ -203,26 +206,27 @@ class StorageClient:
             dest_path, exists = self._metadata_provider.realpath(dest_path)
             if exists:
                 raise FileExistsError(
-                    f"The file at path '{dest_path}' already exists; "
+                    f"The file at path '{virtual_dest_path}' already exists; "
                     f"overwriting is not yet allowed when using a metadata provider."
                 )
 
         self._storage_provider.copy_object(src_path, dest_path)
         if self._metadata_provider:
             metadata = self._storage_provider.get_object_metadata(dest_path)
-            self._metadata_provider.add_file(dest_path, metadata)
+            self._metadata_provider.add_file(virtual_dest_path, metadata)
 
     def delete(self, path: str) -> None:
         """
         Deletes an object from the storage provider at the specified path.
 
-        :param path: The path of the object to delete.
+        :param path: The virtual path of the object to delete.
         """
+        virtual_path = path
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
             if not exists:
-                raise FileNotFoundError(f"The file at path '{path}' was not found.")
-            self._metadata_provider.remove_file(path)
+                raise FileNotFoundError(f"The file at path '{virtual_path}' was not found.")
+            self._metadata_provider.remove_file(virtual_path)
 
         # Delete the cached file if it exists
         if self._is_cache_enabled():
@@ -301,7 +305,14 @@ class StorageClient:
         :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
         if self._is_posix_file_storage_provider():
-            realpath = self._storage_provider._realpath(path)  # type: ignore
+            if self._metadata_provider:
+                realpath, exists = self._metadata_provider.realpath(path)
+                if not exists:
+                    raise FileNotFoundError(f"The file at path '{path}' was not found.")
+            else:
+                realpath = path
+
+            realpath = self._storage_provider._realpath(realpath)  # type: ignore
             return PosixFile(path=realpath, mode=mode, buffering=buffering, encoding=encoding)
         else:
             return ObjectFile(
