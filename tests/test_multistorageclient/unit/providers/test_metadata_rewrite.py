@@ -119,11 +119,20 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         }
         for path, content in content_dict.items():
             storage_client.write(path, content)
+
+        # Nothing visible until commit_updates
+        assert len(list(storage_client.list(prefix=""))) == 0
+
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.info("file1.txt")
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.read("file1.txt")
+
         storage_client.commit_updates()
 
         assert set([f.key for f in storage_client.list(prefix="")]) == set(content_dict.keys())
 
-        # Verify content
+        # Verify content via info, read, download_file, is_file
         for path, content in content_dict.items():
             metadata = storage_client.info(path)
             assert metadata.key == path
@@ -131,7 +140,6 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
             assert metadata.last_modified is not None
             assert metadata.type == "file"
 
-            print(f"Verifying {path}")
             assert storage_client.read(path) == content
 
             with tempfile.NamedTemporaryFile() as temp_file:
@@ -139,10 +147,8 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
                 with open(temp_file.name, "rb") as f:
                     assert f.read() == content
 
-            # Test is_file
             assert storage_client.is_file(path)
 
-            print(f"Verifying {path} with open()")
             with storage_client.open(path, "rb") as f:
                 assert f.read() == content
 
@@ -165,6 +171,12 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
             temp_file.flush()
             storage_client.upload_file(upload_filename, temp_file.name)
 
+        # Not visible until commit_updates
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.info("file1_copy.txt")
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.read("file1_copy.txt")
+
         storage_client.commit_updates()
 
         assert storage_client.is_file("file1_copy.txt")
@@ -184,5 +196,14 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         # Test delete API
         storage_client.delete("file1_copy.txt")
         storage_client.commit_updates()
+        del content_dict["file1_copy.txt"]
 
         assert not storage_client.is_file("file1_copy.txt")
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.info("file1_copy.txt")
+        with pytest.raises(FileNotFoundError):
+            _ = storage_client.read("file1_copy.txt")
+
+        # call commit_updates again, should be a no-op
+        storage_client.commit_updates()
+        assert set([f.key for f in storage_client.list(prefix="")]) == set(content_dict.keys())
