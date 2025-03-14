@@ -38,7 +38,7 @@ from .types import (
     StorageProviderConfig,
 )
 from .utils import expand_env_vars, import_class, merge_dictionaries_no_overwrite
-from .rclone import read_rclone_config, DEFAULT_RCLONE_CONFIG_FILE_SEARCH_PATHS
+from .rclone import read_rclone_config
 
 STORAGE_PROVIDER_MAPPING = {
     "file": "PosixFileStorageProvider",
@@ -404,12 +404,6 @@ class StorageClientConfig:
 
         # If no config file is found, use a default profile.
         if not msc_config_file and not rclone_config_file:
-            search_paths = DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS + DEFAULT_RCLONE_CONFIG_FILE_SEARCH_PATHS
-            logger.warning(
-                "Cannot find the MSC config or rclone config file in any of the locations: %s",
-                search_paths,
-            )
-
             return StorageClientConfig.from_dict(DEFAULT_POSIX_PROFILE, profile=profile)
 
         # Merge config files.
