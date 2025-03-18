@@ -97,23 +97,21 @@ class StorageClient:
             if not exists:
                 raise FileNotFoundError(f"The file at path '{path}' was not found.")
 
+        # Never cache range-read requests
+        if byte_range:
+            return self._storage_provider.get_object(path, byte_range=byte_range)
+
         # Read from cache if the file exists
         if self._is_cache_enabled():
             assert self._cache_manager is not None
             cache_path = self._build_cache_path(path)
             data = self._cache_manager.read(cache_path)
 
-            if data:
-                if byte_range:
-                    return data[byte_range.offset : byte_range.offset + byte_range.size]
-                else:
-                    return data
-            else:
-                # Only cache the entire file
-                if byte_range is None:
-                    data = self._storage_provider.get_object(path)
-                    self._cache_manager.set(cache_path, data)
-                    return data
+            if data is None:
+                data = self._storage_provider.get_object(path)
+                self._cache_manager.set(cache_path, data)
+
+            return data
 
         return self._storage_provider.get_object(path, byte_range=byte_range)
 
