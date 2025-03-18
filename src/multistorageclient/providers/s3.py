@@ -54,6 +54,8 @@ IO_CHUNK_SIZE = 128 * MB
 MAX_CONCURRENCY = 16
 PROVIDER = "s3"
 
+EXPRESS_ONEZONE_STORAGE_CLASS = "EXPRESS_ONEZONE"
+
 
 class StaticS3CredentialsProvider(CredentialsProvider):
     """
@@ -115,6 +117,7 @@ class S3StorageProvider(BaseStorageProvider):
         self._region_name = region_name
         self._endpoint_url = endpoint_url
         self._credentials_provider = credentials_provider
+
         self._signature_version = kwargs.get("signature_version", "")
         self._s3_client = self._create_s3_client(
             request_checksum_calculation=kwargs.get("request_checksum_calculation"),
@@ -131,6 +134,13 @@ class S3StorageProvider(BaseStorageProvider):
             io_chunksize=int(kwargs.get("io_chunk_size", IO_CHUNK_SIZE)),
             use_threads=True,
         )
+
+    def _is_directory_bucket(self, bucket: str) -> bool:
+        """
+        Determines if the bucket is a directory bucket based on bucket name.
+        """
+        # S3 Express buckets have a specific naming convention
+        return "--x-s3" in bucket
 
     def _create_s3_client(
         self,
@@ -165,6 +175,7 @@ class S3StorageProvider(BaseStorageProvider):
                 response_checksum_validation=response_checksum_validation,
             ),
         }
+
         if self._endpoint_url:
             options["endpoint_url"] = self._endpoint_url
 
@@ -305,10 +316,23 @@ class S3StorageProvider(BaseStorageProvider):
                 )
 
     def _put_object(self, path: str, body: bytes) -> None:
+        """
+        Uploads an object to the specified S3 path.
+
+        :param path: The S3 path where the object will be uploaded.
+        :param body: The content of the object as bytes.
+        """
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:
-            self._s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+            kwargs = {
+                "Bucket": bucket,
+                "Key": key,
+                "Body": body,
+            }
+            if self._is_directory_bucket(bucket):
+                kwargs["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
+            self._s3_client.put_object(**kwargs)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -447,6 +471,7 @@ class S3StorageProvider(BaseStorageProvider):
                             content_length=response_object["Size"],
                             last_modified=response_object["LastModified"],
                             etag=response_object["ETag"].strip('"'),
+                            storage_class=response_object.get("StorageClass"),  # Pass storage_class
                         )
                     else:
                         return
@@ -467,11 +492,15 @@ class S3StorageProvider(BaseStorageProvider):
             bucket, key = split_path(remote_path)
 
             def _invoke_api() -> None:
+                extra_args = {}
+                if self._is_directory_bucket(bucket):
+                    extra_args["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
                 self._s3_client.upload_file(
                     Filename=f,
                     Bucket=bucket,
                     Key=key,
                     Config=self._transfer_config,
+                    ExtraArgs=extra_args,
                 )
 
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
@@ -492,11 +521,15 @@ class S3StorageProvider(BaseStorageProvider):
             bucket, key = split_path(remote_path)
 
             def _invoke_api() -> None:
+                extra_args = {}
+                if self._is_directory_bucket(bucket):
+                    extra_args["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
                 self._s3_client.upload_fileobj(
                     Fileobj=f,
                     Bucket=bucket,
                     Key=key,
                     Config=self._transfer_config,
+                    ExtraArgs=extra_args,
                 )
 
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)

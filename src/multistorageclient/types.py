@@ -84,6 +84,8 @@ class ObjectMetadata:
     content_type: Optional[str] = field(default=None)
     #: The entity tag (ETag) of the object.
     etag: Optional[str] = field(default=None)
+    #: The storage class of the object.
+    storage_class: Optional[str] = field(default=None)
 
     @staticmethod
     def from_dict(data: dict) -> "ObjectMetadata":
@@ -102,6 +104,7 @@ class ObjectMetadata:
                 type=data.get("type", "file"),  # default to file
                 content_type=data.get("content_type"),
                 etag=data.get("etag"),
+                storage_class=data.get("storage_class"),
             )
         except KeyError as e:
             raise ValueError("Missing required field.") from e
