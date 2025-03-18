@@ -43,8 +43,6 @@ from ..utils import split_path
 from .base import BaseStorageProvider
 
 BOTO3_MAX_POOL_CONNECTIONS = 32
-BOTO3_CONNECT_TIMEOUT = 10
-BOTO3_READ_TIMEOUT = 10
 
 MB = 1024 * 1024
 
@@ -123,8 +121,8 @@ class S3StorageProvider(BaseStorageProvider):
             request_checksum_calculation=kwargs.get("request_checksum_calculation"),
             response_checksum_validation=kwargs.get("response_checksum_validation"),
             max_pool_connections=kwargs.get("max_pool_connections", BOTO3_MAX_POOL_CONNECTIONS),
-            connect_timeout=kwargs.get("connect_timeout", BOTO3_CONNECT_TIMEOUT),
-            read_timeout=kwargs.get("read_timeout", BOTO3_READ_TIMEOUT),
+            connect_timeout=kwargs.get("connect_timeout"),
+            read_timeout=kwargs.get("read_timeout"),
             retries=kwargs.get("retries"),
         )
         self._transfer_config = TransferConfig(
@@ -147,8 +145,8 @@ class S3StorageProvider(BaseStorageProvider):
         request_checksum_calculation: Optional[str] = None,
         response_checksum_validation: Optional[str] = None,
         max_pool_connections: int = BOTO3_MAX_POOL_CONNECTIONS,
-        connect_timeout: int = BOTO3_CONNECT_TIMEOUT,
-        read_timeout: int = BOTO3_READ_TIMEOUT,
+        connect_timeout: Union[float, int, None] = None,
+        read_timeout: Union[float, int, None] = None,
         retries: Optional[Dict[str, Any]] = None,
     ):
         """
