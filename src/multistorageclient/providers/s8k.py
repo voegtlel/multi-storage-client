@@ -26,6 +26,10 @@ class S8KStorageProvider(S3StorageProvider):
     def __init__(self, *args, **kwargs):
         kwargs["request_checksum_calculation"] = "when_required"
         kwargs["response_checksum_validation"] = "when_required"
+
+        # "legacy" retry mode is required for SwiftStack (retry on HTTP 429 errors)
+        kwargs["retries"] = kwargs.get("retries", {}) | {"mode": "legacy"}
+
         super().__init__(*args, **kwargs)
 
         # override the provider name from "s3"
