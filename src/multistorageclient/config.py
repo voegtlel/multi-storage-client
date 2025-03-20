@@ -298,7 +298,10 @@ class StorageClientConfigLoader:
             size_mb = self._cache_dict.get("size_mb", DEFAULT_CACHE_SIZE_MB)
             os.makedirs(cache_location, exist_ok=True)
             use_etag = self._cache_dict.get("use_etag", False)
-            cache_config = CacheConfig(location=cache_location, size_mb=size_mb, use_etag=use_etag)
+            eviction_policy = self._cache_dict.get("eviction_policy", "fifo")
+            cache_config = CacheConfig(
+                location=cache_location, size_mb=size_mb, use_etag=use_etag, eviction_policy=eviction_policy
+            )
 
         # retry options
         retry_config_dict = self._profile_dict.get("retry", None)

@@ -75,6 +75,7 @@ CACHE_SCHEMA = {
         "location": {"type": "string"},
         "use_etag": {"type": "boolean"},
         "size_mb": {"type": "integer"},
+        "eviction_policy": {"type": "string", "enum": ["lru", "fifo", "random"]},
     },
     "additionalProperties": False,
 }

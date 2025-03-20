@@ -21,11 +21,14 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 from filelock import BaseFileLock, FileLock, Timeout
 
 from .instrumentation.utils import CacheManagerMetricsHelper
+from .caching.cache_item import CacheItem
+from .caching.eviction_policy import FIFO, EvictionPolicyFactory
+import time
 
 DEFAULT_CACHE_SIZE_MB = 10_000  # 10 GB
 DEFAULT_CACHE_REFRESH_INTERVAL = 300  # 5 minutes
@@ -34,16 +37,31 @@ DEFAULT_LOCK_TIMEOUT = 600  # 10 minutes
 
 @dataclass
 class CacheConfig:
-    """
-    Configuration for the :py:class:`CacheManager`.
+    """Configuration for the cache.
+
+    :param location: The directory where the cache is stored.
+    :param size_mb: The maximum size of the cache in megabytes.
+    :param use_etag: Use etag to update the cached files.
+    :param eviction_policy: Cache eviction policy.
     """
 
-    #: The directory where the cache is stored.
     location: str
-    #: The maximum size of the cache in megabytes.
     size_mb: int
-    #: Use etag to update the cached files. Default is ``True``.
     use_etag: bool = True
+    eviction_policy: str = FIFO
+
+    @staticmethod
+    def create(location: str, size_mb: int, use_etag: bool = True, eviction_policy: str = FIFO) -> "CacheConfig":
+        """Create a CacheConfig instance.
+
+        :param location: The directory where the cache is stored.
+        :param size_mb: The maximum size of the cache in megabytes.
+        :param use_etag: Use etag to update the cached files.
+        :param eviction_policy: Cache eviction policy.
+
+        :return: A CacheConfig instance.
+        """
+        return CacheConfig(location=location, size_mb=size_mb, use_etag=use_etag, eviction_policy=eviction_policy)
 
     def size_bytes(self) -> int:
         """
@@ -68,13 +86,17 @@ class CacheManager:
         self._cache_refresh_interval = cache_refresh_interval
         self._last_refresh_time = datetime.now()
 
-        # Metrics
-        self._metrics_helper = CacheManagerMetricsHelper()
+        # Create eviction policy using factory
+        policy: str = self._cache_config.eviction_policy  # type: ignore
+        self._eviction_policy = EvictionPolicyFactory.create(policy)
 
         # Create cache directory
         self._cache_dir = cache_config.location
         os.makedirs(self._cache_dir, exist_ok=True)
         os.makedirs(os.path.join(self._cache_dir, self._profile), exist_ok=True)
+
+        # Metrics
+        self._metrics_helper = CacheManagerMetricsHelper()
 
         # Populate cache with existing files in the cache directory
         self._cache_refresh_lock_file = FileLock(
@@ -157,8 +179,12 @@ class CacheManager:
         try:
             try:
                 if self.contains(key):
-                    with open(self.get_cache_file_path(key), "rb") as fp:
-                        return fp.read()
+                    file_path = self.get_cache_file_path(key)
+                    with open(file_path, "rb") as fp:
+                        data = fp.read()
+                    # Update access time based on eviction policy
+                    self.update_access_time(file_path)
+                    return data
             except OSError:
                 pass
 
@@ -181,7 +207,10 @@ class CacheManager:
         try:
             try:
                 if self.contains(key):
-                    return open(self.get_cache_file_path(key), mode)
+                    file_path = self.get_cache_file_path(key)
+                    # Update access time based on eviction policy
+                    self.update_access_time(file_path)
+                    return open(file_path, mode)
             except OSError:
                 pass
 
@@ -218,6 +247,9 @@ class CacheManager:
                 os.rename(src=temp_file_path, dst=file_path)
                 # Only allow the owner to read and write the file
                 os.chmod(file_path, mode=stat.S_IRUSR | stat.S_IWUSR)
+
+            # update access time if applicable
+            self.update_access_time(file_path)
 
             # Refresh cache after a few minutes
             if self._should_refresh_cache():
@@ -271,44 +303,42 @@ class CacheManager:
 
     def _evict_files(self) -> None:
         """
-        Evict cache entries based on the last modification time.
+        Evict cache entries based on the configured eviction policy.
         """
-        # list of (file name, last modified time, file size)
-        file_paths: List[Tuple[str, float, Optional[int]]] = []
+        cache_items: List[CacheItem] = []
 
         # Traverse the directory and subdirectories
         for dirpath, _, filenames in os.walk(self._cache_dir):
             for file_name in filenames:
                 file_path = os.path.join(dirpath, file_name)
-                # Skip lock and hidden files
+                # Skip lock files and hidden files
                 if file_name.endswith(".lock") or file_name.startswith("."):
                     continue
                 try:
                     if os.path.isfile(file_path):
-                        mtime = os.path.getmtime(file_path)
-                        fsize = self._get_file_size(file_path)
-                        file_paths.append((file_path, mtime, fsize))
+                        cache_item = CacheItem.from_path(file_path, file_name)
+                        if cache_item and cache_item.file_size:
+                            cache_items.append(cache_item)
                 except OSError:
                     # Ignore if file has already been evicted
                     pass
 
-        # Sort the files based on the last modified time
-        file_paths.sort(key=lambda tup: tup[1])
+        # Sort items according to eviction policy
+        cache_items = self._eviction_policy.sort_items(cache_items)
 
         # Rebuild the cache
         cache = OrderedDict()
         cache_size = 0
-        for file_path, _, file_size in file_paths:
-            if file_size:
-                cache[file_path] = file_size
-                cache_size += file_size
+        for item in cache_items:
+            cache[item.file_path] = item.file_size
+            cache_size += item.file_size
 
         # Evict old files if necessary in case the existing files exceed cache size
         while cache_size > self._max_cache_size:
-            # Pop the first (oldest) item in the OrderedDict (LRU eviction)
+            # Pop the first item in the OrderedDict (according to policy's sorting)
             oldest_file, file_size = cache.popitem(last=False)
             cache_size -= file_size
-            self._delete(oldest_file)
+            self._delete(os.path.basename(oldest_file))
 
     def refresh_cache(self) -> bool:
         """
@@ -336,3 +366,21 @@ class CacheManager:
         hashed_name = self._get_cache_key(key)
         lock_file = os.path.join(self._cache_dir, self._profile, f".{hashed_name}.lock")
         return FileLock(lock_file, timeout=DEFAULT_LOCK_TIMEOUT)
+
+    def update_access_time(self, file_path: str) -> None:
+        """Update access time to current time for LRU policy.
+
+        Only updates atime, preserving mtime for FIFO ordering.
+        This is used to track when files are accessed for LRU eviction.
+
+        :param file_path: Path to the file to update access time.
+        """
+        current_time = time.time()
+        try:
+            # Only update atime, preserve mtime for FIFO ordering
+            stat = os.stat(file_path)
+            os.utime(file_path, (current_time, stat.st_mtime))
+        except (OSError, FileNotFoundError):
+            # File might be deleted by another process or have permission issues
+            # Just continue without updating the access time
+            pass
