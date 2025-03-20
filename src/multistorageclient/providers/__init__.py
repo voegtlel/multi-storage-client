@@ -13,49 +13,90 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+import logging
+from typing import Any, Dict
+
 from .manifest_metadata import ManifestMetadataProvider
 from .posix_file import PosixFileStorageProvider
 
-try:
-    from .azure import AzureBlobStorageProvider, StaticAzureCredentialsProvider
-except Exception:
-    pass
+# Dictionary to hold lazy imported classes
+_imports: Dict[str, Any] = {}
 
-try:
-    from .gcs import GoogleStorageProvider
-except Exception:
-    pass
+logger = logging.getLogger(__name__)
 
-try:
-    from .oci import OracleStorageProvider
-except Exception:
-    pass
 
-try:
-    from .s3 import S3StorageProvider, StaticS3CredentialsProvider
-except Exception:
-    pass
+def __getattr__(name: str) -> Any:
+    """Lazily import attributes when accessed."""
+    if name in _imports:
+        return _imports[name]
 
-try:
-    from .s8k import S8KStorageProvider
-except Exception:
-    pass
+    # Map class names to their respective modules
+    module_map = {
+        # Azure
+        "AzureBlobStorageProvider": ".azure",
+        "StaticAzureCredentialsProvider": ".azure",
+        # GCS
+        "GoogleStorageProvider": ".gcs",
+        # Oracle
+        "OracleStorageProvider": ".oci",
+        # S3
+        "S3StorageProvider": ".s3",
+        "StaticS3CredentialsProvider": ".s3",
+        # S8K
+        "S8KStorageProvider": ".s8k",
+        # AIS
+        "AIStoreStorageProvider": ".ais",
+        "StaticAISCredentialProvider": ".ais",
+    }
 
-try:
-    from .ais import AIStoreStorageProvider, StaticAISCredentialProvider
-except Exception:
-    pass
+    if name in module_map:
+        module_name = module_map[name]
+        try:
+            module = importlib.import_module(module_name, package=__package__)
+            obj = getattr(module, name)
+            _imports[name] = obj
+            return obj
+        except ModuleNotFoundError:
+            # Map modules to their pip package requirements
+            package_map = {
+                ".azure": "azure-storage-blob",
+                ".gcs": "google-cloud-storage",
+                ".oci": "oci",
+                ".s3": "boto3",
+                ".s8k": "boto3",
+                ".ais": "aistore",
+            }
+
+            required_package = package_map.get(module_name, module_name.lstrip("."))
+            provider_name = {
+                "azure-storage-blob": "Azure Blob Storage",
+                "google-cloud-storage": "Google Cloud Storage",
+                "oci": "Oracle Cloud Infrastructure",
+                "boto3": "Amazon S3 or other S3-compatible storage",
+                "aistore": "NVIDIA AIStore",
+            }.get(required_package, required_package)
+
+            # Write a helpful message to stderr
+            logger.error(
+                "\n".join(
+                    [
+                        "",
+                        f"Accessing {provider_name} requires additional dependencies.",
+                        "To use this storage provider, please install the optional dependency:",
+                        "",
+                        f"    pip install multi-storage-client[{required_package}]",
+                        "",
+                    ]
+                )
+            )
+            # Re-raise the original exception
+            raise
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
-    "S3StorageProvider",
-    "S8KStorageProvider",
-    "StaticS3CredentialsProvider",
-    "GoogleStorageProvider",
-    "PosixFileStorageProvider",
-    "OracleStorageProvider",
     "ManifestMetadataProvider",
-    "StaticAzureCredentialsProvider",
-    "AzureBlobStorageProvider",
-    "AIStoreStorageProvider",
-    "StaticAISCredentialProvider",
+    "PosixFileStorageProvider",
 ]

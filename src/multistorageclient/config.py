@@ -23,7 +23,7 @@ import yaml
 
 from .cache import DEFAULT_CACHE_SIZE_MB, CacheConfig, CacheManager
 from .instrumentation import setup_opentelemetry
-from .providers import ManifestMetadataProvider
+from .providers.manifest_metadata import ManifestMetadataProvider
 from .schema import validate_config
 from .types import (
     DEFAULT_POSIX_PROFILE,
