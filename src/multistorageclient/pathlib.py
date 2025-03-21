@@ -333,7 +333,7 @@ class MultiStoragePath:
 
     def walk(self, top_down=True, on_error=None, follow_symlinks=False):
         if self._storage_client.is_default_profile():
-            return Path(self._internal_path).walk(top_down, on_error, follow_symlinks)
+            return Path(self._internal_path).walk(top_down, on_error, follow_symlinks)  # pyright: ignore[reportAttributeAccessIssue]
         raise NotImplementedError("MultiStoragePath.walk() is unsupported for remote storage paths")
 
     # Creating files and directories

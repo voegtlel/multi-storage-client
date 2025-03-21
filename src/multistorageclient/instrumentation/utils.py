@@ -406,7 +406,7 @@ def file_tracer(func: Callable) -> Callable:
                 current_lines = _get_span_attribute(current_op_span, "lines_written", 0)
                 current_op_span.set_attribute("lines_written", current_lines + lines_written)  # pyright: ignore[reportOptionalMemberAccess]
 
-            with trace.use_span(current_op_span):  # pyright: ignore[reportArgumentType]
+            with trace.use_span(current_op_span):  # pyright: ignore[reportArgumentType, reportCallIssue]
                 result = func(*args, **kwargs)
 
                 if function_name in ["read", "readline"]:
@@ -448,7 +448,7 @@ def _generic_tracer(func: Callable, class_name: str) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Use the class_name captured at decoration time
         full_function_name = f"{class_name}.{func.__name__}"
-        with TRACER.start_as_current_span(full_function_name) as span:
+        with TRACER.start_as_current_span(full_function_name) as span:  # pyright: ignore[reportCallIssue]
             span.set_attribute("function_name", full_function_name)
 
             for k, v in DEFAULT_ATTRIBUTES.items():
