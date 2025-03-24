@@ -120,6 +120,7 @@ class StorageClient:
         Retrieves metadata or information about an object stored at the specified path.
 
         :param path: The path to the object for which metadata or information is being retrieved.
+        :param strict: If True, performs additional validation to determine whether the path refers to a directory.
 
         :return: A dictionary containing metadata or information about the object.
         """

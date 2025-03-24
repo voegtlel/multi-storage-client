@@ -14,11 +14,19 @@
 # limitations under the License.
 
 import os
+from typing import Union
 
-from ...types import MSC_PROTOCOL
+from ...pathlib import MultiStoragePath as Path
 from .path import *  # noqa: F403
 
 
-def makedirs(name: str, mode: int = 0o777, exist_ok: bool = False) -> None:
-    if not name.startswith(MSC_PROTOCOL):
-        return os.makedirs(name=name, mode=mode, exist_ok=exist_ok)
+def makedirs(name: Union[str, os.PathLike], mode: int = 0o777, exist_ok: bool = False) -> None:
+    """
+    Create a directory and all its parents.
+
+    Args:
+        name: The path to the directory to create.
+        mode: The mode to set for the directory.
+        exist_ok: If True, do not raise an error if the directory already exists.
+    """
+    return Path(name).mkdir(mode=mode, parents=True, exist_ok=exist_ok)

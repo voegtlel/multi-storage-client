@@ -13,13 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
 from pathlib import Path, PurePosixPath
-from typing import List
+from typing import List, Union
 
 from .client import StorageClient
 from .shortcuts import resolve_storage_client
 from .types import MSC_PROTOCOL
 from .utils import join_paths
+
+logger = logging.Logger(__name__)
 
 
 class MultiStoragePath:
@@ -38,9 +42,9 @@ class MultiStoragePath:
     _storage_client: StorageClient
     _path: str
 
-    def __init__(self, path: str):
-        self._path = path
-        self._storage_client, relative_path = resolve_storage_client(path)
+    def __init__(self, path: Union[str, os.PathLike]):
+        self._path = str(path)
+        self._storage_client, relative_path = resolve_storage_client(self._path)
         self._internal_path = PurePosixPath(relative_path)
 
         if self._storage_client.is_default_profile():
@@ -232,24 +236,40 @@ class MultiStoragePath:
             except FileNotFoundError:
                 return False
 
-    def is_file(self) -> bool:
+    def is_file(self, strict: bool = True) -> bool:
         if self._storage_client.is_default_profile():
             return Path(self._internal_path).is_file()
         else:
             try:
-                meta = self._storage_client.info(str(self._internal_path))
+                # If the path ends with a "/", assume it is a directory.
+                path = str(self._internal_path)
+                if path.endswith("/"):
+                    return False
+
+                meta = self._storage_client.info(path, strict=strict)
                 return meta.type == "file"
             except FileNotFoundError:
                 return False
+            except Exception as e:
+                logger.warning("Error occurred while fetching file info at %s, caused by: %s", self._internal_path, e)
+                return False
 
-    def is_dir(self) -> bool:
+    def is_dir(self, strict: bool = True) -> bool:
         if self._storage_client.is_default_profile():
             return Path(self._internal_path).is_dir()
         else:
             try:
-                meta = self._storage_client.info(str(self._internal_path))
+                # If the path does not end with a "/", append it to ensure the path is a directory.
+                path = str(self._internal_path)
+                if not path.endswith("/"):
+                    path += "/"
+
+                meta = self._storage_client.info(path, strict=strict)
                 return meta.type == "directory"
             except FileNotFoundError:
+                return False
+            except Exception as e:
+                logger.warning("Error occurred while fetching file info at %s, caused by: %s", self._internal_path, e)
                 return False
 
     def is_symlink(self):

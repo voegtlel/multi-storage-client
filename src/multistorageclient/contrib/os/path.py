@@ -14,30 +14,25 @@
 # limitations under the License.
 
 import logging
-import os.path as _os_path
+import os
+from typing import Union
 
-from ...shortcuts import resolve_storage_client
-from ...types import MSC_PROTOCOL
+from ...pathlib import MultiStoragePath as Path
 
 logger = logging.Logger(__name__)
 
 
-def exists(path: str) -> bool:
+def exists(path: Union[str, os.PathLike]) -> bool:
     """
     Check if a given path exists.
 
     :param path: The path to check. It can be a local filesystem path or a path prefixed with a custom protocol (msc://).
     :return: True if the path exists, False otherwise.
     """
-    if path.startswith(MSC_PROTOCOL):
-        if isfile(path):
-            return True
-        return isdir(path)
-    else:
-        return _os_path.exists(path)
+    return Path(path).exists()
 
 
-def isdir(path: str, strict: bool = True) -> bool:
+def isdir(path: Union[str, os.PathLike], strict: bool = True) -> bool:
     """
     Check if a given path is a directory.
 
@@ -47,44 +42,14 @@ def isdir(path: str, strict: bool = True) -> bool:
                    additional latency due to extra API calls. Defaults to True.
     :return: True if the path is a directory, False otherwise.
     """
-    if path.startswith(MSC_PROTOCOL):
-        if strict:
-            storage_client, file_path = resolve_storage_client(path)
-            try:
-                # Append trailing slash
-                if not path.endswith("/"):
-                    file_path += "/"
-                meta = storage_client.info(file_path)
-                return meta.type == "directory"
-            except FileNotFoundError:
-                return False
-            except Exception as e:
-                logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
-                return False
-        else:
-            return not isfile(path)
-    else:
-        return _os_path.isdir(path)
+    return Path(path).is_dir(strict=strict)
 
 
-def isfile(path: str) -> bool:
+def isfile(path: Union[str, os.PathLike]) -> bool:
     """
     Check if a given path is a file.
 
     :param path: The path to check. It can be a local filesystem path or a path prefixed with a custom protocol (msc://).
     :return: True if the path is a file, False otherwise.
     """
-    if path.startswith(MSC_PROTOCOL):
-        storage_client, file_path = resolve_storage_client(path)
-        try:
-            if path.endswith("/"):
-                return False
-            meta = storage_client.info(file_path, strict=False)
-            return meta.type == "file"
-        except FileNotFoundError:
-            return False
-        except Exception as e:
-            logger.warning("Error occurred while fetching file info at %s, caused by: %s", path, e)
-            return False
-    else:
-        return _os_path.isfile(path)
+    return Path(path).is_file(strict=False)
