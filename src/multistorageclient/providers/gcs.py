@@ -19,7 +19,7 @@ import tempfile
 import time
 from typing import IO, Any, Callable, Iterator, Optional, Union
 
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, GoogleAPICallError
 from google.cloud import storage
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
@@ -118,12 +118,18 @@ class GoogleStorageProvider(BaseStorageProvider):
             if operation == "GET" and object_size is None:
                 object_size = len(result)
             return result
-        except NotFound:
-            status_code = 404
-            raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
+        except GoogleAPICallError as error:
+            status_code = error.code if error.code else -1
+            error_info = f"status_code: {status_code}, message: {error.message}"
+            if status_code == 404:
+                raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
+            else:
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            raise RuntimeError(
+                f"Failed to {operation} object(s) at {bucket}/{key}. error_type: {type(error).__name__}"
+            ) from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(

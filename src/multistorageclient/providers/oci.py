@@ -142,18 +142,28 @@ class OracleStorageProvider(BaseStorageProvider):
             return result
         except ServiceError as error:
             status_code = error.status
+            request_id = error.request_id
+            endpoint = error.request_endpoint
+            error_info = f"request_id: {request_id}, endpoint: {endpoint}, status_code: {status_code}"
+
             if status_code == 404:
-                raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
+                raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {error_info}")  # pylint: disable=raise-missing-from
             elif status_code == 429:
-                raise RetryableError(f"Too many request to {operation} object(s) at {bucket}/{key}.") from error
+                raise RetryableError(
+                    f"Too many request to {operation} object(s) at {bucket}/{key}. {error_info}"
+                ) from error
             else:
-                raise RuntimeError("Failed to {operation} object(s) at {bucket}/{key}") from error
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
         except (ConnectionError, ChunkedEncodingError, ContentDecodingError) as error:
             status_code = -1
-            raise RetryableError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            raise RetryableError(
+                f"Failed to {operation} object(s) at {bucket}/{key}, error type: {type(error).__name__}"
+            ) from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            raise RuntimeError(
+                f"Failed to {operation} object(s) at {bucket}/{key}, error type: {type(error).__name__}"
+            ) from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(

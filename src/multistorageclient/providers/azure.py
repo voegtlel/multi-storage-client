@@ -19,7 +19,7 @@ import tempfile
 import time
 from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import HttpResponseError, AzureError
 from azure.storage.blob import BlobPrefix, BlobServiceClient
 
 from ..types import (
@@ -162,12 +162,22 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             if operation == "GET" and object_size is None:
                 object_size = len(result)
             return result
-        except ResourceNotFoundError:
-            status_code = 404
-            raise FileNotFoundError(f"Object {container}/{blob} does not exist.")  # pylint: disable=raise-missing-from
+        except HttpResponseError as error:
+            status_code = error.status_code if error.status_code else -1
+            error_info = f"status_code: {error.status_code}, reason: {error.reason}"
+            if status_code == 404:
+                raise FileNotFoundError(f"Object {container}/{blob} does not exist.")  # pylint: disable=raise-missing-from
+            else:
+                raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}. {error_info}") from error
+        except AzureError as error:
+            status_code = -1
+            error_info = f"message: {error.message}"
+            raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}. {error_info}") from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}") from error
+            raise RuntimeError(
+                f"Failed to {operation} object(s) at {container}/{blob}. error_type: {type(error).__name__}"
+            ) from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(

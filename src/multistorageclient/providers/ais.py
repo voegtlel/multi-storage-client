@@ -175,16 +175,21 @@ class AIStoreStorageProvider(BaseStorageProvider):
             return result
         except AISError as error:
             status_code = error.status_code
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            error_info = f"status_code: {status_code}, message: {error.message}"
+            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
         except HTTPError as error:
             status_code = error.response.status_code
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
             else:
-                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+                raise RuntimeError(
+                    f"Failed to {operation} object(s) at {bucket}/{key}, error type: {type(error).__name__}"
+                ) from error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}") from error
+            raise RuntimeError(
+                f"Failed to {operation} object(s) at {bucket}/{key}, error type: {type(error).__name__}"
+            ) from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(
