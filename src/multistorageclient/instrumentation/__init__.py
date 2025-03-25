@@ -17,16 +17,14 @@
 
 import logging
 import threading
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Optional, Union
 
 from opentelemetry import metrics, trace
 
-
 # Try importing optional observability dependencies
 try:
+    import datasketches  # noqa: F401
     import requests
-    from requests.adapters import HTTPAdapter, Retry
-
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import (
         ConsoleMetricExporter,
@@ -37,6 +35,7 @@ try:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.sdk.trace.sampling import DEFAULT_ON, ParentBased, StaticSampler
+    from requests.adapters import HTTPAdapter, Retry
 
     from .auth import AccessTokenProvider, AccessTokenProviderFactory
 
