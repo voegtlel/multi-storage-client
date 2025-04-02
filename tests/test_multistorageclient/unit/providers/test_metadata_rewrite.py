@@ -40,7 +40,8 @@ class UuidMetadataProvider(MetadataProvider):
             if path.startswith(prefix):
                 yield self._uuid_to_info[u]
 
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
+    def get_object_metadata(self, path: str, include_pending: bool = False) -> ObjectMetadata:
+        assert not include_pending, "Not supported in tests"
         u = self._path_to_uuid.get(path)
         if u is None:
             raise FileNotFoundError(f"Object {path} does not exist.")

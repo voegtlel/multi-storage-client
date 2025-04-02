@@ -297,11 +297,12 @@ class MetadataProvider(ABC):
         pass
 
     @abstractmethod
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
+    def get_object_metadata(self, path: str, include_pending: bool = False) -> ObjectMetadata:
         """
         Retrieves metadata or information about an object stored in the provider.
 
         :param path: The path of the object.
+        :param include_pending: Whether to include metadata that is not yet committed.
 
         :return: A metadata object containing the information about the object.
         """

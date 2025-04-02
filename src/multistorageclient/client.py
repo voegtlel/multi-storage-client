@@ -13,7 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import multiprocessing
 import os
+import queue
+import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from .config import StorageClientConfig
@@ -24,6 +30,8 @@ from .providers.posix_file import PosixFileStorageProvider
 from .retry import retry
 from .types import MSC_PROTOCOL, ObjectMetadata, Range
 from .utils import join_paths
+
+logger = logging.Logger(__name__)
 
 
 @instrumented
@@ -377,3 +385,150 @@ class StorageClient:
     def __setstate__(self, state: Dict[str, Any]) -> None:
         config = state["_config"]
         self._initialize_providers(config)
+
+    def sync_from(self, source_client: "StorageClient", source_path: str = "", target_path: str = "") -> None:
+        """
+        Syncs files from the source storage client to "path/".
+
+        :param source_client: The source storage client.
+        :param source_path: The path to sync from.
+        :param target_path: The path to sync to.
+        """
+        if source_client == self and (source_path.startswith(target_path) or target_path.startswith(source_path)):
+            raise ValueError("Source and target paths cannot overlap on same StorageClient.")
+
+        # Attempt to balance the number of worker processes and threads.
+        cpu_count = multiprocessing.cpu_count()
+        default_processes = "8" if cpu_count > 8 else str(cpu_count)
+        num_worker_processes = int(os.getenv("MSC_NUM_PROCESSES", default_processes))
+        num_worker_threads = int(os.getenv("MSC_NUM_THREADS_PER_PROCESS", max(cpu_count // num_worker_processes, 16)))
+
+        if num_worker_processes == 1:
+            file_queue = queue.Queue(maxsize=2000)
+            result_queue = None
+        else:
+            manager = multiprocessing.Manager()
+            file_queue = manager.Queue(maxsize=2000)
+            # Only need result_queue if using a metadata provider and multiprocessing.
+            result_queue = manager.Queue() if self._metadata_provider else None
+
+        def match_file_metadata(source_info: ObjectMetadata, target_info: ObjectMetadata) -> bool:
+            # If target and source have valid etags defined, use etag and file size to compare.
+            if source_info.etag and target_info.etag:
+                return source_info.etag == target_info.etag and source_info.content_length == target_info.content_length
+            # Else, check file size is the same and the target's last_modified is newer than the source.
+            return (
+                source_info.content_length == target_info.content_length
+                and source_info.last_modified <= target_info.last_modified
+            )
+
+        def producer():
+            """Lists source files and adds them to the queue."""
+            source_iter = iter(source_client.list(prefix=source_path))
+            target_iter = iter(self.list(prefix=target_path))
+
+            source_file = next(source_iter, None)
+            target_file = next(target_iter, None)
+
+            while source_file or target_file:
+                if source_file and target_file:
+                    source_key = source_file.key[len(source_path) :].lstrip("/")
+                    target_key = target_file.key[len(target_path) :].lstrip("/")
+
+                    if source_key < target_key:
+                        file_queue.put(source_file)
+                        source_file = next(source_iter, None)
+                    elif source_key > target_key:
+                        target_file = next(target_iter, None)  # Skip unmatched target file
+                    else:
+                        # Both exist, compare metadata
+                        if not match_file_metadata(source_file, target_file):
+                            file_queue.put(source_file)
+                        source_file = next(source_iter, None)
+                        target_file = next(target_iter, None)
+                elif source_file:
+                    file_queue.put(source_file)
+                    source_file = next(source_iter, None)
+                else:
+                    target_file = next(target_iter, None)
+
+            for _ in range(num_worker_threads * num_worker_processes):
+                file_queue.put(object())  # Signal consumers to stop by a non-ObjectMetadata object
+
+        producer_thread = threading.Thread(target=producer, daemon=True)
+        producer_thread.start()
+
+        if num_worker_processes == 1:
+            # Single process does not require multiprocessing.
+            _sync_worker_process(
+                source_client, source_path, self, target_path, num_worker_threads, file_queue, result_queue
+            )
+        else:
+            with multiprocessing.Pool(processes=num_worker_processes) as pool:
+                pool.apply(
+                    _sync_worker_process,
+                    args=(source_client, source_path, self, target_path, num_worker_threads, file_queue, result_queue),
+                )
+
+        producer_thread.join()
+
+        # Pull from result_queue to collect pending updates from each multiprocessing worker.
+        if result_queue and self._metadata_provider:
+            while not result_queue.empty():
+                target_file_path, physical_metadata = result_queue.get()
+                # Use realpath() to get physical path so metadata provider can
+                # track the logical/physical mapping.
+                phys_path, _ = self._metadata_provider.realpath(target_file_path)
+                physical_metadata.key = phys_path
+                self._metadata_provider.add_file(target_file_path, physical_metadata)
+
+        self.commit_updates()
+
+
+def _sync_worker_process(
+    source_client: StorageClient,
+    source_path: str,
+    target_client: StorageClient,
+    target_path: str,
+    num_worker_threads: int,
+    file_queue: queue.Queue,
+    result_queue: Optional[queue.Queue],
+):
+    """Helper function for sync_from, defined at top-level for multiprocessing."""
+
+    def _sync_consumer() -> None:
+        """Processes files from the queue and copies them."""
+        while True:
+            file_metadata = file_queue.get()
+            if not isinstance(file_metadata, ObjectMetadata):
+                break
+
+            source_key = file_metadata.key[len(source_path) :].lstrip("/")
+            target_file_path = os.path.join(target_path, source_key)
+
+            logger.debug(f"sync {file_metadata.key} -> {target_file_path}")
+            if file_metadata.content_length < MEMORY_LOAD_LIMIT:
+                file_content = source_client.read(file_metadata.key)
+                target_client.write(target_file_path, file_content)
+            else:
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_filename = temp_file.name
+
+                try:
+                    source_client.download_file(file_metadata.key, temp_filename)
+                    target_client.upload_file(target_file_path, temp_filename)
+                finally:
+                    os.remove(temp_filename)  # Ensure the temporary file is removed
+
+            if result_queue:
+                # add tuple of (virtual_path, physical_metadata) to result_queue
+                physical_metadata = target_client._metadata_provider.get_object_metadata(
+                    target_file_path, include_pending=True
+                )
+                result_queue.put((target_file_path, physical_metadata))
+
+    """Worker process that spawns threads to handle syncing."""
+    with ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
+        futures = [executor.submit(_sync_consumer) for _ in range(num_worker_threads)]
+        for future in futures:
+            future.result()  # Ensure all threads complete

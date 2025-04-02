@@ -329,11 +329,16 @@ class ManifestMetadataProvider(MetadataProvider):
         if include_directories and pending_directory:
             yield pending_directory
 
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
-        metadata = self._files.get(path, None)
-        if metadata is None:
+    def get_object_metadata(self, path: str, include_pending: bool = False) -> ObjectMetadata:
+        if path in self._files:
+            if include_pending and path in self._pending_removes:
+                raise FileNotFoundError(f"Object {path} does not exist.")
+            else:
+                return self._files[path]
+        elif include_pending and path in self._pending_adds:
+            return self._pending_adds[path]
+        else:
             raise FileNotFoundError(f"Object {path} does not exist.")
-        return metadata
 
     def glob(self, pattern: str) -> List[str]:
         all_objects = [object.key for object in self.list_objects("")]

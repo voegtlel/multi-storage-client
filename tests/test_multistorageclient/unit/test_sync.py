@@ -1,9 +1,11 @@
+import copy
 import os
 import pytest
 import time
 from typing import Type
 import multistorageclient as msc
 from test_multistorageclient.unit.utils import config, tempdatastore
+from multistorageclient.providers.manifest_metadata import DEFAULT_MANIFEST_BASE_DIR
 
 
 def get_file_timestamp(uri: str) -> float:
@@ -35,13 +37,21 @@ def verify_sync_and_contents(target_url: str, expected_files: dict):
 
 
 @pytest.mark.parametrize(
-    argnames=["temp_data_store_type"],
+    argnames=["temp_data_store_type", "sync_kwargs"],
     argvalues=[
-        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAWSS3Bucket, {}],  # Default settings
+        [tempdatastore.TemporaryAWSS3Bucket, {"max_workers": 1}],  # Serial execution
+        [tempdatastore.TemporaryAWSS3Bucket, {"max_workers": 4}],  # Parallel with 4 workers
     ],
 )
-def test_sync_function(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_sync_function(
+    temp_data_store_type: Type[tempdatastore.TemporaryDataStore],
+    sync_kwargs: dict,
+):
     msc.shortcuts._instance_cache.clear()
+
+    # set environment variables to control multiprocessing
+    os.environ["MSC_NUM_PROCESSES"] = str(sync_kwargs.get("max_workers", 1))
 
     obj_profile = "s3-sync"
     local_profile = "local"
@@ -51,12 +61,22 @@ def test_sync_function(temp_data_store_type: Type[tempdatastore.TemporaryDataSto
         tempdatastore.TemporaryPOSIXDirectory() as second_local_data_store,
         temp_data_store_type() as temp_data_store,
     ):
+        with_manifest_profile_config_dict = copy.deepcopy(second_local_data_store.profile_config_dict()) | {
+            "metadata_provider": {
+                "type": "manifest",
+                "options": {
+                    "manifest_path": DEFAULT_MANIFEST_BASE_DIR,
+                    "writable": True,
+                },
+            }
+        }
+
         config.setup_msc_config(
             config_dict={
                 "profiles": {
                     obj_profile: temp_data_store.profile_config_dict(),
                     local_profile: temp_source_data_store.profile_config_dict(),
-                    second_profile: second_local_data_store.profile_config_dict(),
+                    second_profile: with_manifest_profile_config_dict,
                 }
             }
         )
@@ -123,7 +143,7 @@ def test_sync_function(temp_data_store_type: Type[tempdatastore.TemporaryDataSto
         with pytest.raises(ValueError):
             msc.sync(source_url=source_msc_url, target_url=os.path.join(source_msc_url, "extra"))
 
-        print("Syncing from object to a second posix file location.")
+        print("Syncing from object to a second posix file location using ManifestProvider.")
         msc.sync(source_url=target_msc_url, target_url=second_msc_url)
         verify_sync_and_contents(target_url=second_msc_url, expected_files=expected_files)
 

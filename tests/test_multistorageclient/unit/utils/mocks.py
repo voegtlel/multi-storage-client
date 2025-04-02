@@ -60,7 +60,8 @@ class TestMetadataProvider(MetadataProvider):
             ]
         )
 
-    def get_object_metadata(self, path: str) -> ObjectMetadata:
+    def get_object_metadata(self, path: str, include_pending: bool = False) -> ObjectMetadata:
+        assert not include_pending, "Not supported in tests"
         return ObjectMetadata(key=path, content_length=19283, last_modified=datetime.now(tz=timezone.utc))
 
     def glob(self, pattern: str) -> List[str]:
