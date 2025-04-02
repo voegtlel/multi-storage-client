@@ -24,10 +24,12 @@
 __pycache__
 dist
 
-# Azurite.
-__azurite_*__.json
-__blobstorage__
-__queuestorage__
+# Storage systems.
+.azurite/sandbox
+.fake-gcs-server/sandbox
+.minio/sandbox
 
-# MinIO.
-.minio
+# Telemetry systems.
+.grafana/sandbox
+.mimir/sandbox
+.tempo/sandbox

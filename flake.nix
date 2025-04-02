@@ -86,6 +86,10 @@
             azurite
             fake-gcs-server
             minio
+            # Telemetry systems.
+            grafana
+            mimir
+            tempo
             # JFrog CLI.
             jfrog-cli
             # OpenSSH.

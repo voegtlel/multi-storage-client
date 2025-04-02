@@ -1,0 +1,6 @@
+#
+# Grafana dashboards configuration.
+#
+# https://grafana.com/docs/grafana/latest/administration/provisioning#dashboards
+#
+apiVersion: 1

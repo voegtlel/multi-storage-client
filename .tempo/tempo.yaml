@@ -1,0 +1,20 @@
+#
+# Tempo configuration.
+#
+# https://grafana.com/docs/tempo/latest/configuration
+#
+multitenancy_enabled: false
+server:
+  log_level: error
+  # Prevent conflicts with Mimir defaults.
+  http_listen_port: 8081
+  grpc_listen_port: 9096
+storage:
+  trace:
+    backend: local
+    local:
+      path: trace
+    wal:
+      path: wal
+usage_report:
+  reporting_enabled: false

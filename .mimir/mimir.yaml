@@ -1,0 +1,10 @@
+#
+# Mimir configuration.
+#
+# https://grafana.com/docs/mimir/latest/configure/configuration-parameters
+#
+multitenancy_enabled: false
+server:
+  log_level: error
+usage_stats:
+  enabled: false

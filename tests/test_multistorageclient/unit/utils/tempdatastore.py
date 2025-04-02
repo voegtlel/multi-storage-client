@@ -108,8 +108,8 @@ class TemporaryAWSS3Bucket(TemporaryDataStore):
         #
         # https://min.io/docs/minio/linux/index.html
         endpoint_url = "http://localhost:9000"
-        access_key = "minioadmin"
-        secret_key = "minioadmin"
+        access_key = "access-key"
+        secret_key = "secret-key"
 
         self._client = boto3.client(
             "s3",

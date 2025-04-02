@@ -1,0 +1,6 @@
+#
+# Grafana alerting configuration.
+#
+# https://grafana.com/docs/grafana/latest/administration/provisioning#alerting
+#
+apiVersion: 1

@@ -1,0 +1,19 @@
+#
+# Grafana data sources configuration.
+#
+# https://grafana.com/docs/grafana/latest/administration/provisioning#data-sources
+#
+apiVersion: 1
+datasources:
+  # https://grafana.com/docs/grafana/latest/datasources/prometheus
+  - name: Mimir
+    type: prometheus
+    url: http://localhost:8080/prometheus
+    access: proxy
+    editable: false
+  # https://grafana.com/docs/grafana/latest/datasources/tempo
+  - name: Tempo
+    type: tempo
+    url: http://localhost:8081
+    access: proxy
+    editable: false
