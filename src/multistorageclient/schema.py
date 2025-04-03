@@ -145,7 +145,7 @@ BENCHMARK_SCHEMA = {
     "properties": {
         "processes": {"type": "array", "items": {"type": "integer"}},
         "threads": {"type": "array", "items": {"type": "integer"}},
-        "tests_mixed": {"type": "object", "additionalProperties": {"type": "integer"}},
+        "test_object_sizes": {"type": "object", "additionalProperties": {"type": "integer"}},
     },
     "additionalProperties": False,
 }
