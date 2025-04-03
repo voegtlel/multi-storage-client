@@ -193,7 +193,7 @@ class OracleStorageProvider(BaseStorageProvider):
                 bucket_name=bucket,
                 object_name=key,
                 put_object_body=body,
-                metadata=metadata or None,
+                opc_meta=metadata or {},  # Pass metadata or empty dict
             )
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
