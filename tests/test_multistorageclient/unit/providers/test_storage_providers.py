@@ -21,6 +21,7 @@ import pytest
 import tempfile
 from typing import Type
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
+from multistorageclient.types import PreconditionFailedError
 
 
 @pytest.mark.parametrize(
@@ -191,3 +192,156 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         # Delete the files.
         for i in file_numbers:
             storage_client.delete(path=f"{i}{file_extension}")
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+        [tempdatastore.TemporaryPOSIXDirectory],
+    ],
+)
+def test_put_object_with_etag_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+        storage_provider = storage_client._storage_provider
+
+        # Test file details
+        bucket = config_dict["profiles"][profile]["storage_provider"]["options"]["base_path"]
+        key = "test_etag.txt"  # Use just the key part
+        file_path = f"{bucket}/{key}"
+        file_body = b"test content"
+        test_etag = "d41d8cd98f00b204e9800998ecf8427e"  # MD5 hash of empty string
+
+        # Write file with metadata containing etag
+        metadata = {"etag": test_etag}
+        storage_provider._put_object(path=file_path, body=file_body, metadata=metadata)
+
+        # Verify file exists and content is correct
+        assert storage_provider._get_object(path=file_path) == file_body
+
+        # Get file metadata and verify etag
+        file_info = storage_provider._get_object_metadata(path=file_path)
+        assert file_info is not None
+        # Skip metadata verification for POSIX if extended attributes are not supported
+        if storage_provider._provider_name != "file" or hasattr(os, "setxattr"):
+            assert file_info.metadata["etag"] == test_etag
+
+        # Clean up
+        storage_provider._delete_object(path=file_path)
+        with pytest.raises(FileNotFoundError):
+            storage_provider._get_object(path=file_path)
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+        [tempdatastore.TemporaryPOSIXDirectory],
+    ],
+)
+def test_delete_object_with_etag(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+        storage_provider = storage_client._storage_provider
+
+        # Test file details
+        bucket = config_dict["profiles"][profile]["storage_provider"]["options"]["base_path"]
+        key = "test_delete_etag.txt"
+        file_path = f"{bucket}/{key}"
+        file_body = b"test content"
+
+        # Write file first to get its actual ETag
+        storage_provider._put_object(path=file_path, body=file_body)
+        file_info = storage_provider._get_object_metadata(path=file_path)
+        actual_etag = file_info.etag
+
+        # Test successful deletion with matching etag
+        storage_provider._delete_object(path=file_path, if_match=actual_etag)
+        with pytest.raises(FileNotFoundError):
+            storage_provider._get_object(path=file_path)
+
+        # Write file again with different etag
+        storage_provider._put_object(path=file_path, body=file_body)
+        file_info = storage_provider._get_object_metadata(path=file_path)
+        actual_etag = file_info.etag
+
+        # Test deletion with mismatched etag
+        mismatched_etag = "different_etag_value"
+        if storage_provider._provider_name == "gcs":
+            # Skip mismatched ETag test for GCS since fake-gcs-server doesn't support precondition checks
+            pass
+        elif storage_provider._provider_name == "azure":
+            # Azure raises PreconditionFailedError with 412 status code
+            with pytest.raises(PreconditionFailedError, match="412"):
+                storage_provider._delete_object(path=file_path, if_match=mismatched_etag)
+            assert storage_provider._get_object(path=file_path) == file_body
+        else:  # S3 and SwiftStack (both use s3.py)
+            # skip mismatched etag test for S3 and SwiftStack, since MinIO server doesn't support precondition deletes with etags
+            pass
+
+        # Test unconditional deletion (no etag provided)
+        storage_provider._delete_object(path=file_path)
+        with pytest.raises(FileNotFoundError):
+            storage_provider._get_object(path=file_path)
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryPOSIXDirectory],
+    ],
+)
+def test_posix_xattr_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+        storage_provider = storage_client._storage_provider
+
+        # Test file details
+        bucket = config_dict["profiles"][profile]["storage_provider"]["options"]["base_path"]
+        key = "test_xattr.txt"
+        file_path = f"{bucket}/{key}"
+        file_body = b"test content"
+        test_metadata = {
+            "etag": "d41d8cd98f00b204e9800998ecf8427e",
+            "content-type": "text/plain",
+            "custom-key": "custom-value",
+        }
+
+        # Write file with metadata
+        storage_provider._put_object(path=file_path, body=file_body, metadata=test_metadata)
+
+        # Verify file exists and content is correct
+        assert storage_provider._get_object(path=file_path) == file_body
+
+        # Get file metadata
+        file_info = storage_provider._get_object_metadata(path=file_path)
+        assert file_info is not None
+
+        # Check if xattrs are supported on this system
+        xattrs_supported = hasattr(os, "setxattr") and hasattr(os, "getxattr")
+        if xattrs_supported:
+            # Verify all metadata was stored correctly
+            assert file_info.metadata is not None
+            for key, value in test_metadata.items():
+                assert file_info.metadata[key] == value
+        else:
+            # If xattrs are not supported, metadata should be None
+            assert file_info.metadata is None
+
+        # Clean up
+        storage_provider._delete_object(path=file_path)
+        with pytest.raises(FileNotFoundError):
+            storage_provider._get_object(path=file_path)

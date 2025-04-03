@@ -36,6 +36,7 @@ from ..types import (
     Range,
     RetryableError,
     AWARE_DATETIME_MIN,
+    PreconditionFailedError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -148,6 +149,10 @@ class OracleStorageProvider(BaseStorageProvider):
 
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {error_info}")  # pylint: disable=raise-missing-from
+            elif status_code == 412:
+                raise PreconditionFailedError(
+                    f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}"
+                ) from error
             elif status_code == 429:
                 raise RetryableError(
                     f"Too many request to {operation} object(s) at {bucket}/{key}. {error_info}"
@@ -178,13 +183,17 @@ class OracleStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         bucket, key = split_path(path)
         self._refresh_oci_client_if_needed()
 
         def _invoke_api() -> None:
             self._oci_client.put_object(
-                namespace_name=self._namespace, bucket_name=bucket, object_name=key, put_object_body=body
+                namespace_name=self._namespace,
+                bucket_name=bucket,
+                object_name=key,
+                put_object_body=body,
+                metadata=metadata or None,
             )
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
@@ -229,12 +238,18 @@ class OracleStorageProvider(BaseStorageProvider):
             put_object_size=src_object.content_length,
         )
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         bucket, key = split_path(path)
         self._refresh_oci_client_if_needed()
 
         def _invoke_api() -> None:
-            self._oci_client.delete_object(namespace_name=self._namespace, bucket_name=bucket, object_name=key)
+            namespace_name = self._namespace
+            bucket_name = bucket
+            object_name = key
+            if if_match is not None:
+                self._oci_client.delete_object(namespace_name, bucket_name, object_name, if_match=if_match)
+            else:
+                self._oci_client.delete_object(namespace_name, bucket_name, object_name)
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 

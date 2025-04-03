@@ -17,13 +17,13 @@ import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Iterator, Optional, Union
+from typing import IO, Any, Callable, Iterator, Optional, Union, Dict
 
 from google.api_core.exceptions import NotFound, GoogleAPICallError
 from google.cloud import storage
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
-from ..types import CredentialsProvider, ObjectMetadata, Range, AWARE_DATETIME_MIN
+from ..types import CredentialsProvider, ObjectMetadata, Range, AWARE_DATETIME_MIN, PreconditionFailedError
 from ..utils import split_path
 from .base import BaseStorageProvider
 
@@ -123,8 +123,13 @@ class GoogleStorageProvider(BaseStorageProvider):
             error_info = f"status_code: {status_code}, message: {error.message}"
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist.")  # pylint: disable=raise-missing-from
+            elif status_code == 412:
+                raise PreconditionFailedError(
+                    f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}"
+                ) from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
+
         except Exception as error:
             status_code = -1
             raise RuntimeError(
@@ -144,13 +149,14 @@ class GoogleStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
         def _invoke_api() -> None:
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
+            blob.metadata = metadata or None
             blob.upload_from_string(body)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
@@ -197,14 +203,21 @@ class GoogleStorageProvider(BaseStorageProvider):
             put_object_size=src_object.content_length,
         )
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
         def _invoke_api() -> None:
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
-            blob.delete()
+
+            # If if_match is provided, use it as a precondition
+            if if_match:
+                generation = int(if_match)
+                blob.delete(if_generation_match=generation)
+            else:
+                # No if_match check needed, just delete
+                blob.delete()
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
@@ -233,10 +246,7 @@ class GoogleStorageProvider(BaseStorageProvider):
             # it is a "virtual prefix" that was never explicitly created.
             if self._is_dir(path):
                 return ObjectMetadata(
-                    key=path,
-                    type="directory",
-                    content_length=0,
-                    last_modified=AWARE_DATETIME_MIN,
+                    key=path, type="directory", content_length=0, last_modified=AWARE_DATETIME_MIN, etag=None
                 )
             else:
                 raise FileNotFoundError(f"Directory {path} does not exist.")
@@ -254,7 +264,8 @@ class GoogleStorageProvider(BaseStorageProvider):
                     content_length=blob.size or 0,
                     content_type=blob.content_type,
                     last_modified=blob.updated or AWARE_DATETIME_MIN,
-                    etag=blob.etag,
+                    etag=str(blob.generation),
+                    metadata=dict(blob.metadata) if blob.metadata else None,
                 )
 
             try:

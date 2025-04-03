@@ -31,7 +31,7 @@ class MockBaseStorageProvider(BaseStorageProvider):
     def _copy_object(self, src_path: str, dest_path: str) -> None:
         pass
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, etag: Optional[str] = None) -> None:
         pass
 
     def _get_object_metadata(self, path: str) -> ObjectMetadata:

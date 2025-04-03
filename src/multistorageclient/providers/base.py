@@ -15,7 +15,7 @@
 
 import os
 from abc import abstractmethod
-from typing import IO, Iterator, List, Optional, Union
+from typing import IO, Iterator, List, Optional, Union, Dict
 
 from ..instrumentation.utils import StorageProviderMetricsHelper
 from ..types import ObjectMetadata, Range, StorageProvider
@@ -49,9 +49,9 @@ class BaseStorageProvider(StorageProvider):
     def _realpath(self, path: str) -> str:
         return os.path.join(self._base_path, path.lstrip("/"))
 
-    def put_object(self, path: str, body: bytes) -> None:
+    def put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         path = self._realpath(path)
-        return self._put_object(path, body)
+        return self._put_object(path, body, metadata)
 
     def get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         path = self._realpath(path)
@@ -62,9 +62,18 @@ class BaseStorageProvider(StorageProvider):
         dest_path = self._realpath(dest_path)
         return self._copy_object(src_path, dest_path)
 
-    def delete_object(self, path: str) -> None:
+    def delete_object(self, path: str, if_match: Optional[str] = None) -> None:
+        """
+        Deletes an object from the storage provider.
+
+        :param path: The path of the object to delete.
+        :param if_match: Optional if-match value to use for conditional deletion.
+        :raises FileNotFoundError: If the object does not exist.
+        :raises RuntimeError: If deletion fails.
+        :raises PreconditionFailedError: If the if_match condition is not met.
+        """
         path = self._realpath(path)
-        return self._delete_object(path)
+        return self._delete_object(path, if_match)
 
     def get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
         path = self._realpath(path)
@@ -119,7 +128,7 @@ class BaseStorageProvider(StorageProvider):
             return False
 
     @abstractmethod
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         pass
 
     @abstractmethod
@@ -131,7 +140,16 @@ class BaseStorageProvider(StorageProvider):
         pass
 
     @abstractmethod
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
+        """
+        Deletes an object from the storage provider.
+
+        :param path: The path of the object to delete.
+        :param if_match: Optional if-match value to use for conditional deletion.
+        :raises FileNotFoundError: If the object does not exist.
+        :raises RuntimeError: If deletion fails.
+        :raises PreconditionFailedError: If the if_match condition is not met.
+        """
         pass
 
     @abstractmethod

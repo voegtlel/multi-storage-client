@@ -21,6 +21,7 @@ from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
 from azure.core.exceptions import HttpResponseError, AzureError
 from azure.storage.blob import BlobPrefix, BlobServiceClient
+from azure.core import MatchConditions
 
 from ..types import (
     Credentials,
@@ -28,6 +29,7 @@ from ..types import (
     ObjectMetadata,
     Range,
     AWARE_DATETIME_MIN,
+    PreconditionFailedError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -167,6 +169,10 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             error_info = f"status_code: {error.status_code}, reason: {error.reason}"
             if status_code == 404:
                 raise FileNotFoundError(f"Object {container}/{blob} does not exist.")  # pylint: disable=raise-missing-from
+            elif status_code == 412:
+                raise PreconditionFailedError(
+                    f"Failed to {operation} object(s) at {container}/{blob}. {error_info}"
+                ) from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {container}/{blob}. {error_info}") from error
         except AzureError as error:
@@ -196,13 +202,14 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
         def _invoke_api() -> None:
             blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-            blob_client.upload_blob(body, overwrite=True)
+            # If metadata is None, it will be ignored
+            blob_client.upload_blob(body, metadata=metadata or None, overwrite=True)
 
         return self._collect_metrics(_invoke_api, operation="PUT", container=container_name, blob=blob_name)
 
@@ -240,13 +247,18 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             put_object_size=src_object.content_length,
         )
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
         def _invoke_api() -> None:
             blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-            blob_client.delete_blob()
+            # If if_match is provided, use if_match for conditional deletion
+            if if_match:
+                blob_client.delete_blob(etag=if_match, match_condition=MatchConditions.IfNotModified)
+            else:
+                # No if_match provided, perform unconditional deletion
+                blob_client.delete_blob()
 
         return self._collect_metrics(_invoke_api, operation="DELETE", container=container_name, blob=blob_name)
 
@@ -292,6 +304,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                     content_type=properties.content_settings.content_type,
                     last_modified=properties.last_modified,
                     etag=properties.etag.strip('"') if properties.etag else "",
+                    metadata=dict(properties.metadata) if properties.metadata else None,
                 )
 
             try:

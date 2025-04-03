@@ -15,11 +15,12 @@
 
 import glob
 import os
+import json
 import tempfile
 import time
 from datetime import datetime, timezone
 from io import BytesIO, StringIO
-from typing import IO, Any, Callable, Iterator, List, Optional, Union
+from typing import IO, Any, Callable, Iterator, List, Optional, Union, Dict
 
 from ..types import ObjectMetadata, Range, AWARE_DATETIME_MIN
 from .base import BaseStorageProvider
@@ -110,10 +111,16 @@ class PosixFileStorageProvider(BaseStorageProvider):
                     object_size, provider=self._provider_name, operation=operation, bucket="", status_code=status_code
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         def _invoke_api() -> None:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             atomic_write(source=BytesIO(body), destination=path)
+
+            # Set metadata attributes if setxattr is available
+            if metadata and hasattr(os, "setxattr"):
+                json_str = json.dumps(metadata)
+                json_bytes = json_str.encode("utf-8")
+                os.setxattr(path, "user.json", json_bytes, flags=0)  # type: ignore
 
         return self._collect_metrics(_invoke_api, operation="PUT", path=path, put_object_size=len(body))
 
@@ -143,7 +150,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
             put_object_size=src_object.content_length,
         )
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         def _invoke_api() -> None:
             if os.path.exists(path) and os.path.isfile(path):
                 os.remove(path)
@@ -156,11 +163,21 @@ class PosixFileStorageProvider(BaseStorageProvider):
             path = self._append_delimiter(path)
 
         def _invoke_api() -> ObjectMetadata:
+            # Get basic file attributes
+            metadata_dict = {}
+            if hasattr(os, "getxattr"):
+                try:
+                    json_bytes = os.getxattr(path, "user.json")  # type: ignore
+                    metadata_dict = json.loads(json_bytes.decode("utf-8"))
+                except OSError:
+                    pass
+
             return ObjectMetadata(
                 key=path,
                 type="directory" if is_dir else "file",
-                content_length=os.path.getsize(path),
+                content_length=0 if is_dir else os.path.getsize(path),
                 last_modified=datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc),
+                metadata=metadata_dict if metadata_dict else None,
             )
 
         return self._collect_metrics(_invoke_api, operation="HEAD", path=path)

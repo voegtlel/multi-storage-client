@@ -87,6 +87,8 @@ class ObjectMetadata:
     #: The storage class of the object.
     storage_class: Optional[str] = field(default=None)
 
+    metadata: Optional[Dict[str, Any]] = field(default=None)
+
     @staticmethod
     def from_dict(data: dict) -> "ObjectMetadata":
         """
@@ -105,6 +107,7 @@ class ObjectMetadata:
                 content_type=data.get("content_type"),
                 etag=data.get("etag"),
                 storage_class=data.get("storage_class"),
+                metadata=data.get("metadata"),
             )
         except KeyError as e:
             raise ValueError("Missing required field.") from e
@@ -153,12 +156,13 @@ class StorageProvider(ABC):
     """
 
     @abstractmethod
-    def put_object(self, path: str, body: bytes) -> None:
+    def put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         """
         Uploads an object to the storage provider.
 
         :param path: The path where the object will be stored.
         :param body: The content of the object to store.
+        :param metadata: Metadata to associate with the object.
         """
         pass
 
@@ -184,11 +188,12 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def delete_object(self, path: str) -> None:
+    def delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         """
         Deletes an object from the storage provider.
 
         :param path: The path of the object to delete.
+        :param if_match: Optional if-match value to use for conditional deletion.
         """
         pass
 
@@ -436,6 +441,14 @@ class RetryConfig:
 class RetryableError(Exception):
     """
     Exception raised for errors that should trigger a retry.
+    """
+
+    pass
+
+
+class PreconditionFailedError(Exception):
+    """
+    Exception raised when a precondition fails. e.g. if-match, if-none-match, etc.
     """
 
     pass

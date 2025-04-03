@@ -23,12 +23,7 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 import botocore
 from botocore.credentials import RefreshableCredentials
-from botocore.exceptions import (
-    ClientError,
-    ReadTimeoutError,
-    IncompleteReadError,
-    ResponseStreamingError,
-)
+from botocore.exceptions import ClientError, ReadTimeoutError, IncompleteReadError, ResponseStreamingError
 from botocore.session import get_session
 
 from ..types import (
@@ -38,6 +33,7 @@ from ..types import (
     Range,
     RetryableError,
     AWARE_DATETIME_MIN,
+    PreconditionFailedError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -271,6 +267,10 @@ class S3StorageProvider(BaseStorageProvider):
 
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {error_info}")  # pylint: disable=raise-missing-from
+            elif status_code == 412:  # Precondition Failed
+                raise PreconditionFailedError(
+                    f"ETag mismatch for {operation} operation on {bucket}/{key}. {error_info}"
+                ) from error
             elif status_code == 429:
                 raise RetryableError(
                     f"Too many request to {operation} object(s) at {bucket}/{key}. {error_info}"
@@ -296,7 +296,7 @@ class S3StorageProvider(BaseStorageProvider):
         except Exception as error:
             status_code = -1
             raise RuntimeError(
-                f"Failed to {operation} object(s) at {bucket}/{key}. error type: {type(error).__name__}"
+                f"Failed to {operation} object(s) at {bucket}/{key}, error type: {type(error).__name__}"
             ) from error
         finally:
             elapsed_time = time.time() - start_time
@@ -312,7 +312,7 @@ class S3StorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         """
         Uploads an object to the specified S3 path.
 
@@ -322,11 +322,9 @@ class S3StorageProvider(BaseStorageProvider):
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:
-            kwargs = {
-                "Bucket": bucket,
-                "Key": key,
-                "Body": body,
-            }
+            kwargs = {"Bucket": bucket, "Key": key, "Body": body}
+            if metadata:
+                kwargs["Metadata"] = metadata
             if self._is_directory_bucket(bucket):
                 kwargs["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
             self._s3_client.put_object(**kwargs)
@@ -365,11 +363,15 @@ class S3StorageProvider(BaseStorageProvider):
             put_object_size=src_object.content_length,
         )
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:
-            self._s3_client.delete_object(Bucket=bucket, Key=key)
+            # conditionally delete the object if if_match(etag) is provided, if not, delete the object unconditionally
+            if if_match:
+                self._s3_client.delete_object(Bucket=bucket, Key=key, IfMatch=if_match)
+            else:
+                self._s3_client.delete_object(Bucket=bucket, Key=key)
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
@@ -412,6 +414,8 @@ class S3StorageProvider(BaseStorageProvider):
                     content_type=response["ContentType"],
                     last_modified=response["LastModified"],
                     etag=response["ETag"].strip('"'),
+                    storage_class=response.get("StorageClass"),
+                    metadata=response.get("Metadata"),
                 )
 
             try:

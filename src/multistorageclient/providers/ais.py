@@ -24,7 +24,7 @@ from aistore.sdk.authn import AuthNClient
 from aistore.sdk.errors import AISError
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
-
+from aistore.sdk.obj.object_props import ObjectProps
 from ..types import (
     Credentials,
     CredentialsProvider,
@@ -204,12 +204,14 @@ class AIStoreStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes) -> None:
+    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:
             obj = self.client.bucket(bucket, self.provider).object(obj_name=key)
             obj.put_content(body)
+            if metadata:
+                obj.set_custom_props(custom_metadata=metadata)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -233,11 +235,15 @@ class AIStoreStorageProvider(BaseStorageProvider):
     def _copy_object(self, src_path: str, dest_path: str) -> None:
         raise AttributeError("AIStore does not support copy operations")
 
-    def _delete_object(self, path: str) -> None:
+    def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:
             obj = self.client.bucket(bucket, self.provider).object(obj_name=key)
+            # AIS doesn't support if-match deletion, so we implement a fallback mechanism
+            if if_match:
+                raise NotImplementedError("AIStore does not support if-match deletion")
+            # Perform deletion
             obj.delete()
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
@@ -247,12 +253,15 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         def _invoke_api() -> ObjectMetadata:
             obj = self.client.bucket(bck_name=bucket, provider=self.provider).object(obj_name=key)
-            props = obj.head()
+            headers = obj.head()
+            props = ObjectProps(headers)
+
             return ObjectMetadata(
                 key=key,
-                content_length=int(props.get("Content-Length")),  # pyright: ignore [reportArgumentType]
+                content_length=int(props.size),  # pyright: ignore [reportArgumentType]
                 last_modified=AWARE_DATETIME_MIN,
-                etag=props.get("Ais-Checksum-Value", None),
+                etag=props.checksum_value,
+                metadata=props.custom_metadata,
             )
 
         return self._collect_metrics(_invoke_api, operation="HEAD", bucket=bucket, key=key)
