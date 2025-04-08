@@ -111,8 +111,8 @@ start-telemetry-systems: stop-telemetry-systems
 run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
     # Remove test artifacts.
     rm -rf .reports/unit
-    # Unit test.
-    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report=term --cov-report=html --cov-report=xml
+    # Unit test, using parallelism (-n) of 1 for stability.
+    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report=term --cov-report=html --cov-report=xml -n 1
 
 # Create package archives.
 package: prepare-virtual-environment

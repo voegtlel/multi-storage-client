@@ -19,10 +19,12 @@
 
 import os
 import tempfile
+import uuid
 
 import pytest
 
-CONFIG_FILENAME = os.path.join(tempfile.gettempdir(), "msc_config.yaml")
+CONFIG_DIR = tempfile.gettempdir()
+
 CONFIG_YAML = """
 profiles:
   default:
@@ -44,25 +46,27 @@ cache: {}
 
 
 def setup_config_file(config_json):
-    with open(CONFIG_FILENAME, "w") as fp:
+    config_filename = os.path.join(CONFIG_DIR, f"msc_config-{uuid.uuid4().hex}.yaml")
+    with open(config_filename, "w") as fp:
         fp.write(config_json)
 
-    os.environ["MSC_CONFIG"] = CONFIG_FILENAME
+    os.environ["MSC_CONFIG"] = config_filename
+    return config_filename
 
 
-def delete_config_file():
-    os.unlink(CONFIG_FILENAME)
+def delete_config_file(config_filename):
+    os.unlink(config_filename)
 
 
 @pytest.fixture
 def file_storage_config():
-    setup_config_file(CONFIG_YAML)
-    yield CONFIG_FILENAME
-    delete_config_file()
+    config_filename = setup_config_file(CONFIG_YAML)
+    yield config_filename
+    delete_config_file(config_filename)
 
 
 @pytest.fixture
 def file_storage_config_with_cache():
-    setup_config_file(CONFIG_YAML_WITH_CACHE)
-    yield CONFIG_FILENAME
-    delete_config_file()
+    config_filename = setup_config_file(CONFIG_YAML_WITH_CACHE)
+    yield config_filename
+    delete_config_file(config_filename)

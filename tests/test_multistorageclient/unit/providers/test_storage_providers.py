@@ -14,12 +14,15 @@
 # limitations under the License.
 
 import functools
-from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.constants import MEMORY_LOAD_LIMIT
 import os
 import pytest
 import tempfile
+import uuid
+
+from multistorageclient import StorageClient, StorageClientConfig
+from multistorageclient.constants import MEMORY_LOAD_LIMIT
 from typing import Type
+
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient.types import PreconditionFailedError
 
@@ -44,7 +47,8 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
 
         file_extension = ".txt"
-        file_path_fragments = ["prefix", "infix", f"suffix{file_extension}"]
+        # add a random string to the file path below so concurrent tests don't conflict
+        file_path_fragments = [f"{uuid.uuid4().hex}-prefix", "infix", f"suffix{file_extension}"]
         file_path = os.path.join(*file_path_fragments)
         file_body_bytes = b"\x00"
         file_body_string = file_body_bytes.decode()

@@ -111,6 +111,11 @@
               ]
             }
 
+            # Disable Objective-C fork safety on macOS for pytest-xdist.
+            #
+            # https://github.com/python/cpython/issues/77906
+            export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
             echo "⚗️"
           '';
         };

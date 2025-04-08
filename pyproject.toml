@@ -86,7 +86,8 @@ dev = [
     "sphinx~=7.4.7",
     "sphinx-copybutton~=0.5.1",
     "sphinx-pyproject~=0.3",
-    "furo>=2024.8.6"
+    "furo>=2024.8.6",
+    "pytest-xdist>=3.6.1",
 ]
 
 [project.scripts]
