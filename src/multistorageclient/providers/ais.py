@@ -69,7 +69,6 @@ class StaticAISCredentialProvider(CredentialsProvider):
                         password and authn_endpoint are not provided.
         :param skip_verify: If true, skip SSL certificate verification.
         :param ca_cert: Path to a CA certificate file for SSL verification.
-
         """
         self._username = username
         self._password = password

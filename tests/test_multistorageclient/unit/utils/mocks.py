@@ -28,6 +28,22 @@ from multistorageclient.utils import glob as glob_util
 
 
 class TestCredentialsProvider(CredentialsProvider):
+    def __init__(self):
+        pass
+
+    def get_credentials(self) -> Credentials:
+        return Credentials(access_key="*****", secret_key="*****", token="ooooo", expiration="")
+
+    def refresh_credentials(self) -> None:
+        pass
+
+
+class TestScopedCredentialsProvider(CredentialsProvider):
+    def __init__(self, base_path: Optional[str] = None, endpoint_url: Optional[str] = None, expiry: int = 1000):
+        self._base_path = base_path
+        self._endpoint_url = endpoint_url
+        self._expiry = expiry
+
     def get_credentials(self) -> Credentials:
         return Credentials(access_key="*****", secret_key="*****", token="ooooo", expiration="")
 

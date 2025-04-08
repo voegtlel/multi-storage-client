@@ -165,10 +165,16 @@ class StorageClientConfigLoader:
         return cls(**storage_options)
 
     def _build_credentials_provider(
-        self, credentials_provider_dict: Optional[Dict[str, Any]]
+        self,
+        credentials_provider_dict: Optional[Dict[str, Any]],
+        storage_options: Optional[Dict[str, Any]] = None,
     ) -> Optional[CredentialsProvider]:
         """
         Initializes the CredentialsProvider based on the provided dictionary.
+
+        Args:
+            credentials_provider_dict: Dictionary containing credentials provider configuration
+            storage_options: Storage provider options required by some credentials providers to scope the credentials.
         """
         if not credentials_provider_dict:
             return None
@@ -184,14 +190,20 @@ class StorageClientConfigLoader:
             module_name = ".providers"
             cls = import_class(class_name, module_name, PACKAGE_NAME)
 
+        # Propagate storage provider options to credentials provider since they may be
+        # required by some credentials providers to scope the credentials.
+        import inspect
+
+        init_params = list(inspect.signature(cls.__init__).parameters)[1:]  # skip 'self'
         options = credentials_provider_dict.get("options", {})
+        if storage_options:
+            for storage_provider_option in storage_options.keys():
+                if storage_provider_option in init_params and storage_provider_option not in options:
+                    options[storage_provider_option] = storage_options[storage_provider_option]
+
         return cls(**options)
 
     def _build_provider_bundle_from_config(self, profile_dict: Dict[str, Any]) -> ProviderBundle:
-        # Initialize CredentialsProvider
-        credentials_provider_dict = profile_dict.get("credentials_provider", None)
-        credentials_provider = self._build_credentials_provider(credentials_provider_dict=credentials_provider_dict)
-
         # Initialize StorageProvider
         storage_provider_dict = profile_dict.get("storage_provider", None)
         if storage_provider_dict:
@@ -199,6 +211,16 @@ class StorageClientConfigLoader:
             storage_options = storage_provider_dict.get("options", {})
         else:
             raise ValueError("Missing storage_provider in the config.")
+
+        # Initialize CredentialsProvider
+        # It is prudent to assume that in some cases, the credentials provider
+        # will provide credentials scoped to specific base_path.
+        # So we need to pass the storage_options to the credentials provider.
+        credentials_provider_dict = profile_dict.get("credentials_provider", None)
+        credentials_provider = self._build_credentials_provider(
+            credentials_provider_dict=credentials_provider_dict,
+            storage_options=storage_options,
+        )
 
         # Initialize MetadataProvider
         metadata_provider_dict = profile_dict.get("metadata_provider", None)
@@ -225,12 +247,6 @@ class StorageClientConfigLoader:
                             f"This is not supported for storage profiles used by manifests.'"
                         )
 
-                    # Initialize CredentialsProvider
-                    local_creds_provider_dict = storage_profile_dict.get("credentials_provider", None)
-                    local_creds_provider = self._build_credentials_provider(
-                        credentials_provider_dict=local_creds_provider_dict
-                    )
-
                     # Initialize StorageProvider
                     local_storage_provider_dict = storage_profile_dict.get("storage_provider", None)
                     if local_storage_provider_dict:
@@ -238,6 +254,14 @@ class StorageClientConfigLoader:
                         local_storage_options = local_storage_provider_dict.get("options", {})
                     else:
                         raise ValueError("Missing storage_provider in the config.")
+
+                    # Initialize CredentialsProvider
+                    # We need to pass the storage_provider options to the credentials provider.
+                    local_creds_provider_dict = storage_profile_dict.get("credentials_provider", None)
+                    local_creds_provider = self._build_credentials_provider(
+                        credentials_provider_dict=local_creds_provider_dict,
+                        storage_options=local_storage_options,
+                    )
 
                     storage_provider = self._build_storage_provider(
                         local_name, local_storage_options, local_creds_provider
@@ -286,7 +310,9 @@ class StorageClientConfigLoader:
     def build_config(self) -> "StorageClientConfig":
         bundle = self._build_provider_bundle()
         storage_provider = self._build_storage_provider(
-            bundle.storage_provider_config.type, bundle.storage_provider_config.options, bundle.credentials_provider
+            bundle.storage_provider_config.type,
+            bundle.storage_provider_config.options,
+            bundle.credentials_provider,
         )
 
         # Cache Config
@@ -300,7 +326,10 @@ class StorageClientConfigLoader:
             use_etag = self._cache_dict.get("use_etag", False)
             eviction_policy = self._cache_dict.get("eviction_policy", "fifo")
             cache_config = CacheConfig(
-                location=cache_location, size_mb=size_mb, use_etag=use_etag, eviction_policy=eviction_policy
+                location=cache_location,
+                size_mb=size_mb,
+                use_etag=use_etag,
+                eviction_policy=eviction_policy,
             )
 
         # retry options

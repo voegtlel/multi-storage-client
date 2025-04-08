@@ -140,7 +140,10 @@ def test_credentials_provider() -> None:
 
 def test_load_extensions() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import (
+        TestCredentialsProvider,
+        TestMetadataProvider,
+    )
 
     config = StorageClientConfig.from_yaml(
         """
@@ -164,7 +167,10 @@ def test_load_extensions() -> None:
 
 def test_load_provider_bundle() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import (
+        TestCredentialsProvider,
+        TestMetadataProvider,
+    )
 
     config = StorageClientConfig.from_yaml(
         """
@@ -184,7 +190,10 @@ def test_load_provider_bundle() -> None:
 
 def test_load_direct_provider_bundle() -> None:
     sys.path.append(os.path.dirname(__file__))
-    from test_multistorageclient.unit.utils.mocks import TestCredentialsProvider, TestMetadataProvider
+    from test_multistorageclient.unit.utils.mocks import (
+        TestCredentialsProvider,
+        TestMetadataProvider,
+    )
 
     bundle = SimpleProviderBundle(
         storage_provider_config=StorageProviderConfig(type="file", options={"base_path": "/"}),
@@ -445,7 +454,14 @@ def test_ais_storage_provider_passthrough_options() -> None:
                                     "status": 1,
                                     "other": 0,
                                     "allowed_methods": {"GET", "PUT", "POST"},
-                                    "status_forcelist": {"429", "500", "501", "502", "503", "504"},
+                                    "status_forcelist": {
+                                        "429",
+                                        "500",
+                                        "501",
+                                        "502",
+                                        "503",
+                                        "504",
+                                    },
                                 },
                             },
                         }
@@ -645,3 +661,68 @@ def test_s8k_storage_provider_passthrough_options() -> None:
             profile=profile,
         )
     )
+
+
+def test_credentials_provider_with_base_path_endpoint_url() -> None:
+    sys.path.append(os.path.dirname(__file__))
+    from test_multistorageclient.unit.utils.mocks import (
+        TestScopedCredentialsProvider,
+    )
+
+    config = StorageClientConfig.from_yaml(
+        """
+        profiles:
+          temp_creds_profile:
+            storage_provider:
+              type: s8k
+              options:
+                base_path: mybucket/myprefix
+                endpoint_url: https://pdx.s8k.io
+            credentials_provider:
+              type: >-
+                test_multistorageclient.unit.utils.mocks.TestScopedCredentialsProvider
+              options:
+                expiry: 1000
+        """,
+        profile="temp_creds_profile",
+    )
+
+    storage_client = StorageClient(config)
+    assert isinstance(storage_client._credentials_provider, TestScopedCredentialsProvider)
+    assert storage_client._credentials_provider._base_path == "mybucket/myprefix"
+    assert storage_client._credentials_provider._endpoint_url == "https://pdx.s8k.io"
+    assert storage_client._credentials_provider._expiry == 1000
+
+
+def test_storage_options_does_not_override_creds_provider_options() -> None:
+    sys.path.append(os.path.dirname(__file__))
+    from test_multistorageclient.unit.utils.mocks import (
+        TestScopedCredentialsProvider,
+    )
+
+    config = StorageClientConfig.from_yaml(
+        """
+        profiles:
+          temp_creds_profile:
+            storage_provider:
+              type: s8k
+              options:
+                base_path: mybucket/myprefix
+                endpoint_url: https://pdx.s8k.io
+                region_name: us-east-1
+            credentials_provider:
+              type: >-
+                test_multistorageclient.unit.utils.mocks.TestScopedCredentialsProvider
+              options:
+                base_path: mybucket/myprefix/mysubprefix
+                expiry: 1000
+        """,
+        profile="temp_creds_profile",
+    )
+
+    storage_client = StorageClient(config)
+    assert storage_client._storage_provider._region_name == "us-east-1"
+    assert isinstance(storage_client._credentials_provider, TestScopedCredentialsProvider)
+    assert storage_client._credentials_provider._base_path == "mybucket/myprefix/mysubprefix"
+    assert storage_client._credentials_provider._endpoint_url == "https://pdx.s8k.io"
+    assert storage_client._credentials_provider._expiry == 1000
