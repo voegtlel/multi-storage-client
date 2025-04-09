@@ -196,6 +196,24 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
 
     wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=0))
 
+    # test directories
+    storage_client.write(f"{prefix}/dir1/dir2/", b"")
+    assert storage_client.info(path=f"{prefix}/dir1/dir2").type == "directory"
+    assert storage_client.info(path=f"{prefix}/dir1/dir2").content_length == 0
+
+    directories = list(storage_client.list(prefix=f"{prefix}/dir1/", include_directories=True))
+    assert len(directories) == 1
+    assert directories[0].key == f"{prefix}/dir1/dir2"
+    assert directories[0].type == "directory"
+
+    directories = list(storage_client.list(prefix=f"{prefix}/dir1/", include_directories=False))
+    assert len(directories) == 0
+
+    # delete file
+    storage_client.delete(f"{prefix}/dir1/dir2/")
+
+    wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
+
 
 def test_shortcuts(profile: str):
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")

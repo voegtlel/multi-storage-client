@@ -352,13 +352,22 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                 else:
                     key = blob.name
                     if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
-                        yield ObjectMetadata(
-                            key=key,
-                            content_length=blob.size,
-                            content_type=blob.content_settings.content_type,
-                            last_modified=blob.last_modified,
-                            etag=blob.etag.strip('"') if blob.etag else "",
-                        )
+                        if key.endswith("/"):
+                            if include_directories:
+                                yield ObjectMetadata(
+                                    key=key.rstrip("/"),
+                                    type="directory",
+                                    content_length=0,
+                                    last_modified=blob.last_modified,
+                                )
+                        else:
+                            yield ObjectMetadata(
+                                key=key,
+                                content_length=blob.size,
+                                content_type=blob.content_settings.content_type,
+                                last_modified=blob.last_modified,
+                                etag=blob.etag.strip('"') if blob.etag else "",
+                            )
                     elif end_at is not None and end_at < key:
                         return
 

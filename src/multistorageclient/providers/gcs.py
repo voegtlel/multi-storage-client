@@ -314,13 +314,22 @@ class GoogleStorageProvider(BaseStorageProvider):
             for blob in blobs:
                 key = blob.name
                 if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
-                    yield ObjectMetadata(
-                        key=key,
-                        content_length=blob.size,
-                        content_type=blob.content_type,
-                        last_modified=blob.updated,
-                        etag=blob.etag,
-                    )
+                    if key.endswith("/"):
+                        if include_directories:
+                            yield ObjectMetadata(
+                                key=key.rstrip("/"),
+                                type="directory",
+                                content_length=0,
+                                last_modified=blob.updated,
+                            )
+                    else:
+                        yield ObjectMetadata(
+                            key=key,
+                            content_length=blob.size,
+                            content_type=blob.content_type,
+                            last_modified=blob.updated,
+                            etag=blob.etag,
+                        )
                 elif start_after != key:
                     return
 

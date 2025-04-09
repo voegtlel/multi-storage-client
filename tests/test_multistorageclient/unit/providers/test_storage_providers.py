@@ -205,6 +205,39 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         [tempdatastore.TemporaryAzureBlobStorageContainer],
         [tempdatastore.TemporaryGoogleCloudStorageBucket],
         [tempdatastore.TemporarySwiftStackBucket],
+    ],
+)
+@pytest.mark.parametrize(argnames=["with_cache"], argvalues=[[True], [False]])
+def test_storage_providers_list_directories(
+    temp_data_store_type: Type[tempdatastore.TemporaryDataStore], with_cache: bool
+):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+
+        # Create empty directories
+        storage_client.write(path="dir1/", body=b"")
+        assert storage_client.info(path="dir1").type == "directory"
+        assert storage_client.info(path="dir1").content_length == 0
+
+        # List directories
+        directories = list(storage_client.list(prefix="", include_directories=True))
+        assert len(directories) == 1
+        assert directories[0].key == "dir1"
+        assert directories[0].type == "directory"
+
+        directories = list(storage_client.list(prefix="", include_directories=False))
+        assert len(directories) == 0
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )

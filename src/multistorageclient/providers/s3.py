@@ -466,14 +466,23 @@ class S3StorageProvider(BaseStorageProvider):
                 for response_object in page.get("Contents", []):
                     key = response_object["Key"]
                     if end_at is None or key <= end_at:
-                        yield ObjectMetadata(
-                            key=key,
-                            type="file",
-                            content_length=response_object["Size"],
-                            last_modified=response_object["LastModified"],
-                            etag=response_object["ETag"].strip('"'),
-                            storage_class=response_object.get("StorageClass"),  # Pass storage_class
-                        )
+                        if key.endswith("/"):
+                            if include_directories:
+                                yield ObjectMetadata(
+                                    key=key.rstrip("/"),
+                                    type="directory",
+                                    content_length=0,
+                                    last_modified=response_object["LastModified"],
+                                )
+                        else:
+                            yield ObjectMetadata(
+                                key=key,
+                                type="file",
+                                content_length=response_object["Size"],
+                                last_modified=response_object["LastModified"],
+                                etag=response_object["ETag"].strip('"'),
+                                storage_class=response_object.get("StorageClass"),  # Pass storage_class
+                            )
                     else:
                         return
 

@@ -380,12 +380,22 @@ class OracleStorageProvider(BaseStorageProvider):
                 for response_object in response.data.objects:  # pyright: ignore [reportOptionalMemberAccess]
                     key = response_object.name
                     if (start_after is None or start_after < key) and (end_at is None or key <= end_at):
-                        yield ObjectMetadata(
-                            key=key,
-                            content_length=response_object.size,
-                            last_modified=response_object.time_modified,
-                            etag=response_object.etag,
-                        )
+                        if key.endswith("/"):
+                            if include_directories:
+                                yield ObjectMetadata(
+                                    key=key.rstrip("/"),
+                                    type="directory",
+                                    content_length=0,
+                                    last_modified=response_object.time_modified,
+                                )
+                        else:
+                            yield ObjectMetadata(
+                                key=key,
+                                type="file",
+                                content_length=response_object.size,
+                                last_modified=response_object.time_modified,
+                                etag=response_object.etag,
+                            )
                     elif start_after != key:
                         return
                 next_start_with = response.data.next_start_with  # pyright: ignore [reportOptionalMemberAccess]
