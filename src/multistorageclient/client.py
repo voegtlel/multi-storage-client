@@ -20,6 +20,7 @@ import queue
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from .config import StorageClientConfig
@@ -32,6 +33,12 @@ from .types import MSC_PROTOCOL, ObjectMetadata, Range
 from .utils import join_paths
 
 logger = logging.Logger(__name__)
+
+
+class _SyncOp(Enum):
+    ADD = "add"
+    DELETE = "delete"
+    STOP = "stop"
 
 
 @instrumented
@@ -386,13 +393,20 @@ class StorageClient:
         config = state["_config"]
         self._initialize_providers(config)
 
-    def sync_from(self, source_client: "StorageClient", source_path: str = "", target_path: str = "") -> None:
+    def sync_from(
+        self,
+        source_client: "StorageClient",
+        source_path: str = "",
+        target_path: str = "",
+        delete_unmatched_files: bool = False,
+    ) -> None:
         """
         Syncs files from the source storage client to "path/".
 
         :param source_client: The source storage client.
         :param source_path: The path to sync from.
         :param target_path: The path to sync to.
+        :param delete_unmatched_files: Whether to delete files at the target that are not present at the source.
         """
         if source_client == self and (source_path.startswith(target_path) or target_path.startswith(source_path)):
             raise ValueError("Source and target paths cannot overlap on same StorageClient.")
@@ -436,24 +450,29 @@ class StorageClient:
                     target_key = target_file.key[len(target_path) :].lstrip("/")
 
                     if source_key < target_key:
-                        file_queue.put(source_file)
+                        file_queue.put((_SyncOp.ADD, source_file))
                         source_file = next(source_iter, None)
                     elif source_key > target_key:
+                        if delete_unmatched_files:
+                            file_queue.put((_SyncOp.DELETE, target_file))
                         target_file = next(target_iter, None)  # Skip unmatched target file
                     else:
                         # Both exist, compare metadata
                         if not match_file_metadata(source_file, target_file):
-                            file_queue.put(source_file)
+                            file_queue.put((_SyncOp.ADD, source_file))
                         source_file = next(source_iter, None)
                         target_file = next(target_iter, None)
                 elif source_file:
-                    file_queue.put(source_file)
+                    file_queue.put((_SyncOp.ADD, source_file))
                     source_file = next(source_iter, None)
                 else:
+                    if delete_unmatched_files:
+                        assert target_file is not None
+                        file_queue.put((_SyncOp.DELETE, target_file))
                     target_file = next(target_iter, None)
 
             for _ in range(num_worker_threads * num_worker_processes):
-                file_queue.put(object())  # Signal consumers to stop by a non-ObjectMetadata object
+                file_queue.put((_SyncOp.STOP, None))  # Signal consumers to stop
 
         producer_thread = threading.Thread(target=producer, daemon=True)
         producer_thread.start()
@@ -475,12 +494,17 @@ class StorageClient:
         # Pull from result_queue to collect pending updates from each multiprocessing worker.
         if result_queue and self._metadata_provider:
             while not result_queue.empty():
-                target_file_path, physical_metadata = result_queue.get()
-                # Use realpath() to get physical path so metadata provider can
-                # track the logical/physical mapping.
-                phys_path, _ = self._metadata_provider.realpath(target_file_path)
-                physical_metadata.key = phys_path
-                self._metadata_provider.add_file(target_file_path, physical_metadata)
+                op, target_file_path, physical_metadata = result_queue.get()
+                if op == _SyncOp.ADD:
+                    # Use realpath() to get physical path so metadata provider can
+                    # track the logical/physical mapping.
+                    phys_path, _ = self._metadata_provider.realpath(target_file_path)
+                    physical_metadata.key = phys_path
+                    self._metadata_provider.add_file(target_file_path, physical_metadata)
+                elif op == _SyncOp.DELETE:
+                    self._metadata_provider.remove_file(target_file_path)
+                else:
+                    raise RuntimeError(f"Unknown operation: {op}")
 
         self.commit_updates()
 
@@ -499,33 +523,44 @@ def _sync_worker_process(
     def _sync_consumer() -> None:
         """Processes files from the queue and copies them."""
         while True:
-            file_metadata = file_queue.get()
-            if not isinstance(file_metadata, ObjectMetadata):
+            op, file_metadata = file_queue.get()
+            if op == _SyncOp.STOP:
                 break
 
             source_key = file_metadata.key[len(source_path) :].lstrip("/")
             target_file_path = os.path.join(target_path, source_key)
 
-            logger.debug(f"sync {file_metadata.key} -> {target_file_path}")
-            if file_metadata.content_length < MEMORY_LOAD_LIMIT:
-                file_content = source_client.read(file_metadata.key)
-                target_client.write(target_file_path, file_content)
-            else:
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    temp_filename = temp_file.name
+            if op == _SyncOp.ADD:
+                logger.debug(f"sync {file_metadata.key} -> {target_file_path}")
+                if file_metadata.content_length < MEMORY_LOAD_LIMIT:
+                    file_content = source_client.read(file_metadata.key)
+                    target_client.write(target_file_path, file_content)
+                else:
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                        temp_filename = temp_file.name
 
-                try:
-                    source_client.download_file(file_metadata.key, temp_filename)
-                    target_client.upload_file(target_file_path, temp_filename)
-                finally:
-                    os.remove(temp_filename)  # Ensure the temporary file is removed
+                    try:
+                        source_client.download_file(file_metadata.key, temp_filename)
+                        target_client.upload_file(target_file_path, temp_filename)
+                    finally:
+                        os.remove(temp_filename)  # Ensure the temporary file is removed
+            elif op == _SyncOp.DELETE:
+                logger.debug(f"rm {file_metadata.key}")
+                target_client.delete(file_metadata.key)
+            else:
+                raise ValueError(f"Unknown operation: {op}")
 
             if result_queue:
-                # add tuple of (virtual_path, physical_metadata) to result_queue
-                physical_metadata = target_client._metadata_provider.get_object_metadata(
-                    target_file_path, include_pending=True
-                )
-                result_queue.put((target_file_path, physical_metadata))
+                if op == _SyncOp.ADD:
+                    # add tuple of (virtual_path, physical_metadata) to result_queue
+                    physical_metadata = target_client._metadata_provider.get_object_metadata(
+                        target_file_path, include_pending=True
+                    )
+                    result_queue.put((op, target_file_path, physical_metadata))
+                elif op == _SyncOp.DELETE:
+                    result_queue.put((op, target_file_path, None))
+                else:
+                    raise RuntimeError(f"Unknown operation: {op}")
 
     """Worker process that spawns threads to handle syncing."""
     with ThreadPoolExecutor(max_workers=num_worker_threads) as executor:

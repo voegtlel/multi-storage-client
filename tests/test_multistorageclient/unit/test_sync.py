@@ -4,6 +4,7 @@ import pytest
 import time
 from typing import Type
 import multistorageclient as msc
+from multistorageclient.constants import MEMORY_LOAD_LIMIT
 from test_multistorageclient.unit.utils import config, tempdatastore
 from multistorageclient.providers.manifest_metadata import DEFAULT_MANIFEST_BASE_DIR
 
@@ -92,7 +93,7 @@ def test_sync_function(
             "dir1/file2.txt": "c" * 100,
             "dir2/file0.txt": "d" * 100,
             "dir2/file1.txt": "e" * 100,
-            "dir2/file2.txt": "f" * 600 * 1024 * 1024,  # One large file
+            "dir2/file2.txt": "f" * (MEMORY_LOAD_LIMIT + 1024),  # One large file
             "dir3/file0.txt": "g" * 100,
             "dir3/file1.txt": "h" * 100,
             "dir3/file2.txt": "i" * 100,
@@ -155,3 +156,22 @@ def test_sync_function(
         msc.sync(source_url=os.path.join(source_msc_url, "dir2"), target_url=os.path.join(target_msc_url, "dir2"))
         sub_expected_files = {k: v for k, v in expected_files.items() if k.startswith("dir2")}
         verify_sync_and_contents(target_url=target_msc_url, expected_files=sub_expected_files)
+
+        msc.sync(source_url=source_msc_url, target_url=target_msc_url)
+
+        print("Deleting files at the source and syncing again, verify deletes at target.")
+        keys_to_delete = [k for k in expected_files.keys() if k.startswith("dir2")]
+        # Delete keys at the source.
+        for key in keys_to_delete:
+            expected_files.pop(key)
+            msc.delete(os.path.join(source_msc_url, key))
+
+        # Sync from source to target and expect deletes to happen at the target.
+        msc.sync(source_url=source_msc_url, target_url=target_msc_url, delete_unmatched_files=True)
+        verify_sync_and_contents(target_url=target_msc_url, expected_files=expected_files)
+
+        # Delete all remaining keys at source and verify the deletes propagate to target.
+        for key in expected_files.keys():
+            msc.delete(os.path.join(source_msc_url, key))
+        msc.sync(source_url=source_msc_url, target_url=target_msc_url, delete_unmatched_files=True)
+        verify_sync_and_contents(target_url=target_msc_url, expected_files={})

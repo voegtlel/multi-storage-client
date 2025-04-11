@@ -195,16 +195,17 @@ def is_file(url: str) -> bool:
     return client.is_file(path=path)
 
 
-def sync(source_url: str, target_url: str) -> None:
+def sync(source_url: str, target_url: str, delete_unmatched_files: bool = False) -> None:
     """
     Syncs files from the source storage to the target storage.
 
     :param source_url: The URL for the source storage.
     :param target_url: The URL for the target storage.
+    :param delete_unmatched_files: Whether to delete files at the target that are not present at the source.
     """
     source_client, source_path = resolve_storage_client(source_url)
     target_client, target_path = resolve_storage_client(target_url)
-    target_client.sync_from(source_client, source_path, target_path)
+    target_client.sync_from(source_client, source_path, target_path, delete_unmatched_files)
 
 
 def list(
