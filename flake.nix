@@ -15,6 +15,17 @@
       repo = "nixpkgs";
       ref = "refs/heads/nixos-unstable";
     };
+
+    # Python 3.9 (EOL October 2025) was dropped early for NixOS 25.05.
+    #
+    # https://github.com/NixOS/nixpkgs/pull/397258
+    nixpkgs-python39 = {
+      type = "github";
+      owner = "NixOS";
+      repo = "nixpkgs";
+      # Commit right before drop.
+      rev = "1076d576f5e8916f240d094a3c381d3e121800ba";
+    };
   };
 
   outputs =
@@ -42,6 +53,8 @@
               self = inputs.self.packages.${system};
 
               nixpkgs = inputs.nixpkgs.legacyPackages.${system};
+
+              nixpkgs-python39 = inputs.nixpkgs-python39.legacyPackages.${system};
             };
           }
         );
@@ -71,7 +84,7 @@
             # Just.
             just
             # Python.
-            python39
+            system-inputs.packages.nixpkgs-python39.python39
             python310
             python311
             python312
@@ -87,7 +100,13 @@
             fake-gcs-server
             minio
             # Telemetry systems.
-            grafana
+            #
+            # Grafana in the locked Nixpkgs commit fails to build on aarch64-darwin.
+            #
+            # https://github.com/NixOS/nixpkgs/pull/393960#issuecomment-2815934612
+            #
+            # Piggyback off the older Nixpkgs with Python 3.9.
+            system-inputs.packages.nixpkgs-python39.grafana
             mimir
             tempo
             # JFrog CLI.
@@ -106,7 +125,7 @@
             export LD_LIBRARY_PATH=${
               with system-inputs.packages.nixpkgs;
               lib.makeLibraryPath [
-                stdenv.cc.cc
+                stdenv.cc.cc.lib
                 zlib
               ]
             }
