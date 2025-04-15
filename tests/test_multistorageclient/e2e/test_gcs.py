@@ -15,6 +15,8 @@
 
 import pytest
 import test_multistorageclient.e2e.common as common
+import multistorageclient as msc
+from multistorageclient.types import PreconditionFailedError, NotModifiedError
 
 
 @pytest.mark.parametrize("profile_name", ["test-gcs"])
@@ -29,3 +31,22 @@ def test_gcs_shortcuts(profile_name, config_suffix):
 def test_gcs_storage_client(profile_name, config_suffix):
     profile = profile_name + config_suffix
     common.test_storage_client(profile)
+
+
+@pytest.mark.parametrize("profile_name", ["test-gcs"])
+@pytest.mark.parametrize("config_suffix", [""])
+def test_gcs_conditional_put(profile_name, config_suffix):
+    """Test conditional PUT operations in GCS using if-match and if-none-match conditions."""
+    profile = profile_name + config_suffix
+    client, _ = msc.resolve_storage_client(f"msc://{profile}/")
+
+    # GCS uses PreconditionFailedError for if_match failures (412)
+    # GCS uses NotModifiedError for if_none_match with specific etag (304)
+    # GCS does not support if_none_match="*" and raises RuntimeError
+    common.test_conditional_put(
+        storage_provider=client._storage_provider,
+        if_none_match_error_type=RuntimeError,
+        if_match_error_type=PreconditionFailedError,
+        if_none_match_specific_error_type=NotModifiedError,  # if-none-match = ETag
+        supports_if_none_match_star=False,
+    )

@@ -111,7 +111,14 @@ class PosixFileStorageProvider(BaseStorageProvider):
                     object_size, provider=self._provider_name, operation=operation, bucket="", status_code=status_code
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         def _invoke_api() -> None:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             atomic_write(source=BytesIO(body), destination=path)

@@ -382,3 +382,69 @@ def test_posix_xattr_metadata(temp_data_store_type: Type[tempdatastore.Temporary
         storage_provider._delete_object(path=file_path)
         with pytest.raises(FileNotFoundError):
             storage_provider._get_object(path=file_path)
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+    ],
+)
+def test_put_object_with_conditional_params(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    """
+    Test put_object with if_match and if_none_match parameters.
+    """
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+        storage_provider = storage_client._storage_provider
+
+        # Test file details
+        bucket = config_dict["profiles"][profile]["storage_provider"]["options"]["base_path"]
+        key = "test_conditional.txt"
+        file_path = f"{bucket}/{key}"
+        file_body = b"test content"
+        updated_body = b"updated content"
+
+        # Test if_none_match="*" - should succeed if object doesn't exist
+        if storage_provider._provider_name in ["s3", "swiftstack"]:
+            # For S3, SwiftStack, and OCI, test if_none_match="*"
+            storage_provider._put_object(path=file_path, body=file_body, if_none_match="*")
+            assert storage_provider._get_object(path=file_path) == file_body
+
+            # Test if_none_match="*" - should fail if object exists
+            with pytest.raises(PreconditionFailedError):
+                storage_provider._put_object(path=file_path, body=updated_body, if_none_match="*")
+            assert storage_provider._get_object(path=file_path) == file_body
+        else:
+            # For providers that don't support if_none_match="*", just create the object
+            storage_provider._put_object(path=file_path, body=file_body)
+
+        # Get the actual etag for the object
+        metadata = storage_provider._get_object_metadata(path=file_path)
+        assert metadata.etag is not None
+
+        # Test if_match with matching etag - should succeed
+        storage_provider._put_object(path=file_path, body=updated_body, if_match=metadata.etag)
+        assert storage_provider._get_object(path=file_path) == updated_body
+
+        # Test if_match with incorrect etag
+        mismatched_etag = "different_etag_value"
+
+        # testing string to int conversion for gcs, this should fail because gcs expects a numeric generation number
+        if storage_provider._provider_name == "gcs":
+            # GCS requires numeric generation numbers for etags
+            with pytest.raises(RuntimeError, match="Failed to PUT object"):
+                storage_provider._put_object(path=file_path, body=file_body, if_match=mismatched_etag)
+            assert storage_provider._get_object(path=file_path) == updated_body
+
+        # Test if_match with incorrect etag, gcs will convert this to a numeric generation number, others will just
+        # treat it as a string
+        mismatched_etag = "1234567890"
+        with pytest.raises(PreconditionFailedError, match="412"):
+            storage_provider._put_object(path=file_path, body=file_body, if_match=mismatched_etag)
+        assert storage_provider._get_object(path=file_path) == updated_body

@@ -203,7 +203,15 @@ class AIStoreStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
+        # ais does not support if_match and if_none_match
         bucket, key = split_path(path)
 
         def _invoke_api() -> None:

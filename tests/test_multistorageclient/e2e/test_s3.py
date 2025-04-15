@@ -15,6 +15,8 @@
 
 import pytest
 import test_multistorageclient.e2e.common as common
+import multistorageclient as msc
+from multistorageclient.types import PreconditionFailedError
 
 
 @pytest.mark.parametrize("profile_name", ["test-s3-iad", "test-s3-iad-base-path-with-prefix"])
@@ -29,3 +31,20 @@ def test_s3_shortcuts(profile_name, config_suffix):
 def test_s3_storage_client(profile_name, config_suffix):
     profile = profile_name + config_suffix
     common.test_storage_client(profile)
+
+
+@pytest.mark.parametrize("profile_name", ["test-s3-iad"])
+@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
+def test_s3_conditional_put(profile_name, config_suffix):
+    """Test conditional PUT operations in S3 using if-match and if-none-match conditions."""
+    profile = profile_name + config_suffix
+    client, _ = msc.resolve_storage_client(f"msc://{profile}/")
+
+    # S3 uses PreconditionFailedError for both if_none_match="*" and if_match failures
+    # and NotImplementedError for if_none_match with specific etag
+    common.test_conditional_put(
+        storage_provider=client._storage_provider,
+        if_none_match_error_type=PreconditionFailedError,
+        if_match_error_type=PreconditionFailedError,
+        if_none_match_specific_error_type=NotImplementedError,
+    )

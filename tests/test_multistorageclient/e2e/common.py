@@ -18,6 +18,7 @@ import tempfile
 import time
 from typing import Callable, Iterable, TypeVar
 import uuid
+import pytest
 
 import multistorageclient as msc
 
@@ -231,3 +232,70 @@ def test_storage_client(profile: str):
         verify_storage_provider(client, prefix)
     finally:
         delete_files(client, prefix)
+
+
+def test_conditional_put(
+    storage_provider,
+    if_none_match_error_type,
+    if_match_error_type,
+    if_none_match_specific_error_type=None,
+    supports_if_none_match_star=True,
+):
+    """Test conditional PUT operations using if-match and if-none-match conditions.
+
+    Args:
+        storage_provider: The storage provider to test
+        if_none_match_error_type: The error type expected when if_none_match="*" fails
+        if_match_error_type: The error type expected when if_match fails
+        if_none_match_specific_error_type: The error type expected when if_none_match with specific etag fails
+        supports_if_none_match_star: Whether the provider supports if_none_match="*" condition
+    """
+    key = f"test-conditional-put-{uuid.uuid4()}"
+    data = b"test data"
+
+    try:
+        # First test if_none_match="*" - this should either succeed or raise NotImplementedError
+        if supports_if_none_match_star:
+            # For providers that support if_none_match="*", try to create the object
+            storage_provider.put_object(key, data, if_none_match="*")
+
+            # Now test if_none_match="*" on existing object - should fail
+            with pytest.raises(if_none_match_error_type):
+                storage_provider.put_object(key, data, if_none_match="*")
+        else:
+            # For providers that don't support if_none_match="*", it should raise NotImplementedError
+            with pytest.raises(if_none_match_error_type):
+                storage_provider.put_object(key, data, if_none_match="*")
+
+            # Create the object unconditionally for subsequent tests
+            storage_provider.put_object(key, data)
+
+        # Get the etag of the existing object
+        metadata = storage_provider.get_object_metadata(key)
+        etag = metadata.etag
+
+        # Test if_match with correct etag
+        storage_provider.put_object(key, data, if_match=etag)
+
+        # Test if_match with wrong etag
+        with pytest.raises(if_match_error_type):
+            storage_provider.put_object(key, data, if_match="1234567890")
+
+        # Test if_none_match with specific etag if supported, runs only for gcs and azure
+        if if_none_match_specific_error_type is not None:
+            # Use a new key for this test case
+            key = f"test-conditional-put-specific-{uuid.uuid4()}"
+            # First put to get generation number
+            storage_provider.put_object(key, data)
+            metadata = storage_provider.get_object_metadata(key)
+            etag = metadata.etag
+            # Put with same generation should fail
+            with pytest.raises(if_none_match_specific_error_type):
+                storage_provider.put_object(key, b"new data", if_none_match=etag)
+
+    finally:
+        # Clean up
+        try:
+            storage_provider.delete_object(key)
+        except Exception:
+            pass

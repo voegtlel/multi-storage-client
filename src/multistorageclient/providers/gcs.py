@@ -23,7 +23,14 @@ from google.api_core.exceptions import NotFound, GoogleAPICallError
 from google.cloud import storage
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
-from ..types import CredentialsProvider, ObjectMetadata, Range, AWARE_DATETIME_MIN, PreconditionFailedError
+from ..types import (
+    CredentialsProvider,
+    ObjectMetadata,
+    Range,
+    AWARE_DATETIME_MIN,
+    PreconditionFailedError,
+    NotModifiedError,
+)
 from ..utils import split_path
 from .base import BaseStorageProvider
 
@@ -127,9 +134,11 @@ class GoogleStorageProvider(BaseStorageProvider):
                 raise PreconditionFailedError(
                     f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}"
                 ) from error
+            elif status_code == 304:
+                # for if_none_match with a specific etag condition.
+                raise NotModifiedError(f"Object {bucket}/{key} has not been modified.") from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
-
         except Exception as error:
             status_code = -1
             raise RuntimeError(
@@ -149,7 +158,23 @@ class GoogleStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
+        """
+        Uploads an object to Google Cloud Storage.
+
+        :param path: The path to the object to upload.
+        :param body: The content of the object to upload.
+        :param metadata: Optional metadata to associate with the object.
+        :param if_match: Optional ETag to match against the object.
+        :param if_none_match: Optional ETag to match against the object.
+        """
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
@@ -157,7 +182,18 @@ class GoogleStorageProvider(BaseStorageProvider):
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
             blob.metadata = metadata or None
-            blob.upload_from_string(body)
+
+            kwargs = {}
+
+            if if_match:
+                kwargs["if_generation_match"] = int(if_match)  # 412 error code
+            if if_none_match:
+                if if_none_match == "*":
+                    raise NotImplementedError("if_none_match='*' is not supported for GCS")
+                else:
+                    kwargs["if_generation_not_match"] = int(if_none_match)  # 304 error code
+
+            blob.upload_from_string(body, **kwargs)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 

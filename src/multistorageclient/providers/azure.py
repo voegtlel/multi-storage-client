@@ -170,6 +170,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             if status_code == 404:
                 raise FileNotFoundError(f"Object {container}/{blob} does not exist.")  # pylint: disable=raise-missing-from
             elif status_code == 412:
+                # raised when If-Match or If-Modified fails
                 raise PreconditionFailedError(
                     f"Failed to {operation} object(s) at {container}/{blob}. {error_info}"
                 ) from error
@@ -202,16 +203,52 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
+        """
+        Uploads an object to Azure Blob Storage.
+
+        :param path: The path to the object to upload.
+        :param body: The content of the object to upload.
+        :param metadata: Optional metadata to associate with the object.
+        :param if_match: Optional ETag to match against the object.
+        :param if_none_match: Optional ETag to match against the object.
+        """
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
         def _invoke_api() -> None:
             blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-            # If metadata is None, it will be ignored
-            blob_client.upload_blob(body, metadata=metadata or None, overwrite=True)
 
-        return self._collect_metrics(_invoke_api, operation="PUT", container=container_name, blob=blob_name)
+            kwargs = {
+                "data": body,
+                "overwrite": True,
+            }
+
+            if metadata:
+                kwargs["metadata"] = metadata
+
+            if if_match:
+                kwargs["match_condition"] = MatchConditions.IfNotModified
+                kwargs["etag"] = if_match
+
+            if if_none_match:
+                if if_none_match == "*":
+                    raise NotImplementedError("if_none_match='*' is not supported for Azure")
+                kwargs["match_condition"] = MatchConditions.IfModified
+                kwargs["etag"] = if_none_match
+
+            blob_client.upload_blob(**kwargs)
+
+        return self._collect_metrics(
+            _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=len(body)
+        )
 
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         container_name, blob_name = split_path(path)

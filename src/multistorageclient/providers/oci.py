@@ -183,10 +183,19 @@ class OracleStorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         bucket, key = split_path(path)
         self._refresh_oci_client_if_needed()
 
+        # OCI only supports if_none_match=="*"
+        # refer: https://docs.oracle.com/en-us/iaas/tools/python/2.150.0/api/object_storage/client/oci.object_storage.ObjectStorageClient.html?highlight=put_object#oci.object_storage.ObjectStorageClient.put_object
         def _invoke_api() -> None:
             self._oci_client.put_object(
                 namespace_name=self._namespace,
@@ -194,6 +203,8 @@ class OracleStorageProvider(BaseStorageProvider):
                 object_name=key,
                 put_object_body=body,
                 opc_meta=metadata or {},  # Pass metadata or empty dict
+                if_match=if_match,
+                if_none_match=if_none_match,
             )
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))

@@ -49,9 +49,16 @@ class BaseStorageProvider(StorageProvider):
     def _realpath(self, path: str) -> str:
         return os.path.join(self._base_path, path.lstrip("/"))
 
-    def put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         path = self._realpath(path)
-        return self._put_object(path, body, metadata)
+        return self._put_object(path, body, metadata, if_match, if_none_match)
 
     def get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
         path = self._realpath(path)
@@ -128,7 +135,14 @@ class BaseStorageProvider(StorageProvider):
             return False
 
     @abstractmethod
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         pass
 
     @abstractmethod

@@ -156,7 +156,14 @@ class StorageProvider(ABC):
     """
 
     @abstractmethod
-    def put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         """
         Uploads an object to the storage provider.
 
@@ -449,6 +456,16 @@ class RetryableError(Exception):
 class PreconditionFailedError(Exception):
     """
     Exception raised when a precondition fails. e.g. if-match, if-none-match, etc.
+    """
+
+    pass
+
+
+class NotModifiedError(Exception):
+    """Raised when a conditional operation fails because the resource has not been modified.
+
+    This typically occurs when using if-none-match with a specific generation/etag
+    and the resource's current generation/etag matches the specified one.
     """
 
     pass

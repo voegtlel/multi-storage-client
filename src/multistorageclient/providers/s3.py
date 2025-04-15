@@ -279,6 +279,10 @@ class S3StorageProvider(BaseStorageProvider):
                 raise RetryableError(
                     f"Service unavailable when {operation} object(s) at {bucket}/{key}. {error_info}"
                 ) from error
+            elif status_code == 501:
+                raise NotImplementedError(
+                    f"Operation {operation} not implemented for object(s) at {bucket}/{key}. {error_info}"
+                ) from error
             else:
                 raise RuntimeError(
                     f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}, "
@@ -312,12 +316,22 @@ class S3StorageProvider(BaseStorageProvider):
                     status_code=status_code,
                 )
 
-    def _put_object(self, path: str, body: bytes, metadata: Optional[Dict[str, str]] = None) -> None:
+    def _put_object(
+        self,
+        path: str,
+        body: bytes,
+        metadata: Optional[Dict[str, str]] = None,
+        if_match: Optional[str] = None,
+        if_none_match: Optional[str] = None,
+    ) -> None:
         """
         Uploads an object to the specified S3 path.
 
         :param path: The S3 path where the object will be uploaded.
         :param body: The content of the object as bytes.
+        :param metadata: Optional metadata to attach to the object.
+        :param if_match: Optional If-Match header value. Use "*" to only upload if the object doesn't exist.
+        :param if_none_match: Optional If-None-Match header value. Use "*" to only upload if the object doesn't exist.
         """
         bucket, key = split_path(path)
 
@@ -327,6 +341,11 @@ class S3StorageProvider(BaseStorageProvider):
                 kwargs["Metadata"] = metadata
             if self._is_directory_bucket(bucket):
                 kwargs["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
+            if if_match:
+                kwargs["IfMatch"] = if_match
+            if if_none_match:
+                kwargs["IfNoneMatch"] = if_none_match
+
             self._s3_client.put_object(**kwargs)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
