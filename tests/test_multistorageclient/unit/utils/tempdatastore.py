@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import copy
+import os
 import tempfile
 import uuid
 from abc import abstractmethod
@@ -25,7 +26,6 @@ import azure.storage.blob
 import boto3
 import google.auth.credentials
 import google.cloud.storage
-
 
 # Python's `tempfile` but for data stores.
 #
@@ -215,6 +215,9 @@ class TemporaryGoogleCloudStorageBucket(TemporaryDataStore):
         # https://github.com/fsouza/fake-gcs-server
         project_id = "local"
         endpoint_url = "http://localhost:4443"
+
+        # Set the emulator host to use AnonymousCredentials.
+        os.environ["STORAGE_EMULATOR_HOST"] = endpoint_url
 
         self._client = google.cloud.storage.Client(
             project=project_id,

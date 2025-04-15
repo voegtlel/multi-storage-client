@@ -21,6 +21,7 @@ from typing import IO, Any, Callable, Iterator, Optional, Union, Dict
 
 from google.api_core.exceptions import NotFound, GoogleAPICallError
 from google.cloud import storage
+from google.cloud.storage import transfer_manager
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
 from ..types import (
@@ -36,6 +37,13 @@ from .base import BaseStorageProvider
 
 PROVIDER = "gcs"
 
+MB = 1024 * 1024
+
+DEFAULT_MULTIPART_THRESHOLD = 512 * MB
+DEFAULT_MULTIPART_CHUNK_SIZE = 256 * MB
+DEFAULT_IO_CHUNK_SIZE = 256 * MB
+DEFAULT_MAX_CONCURRENCY = 8
+
 
 class GoogleStorageProvider(BaseStorageProvider):
     """
@@ -48,6 +56,7 @@ class GoogleStorageProvider(BaseStorageProvider):
         endpoint_url: str = "",
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
+        **kwargs: Any,
     ):
         """
         Initializes the :py:class:`GoogleStorageProvider` with the project ID and optional credentials provider.
@@ -63,6 +72,10 @@ class GoogleStorageProvider(BaseStorageProvider):
         self._endpoint_url = endpoint_url
         self._credentials_provider = credentials_provider
         self._gcs_client = self._create_gcs_client()
+        self._multipart_threshold = kwargs.get("multipart_threshold", DEFAULT_MULTIPART_THRESHOLD)
+        self._multipart_chunksize = kwargs.get("multipart_chunksize", DEFAULT_MULTIPART_CHUNK_SIZE)
+        self._io_chunk_size = kwargs.get("io_chunk_size", DEFAULT_IO_CHUNK_SIZE)
+        self._max_concurrency = kwargs.get("max_concurrency", DEFAULT_MAX_CONCURRENCY)
 
     def _create_gcs_client(self) -> storage.Client:
         client_options = {}
@@ -388,10 +401,23 @@ class GoogleStorageProvider(BaseStorageProvider):
         if isinstance(f, str):
             filesize = os.path.getsize(f)
 
+            # Upload small files
+            if filesize <= self._multipart_threshold:
+                with open(f, "rb") as fp:
+                    self._put_object(remote_path, fp.read())
+                return
+
+            # Upload large files using transfer manager
             def _invoke_api() -> None:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
-                blob.upload_from_filename(f)
+                transfer_manager.upload_chunks_concurrently(
+                    f,
+                    blob,
+                    chunk_size=self._multipart_chunksize,
+                    max_workers=self._max_concurrency,
+                    worker_type=transfer_manager.THREAD,
+                )
 
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
         else:
@@ -399,10 +425,38 @@ class GoogleStorageProvider(BaseStorageProvider):
             filesize = f.tell()
             f.seek(0)
 
+            # Upload small files
+            if filesize <= self._multipart_threshold:
+                if isinstance(f, io.StringIO):
+                    self._put_object(remote_path, f.read().encode("utf-8"))
+                else:
+                    self._put_object(remote_path, f.read())
+                return
+
+            # Upload large files using transfer manager
             def _invoke_api() -> None:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
-                blob.upload_from_string(f.read())
+
+                if isinstance(f, io.StringIO):
+                    mode = "w"
+                else:
+                    mode = "wb"
+
+                # transfer manager does not support uploading a file object
+                with tempfile.NamedTemporaryFile(mode=mode, delete=False, prefix=".") as fp:
+                    temp_file_path = fp.name
+                    fp.write(f.read())
+
+                transfer_manager.upload_chunks_concurrently(
+                    temp_file_path,
+                    blob,
+                    chunk_size=self._multipart_chunksize,
+                    max_workers=self._max_concurrency,
+                    worker_type=transfer_manager.THREAD,
+                )
+
+                os.unlink(temp_file_path)
 
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
 
@@ -416,29 +470,66 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         if isinstance(f, str):
             os.makedirs(os.path.dirname(f), exist_ok=True)
+            # Download small files
+            if metadata.content_length <= self._multipart_threshold:
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
+                    temp_file_path = fp.name
+                    fp.write(self._get_object(remote_path))
+                os.rename(src=temp_file_path, dst=f)
+                return
 
+            # Download large files using transfer manager
             def _invoke_api() -> None:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
 
                 with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
-                    blob.download_to_filename(temp_file_path)
+                    transfer_manager.download_chunks_concurrently(
+                        blob,
+                        temp_file_path,
+                        chunk_size=self._io_chunk_size,
+                        max_workers=self._max_concurrency,
+                        worker_type=transfer_manager.THREAD,
+                    )
                 os.rename(src=temp_file_path, dst=f)
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
             )
         else:
+            # Download small files
+            if metadata.content_length <= self._multipart_threshold:
+                if isinstance(f, io.StringIO):
+                    f.write(self._get_object(remote_path).decode("utf-8"))
+                else:
+                    f.write(self._get_object(remote_path))
+                return
 
+            # Download large files using transfer manager
             def _invoke_api() -> None:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
-                if isinstance(f, io.TextIOBase):
-                    content = blob.download_as_text()
-                    f.write(content)
+
+                # transfer manager does not support downloading to a file object
+                with tempfile.NamedTemporaryFile(mode="wb", delete=False, prefix=".") as fp:
+                    temp_file_path = fp.name
+                    transfer_manager.download_chunks_concurrently(
+                        blob,
+                        temp_file_path,
+                        chunk_size=self._io_chunk_size,
+                        max_workers=self._max_concurrency,
+                        worker_type=transfer_manager.THREAD,
+                    )
+
+                if isinstance(f, io.StringIO):
+                    with open(temp_file_path, "r") as fp:
+                        f.write(fp.read())
                 else:
-                    blob.download_to_file(f)
+                    with open(temp_file_path, "rb") as fp:
+                        f.write(fp.read())
+
+                os.unlink(temp_file_path)
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length

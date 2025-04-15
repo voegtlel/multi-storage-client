@@ -49,7 +49,7 @@ boto3 = [
     "boto3~=1.36"
 ]
 google-cloud-storage = [
-    "google-cloud-storage~=2.3"
+    "google-cloud-storage~=3.0"
 ]
 oci = [
     "oci~=2.69.0"

@@ -167,7 +167,11 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         storage_client.delete(path=file_path)
 
         # Open the file for writes + reads (bytes).
-        large_file_body_bytes = b"\x00" * (MEMORY_LOAD_LIMIT + 1)
+        if storage_client._storage_provider._provider_name == "gcs":
+            # GCS simulator does not support multipart uploads
+            large_file_body_bytes = b"\x00" * MEMORY_LOAD_LIMIT
+        else:
+            large_file_body_bytes = b"\x00" * (MEMORY_LOAD_LIMIT + 1)
         with storage_client.open(path=file_path, mode="wb") as file:
             file.write(large_file_body_bytes)
         assert storage_client.is_file(path=file_path)
