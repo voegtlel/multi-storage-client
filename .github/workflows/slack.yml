@@ -1,0 +1,60 @@
+#
+# GitHub Actions workflow configuration.
+#
+# https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions
+#
+
+# Use the Slack-provided GitHub Action to send flattened GitHub webhook payloads to Slack workflow webhooks.
+#
+# https://tools.slack.dev/slack-github-action
+name: Slack
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+  pull_request:
+    types:
+      - opened
+      - reopened
+jobs:
+  issue-opened:
+    name: Issue Opened
+    if: ${{ github.event_name == 'issues' && github.event.action == 'opened' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: slackapi/slack-github-action@v2.0.0
+        with:
+          payload-delimiter: _
+          webhook: ${{ secrets.ISSUE_OPENED_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+  issue-reopened:
+    name: Issue Reopened
+    if: ${{ github.event_name == 'issues' && github.event.action == 'reopened' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: slackapi/slack-github-action@v2.0.0
+        with:
+          payload-delimiter: _
+          webhook: ${{ secrets.ISSUE_REOPENED_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+  pull-request-opened:
+    name: Pull Request Opened
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: slackapi/slack-github-action@v2.0.0
+        with:
+          payload-delimiter: _
+          webhook: ${{ secrets.PULL_REQUEST_OPENED_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+  pull-request-reopened:
+    name: Pull Request Reopened
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'reopened' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: slackapi/slack-github-action@v2.0.0
+        with:
+          payload-delimiter: _
+          webhook: ${{ secrets.PULL_REQUEST_REOPENED_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
