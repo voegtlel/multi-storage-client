@@ -38,6 +38,7 @@ try:
     from requests.adapters import HTTPAdapter, Retry
 
     from .auth import AccessTokenProvider, AccessTokenProviderFactory
+    from .error_aware_processor import ErrorAwareBatchSpanProcessor
 
     _RESOURCE = Resource.create(
         {
@@ -152,19 +153,21 @@ def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
                 sampler: Union[StaticSampler, ParentBased, None]
                 if trace_sampler_dict:
                     class_name = trace_sampler_dict["type"]
-                    options = trace_exporter_dict.get("options", {})
+                    options = trace_sampler_dict.get("options", {})
                     cls_or_obj = import_class(class_name, _TRACE_SAMPLER_MODULE_NAME)
                     if isinstance(cls_or_obj, StaticSampler):
                         sampler = cls_or_obj
                     else:
                         sampler = cls_or_obj(**options)
+                    # if sampler is specified by users, then we use BatchSpanProcssor; otherwise, use the custom error aware processor for tail sampling
+                    span_processor = BatchSpanProcessor(exporter)
                 else:
-                    # provide default sampler if dict is not provided
                     sampler = DEFAULT_ON
+                    span_processor = ErrorAwareBatchSpanProcessor(exporter)
 
                 # set up trace provider for current process
                 tracer_provider = TracerProvider(resource=_RESOURCE, sampler=sampler)
-                tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
+                tracer_provider.add_span_processor(span_processor)
                 trace.set_tracer_provider(tracer_provider)
 
             if metric_config_dict is not None:
