@@ -21,6 +21,7 @@ jobs:
   issue-opened:
     name: Issue Opened
     if: ${{ github.event_name == 'issues' && github.event.action == 'opened' }}
+    environment: Slack
     runs-on: ubuntu-latest
     steps:
       - uses: slackapi/slack-github-action@v2.0.0
@@ -31,6 +32,7 @@ jobs:
   issue-reopened:
     name: Issue Reopened
     if: ${{ github.event_name == 'issues' && github.event.action == 'reopened' }}
+    environment: Slack
     runs-on: ubuntu-latest
     steps:
       - uses: slackapi/slack-github-action@v2.0.0
@@ -41,6 +43,7 @@ jobs:
   pull-request-opened:
     name: Pull Request Opened
     if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
+    environment: Slack
     runs-on: ubuntu-latest
     steps:
       - uses: slackapi/slack-github-action@v2.0.0
@@ -51,6 +54,7 @@ jobs:
   pull-request-reopened:
     name: Pull Request Reopened
     if: ${{ github.event_name == 'pull_request' && github.event.action == 'reopened' }}
+    environment: Slack
     runs-on: ubuntu-latest
     steps:
       - uses: slackapi/slack-github-action@v2.0.0
