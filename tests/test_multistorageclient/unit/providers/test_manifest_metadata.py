@@ -114,6 +114,17 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert listed_file_info.type == file_info.type
         assert listed_file_info.last_modified == file_info.last_modified
 
+        # Check that info() detects directories too.
+        for dir_path in ["dir", "dir/"]:
+            dir_info = data_with_manifest_storage_client.info(path=dir_path, strict=False)
+            assert dir_info.type == "directory"
+            assert dir_info.key == "dir/"
+            assert dir_info.content_length == 0
+
+        # But "di" is not a valid directory, even though it is a valid prefix.
+        with pytest.raises(FileNotFoundError):
+            data_with_manifest_storage_client.info(path="di", strict=False)
+
         # Delete the file.
         data_with_manifest_storage_client.delete(path=file_path)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1

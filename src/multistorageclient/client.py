@@ -137,12 +137,28 @@ class StorageClient:
         :param path: The path to the object for which metadata or information is being retrieved.
         :param strict: If True, performs additional validation to determine whether the path refers to a directory.
 
-        :return: A dictionary containing metadata or information about the object.
+        :return: A dictionary containing metadata about the object.
         """
-        if self._metadata_provider:
-            return self._metadata_provider.get_object_metadata(path)
-        else:
+        if not self._metadata_provider:
             return self._storage_provider.get_object_metadata(path, strict=strict)
+
+        # For metadata_provider, first check if the path exists as a file, then fallback to detecting if path is a directory.
+        try:
+            return self._metadata_provider.get_object_metadata(path)
+        except FileNotFoundError:
+            # Try listing from the parent to determine if path is a valid directory
+            parent = os.path.dirname(path.rstrip("/")) + "/"
+            parent = "" if parent == "/" else parent
+            target = path.rstrip("/") + "/"
+
+            try:
+                entries = self._metadata_provider.list_objects(parent, include_directories=True)
+                for entry in entries:
+                    if entry.key == target and entry.type == "directory":
+                        return entry
+            except Exception:
+                pass
+            raise  # Raise original FileNotFoundError
 
     @retry
     def download_file(self, remote_path: str, local_path: str) -> None:
