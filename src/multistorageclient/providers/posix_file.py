@@ -100,7 +100,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
             raise error
         except Exception as error:
             status_code = -1
-            raise RuntimeError(f"Failed to {operation} object(s) at {path}") from error
+            raise RuntimeError(f"Failed to {operation} object(s) at {path}, error: {error}") from error
         finally:
             elapsed_time = time.time() - start_time
             self._metric_helper.record_duration(

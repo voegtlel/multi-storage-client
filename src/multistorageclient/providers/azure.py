@@ -183,7 +183,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         except Exception as error:
             status_code = -1
             raise RuntimeError(
-                f"Failed to {operation} object(s) at {container}/{blob}. error_type: {type(error).__name__}"
+                f"Failed to {operation} object(s) at {container}/{blob}. error_type: {type(error).__name__}, error: {error}"
             ) from error
         finally:
             elapsed_time = time.time() - start_time
