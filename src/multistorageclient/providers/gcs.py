@@ -22,6 +22,7 @@ from typing import IO, Any, Callable, Iterator, Optional, Union, Dict
 from google.api_core.exceptions import NotFound, GoogleAPICallError
 from google.cloud import storage
 from google.cloud.storage import transfer_manager
+from google.cloud.storage.exceptions import InvalidResponse
 from google.oauth2.credentials import Credentials as GoogleCredentials
 
 from ..types import (
@@ -31,6 +32,7 @@ from ..types import (
     AWARE_DATETIME_MIN,
     PreconditionFailedError,
     NotModifiedError,
+    RetryableError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -152,10 +154,20 @@ class GoogleStorageProvider(BaseStorageProvider):
                 raise NotModifiedError(f"Object {bucket}/{key} has not been modified.") from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_info}") from error
+        except InvalidResponse as error:
+            status_code = error.response.status_code
+            response_text = error.response.text
+            error_details = f"error: {error}, error_response_text: {response_text}"
+            # Check for NoSuchUpload within the response text
+            if "NoSuchUpload" in response_text:
+                raise RetryableError(f"Multi-part upload failed for {bucket}/{key}, {error_details}") from error
+            else:
+                raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_details}") from error
         except Exception as error:
             status_code = -1
+            error_details = str(error)
             raise RuntimeError(
-                f"Failed to {operation} object(s) at {bucket}/{key}. error_type: {type(error).__name__}, error: {error}"
+                f"Failed to {operation} object(s) at {bucket}/{key}. error_type: {type(error).__name__}, {error_details}"
             ) from error
         finally:
             elapsed_time = time.time() - start_time
