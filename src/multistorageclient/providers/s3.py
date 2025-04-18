@@ -37,6 +37,7 @@ from ..types import (
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
+from ..instrumentation.utils import set_span_attribute
 
 BOTO3_MAX_POOL_CONNECTIONS = 32
 
@@ -49,6 +50,18 @@ MAX_CONCURRENCY = 16
 PROVIDER = "s3"
 
 EXPRESS_ONEZONE_STORAGE_CLASS = "EXPRESS_ONEZONE"
+
+
+def _extract_x_trans_id(response: Any) -> None:
+    """Extract x-trans-id from boto3 response and set it as span attribute."""
+    try:
+        if response and isinstance(response, dict):
+            headers = response.get("ResponseMetadata", {}).get("HTTPHeaders", {})
+            if headers and isinstance(headers, dict) and "x-trans-id" in headers:
+                set_span_attribute("x_trans_id", headers["x-trans-id"])
+    except (KeyError, AttributeError, TypeError):
+        # Silently ignore any errors in extraction
+        pass
 
 
 class StaticS3CredentialsProvider(CredentialsProvider):
@@ -245,6 +258,14 @@ class S3StorageProvider(BaseStorageProvider):
 
         :return: The result of the S3 operation, typically the return value of the `func` callable.
         """
+        # Import the span attribute helper
+        from ..instrumentation.utils import set_span_attribute
+
+        # Set basic operation attributes
+        set_span_attribute("s3_operation", operation)
+        set_span_attribute("s3_bucket", bucket)
+        set_span_attribute("s3_key", key)
+
         start_time = time.time()
         status_code = 200
 
@@ -263,7 +284,18 @@ class S3StorageProvider(BaseStorageProvider):
             status_code = error.response["ResponseMetadata"]["HTTPStatusCode"]
             request_id = error.response["ResponseMetadata"].get("RequestId")
             host_id = error.response["ResponseMetadata"].get("HostId")
+            header = error.response["ResponseMetadata"].get("HTTPHeaders", {})
+            # Ensure header is a dictionary before trying to get from it
+            x_trans_id = header.get("x-trans-id") if isinstance(header, dict) else None
+
+            # Record error details in span
+            set_span_attribute("request_id", request_id)
+            set_span_attribute("host_id", host_id)
+
             error_info = f"request_id: {request_id}, host_id: {host_id}, status_code: {status_code}"
+            if x_trans_id:
+                error_info += f", x-trans-id: {x_trans_id}"
+                set_span_attribute("x_trans_id", x_trans_id)
 
             if status_code == 404:
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {error_info}")  # pylint: disable=raise-missing-from
@@ -304,6 +336,10 @@ class S3StorageProvider(BaseStorageProvider):
             ) from error
         finally:
             elapsed_time = time.time() - start_time
+
+            set_span_attribute("status_code", status_code)
+
+            # Record metrics
             self._metric_helper.record_duration(
                 elapsed_time, provider=self._provider_name, operation=operation, bucket=bucket, status_code=status_code
             )
@@ -315,6 +351,8 @@ class S3StorageProvider(BaseStorageProvider):
                     bucket=bucket,
                     status_code=status_code,
                 )
+
+                set_span_attribute("object_size", object_size)
 
     def _put_object(
         self,
@@ -346,7 +384,11 @@ class S3StorageProvider(BaseStorageProvider):
             if if_none_match:
                 kwargs["IfNoneMatch"] = if_none_match
 
-            self._s3_client.put_object(**kwargs)
+            # Capture the response from put_object
+            response = self._s3_client.put_object(**kwargs)
+
+            # Extract and set x-trans-id if present
+            _extract_x_trans_id(response)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -359,6 +401,10 @@ class S3StorageProvider(BaseStorageProvider):
                 response = self._s3_client.get_object(Bucket=bucket, Key=key, Range=bytes_range)
             else:
                 response = self._s3_client.get_object(Bucket=bucket, Key=key)
+
+            # Extract and set x-trans-id if present
+            _extract_x_trans_id(response)
+
             return response["Body"].read()
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
@@ -368,9 +414,12 @@ class S3StorageProvider(BaseStorageProvider):
         dest_bucket, dest_key = split_path(dest_path)
 
         def _invoke_api() -> None:
-            self._s3_client.copy_object(
+            response = self._s3_client.copy_object(
                 CopySource={"Bucket": src_bucket, "Key": src_key}, Bucket=dest_bucket, Key=dest_key
             )
+
+            # Extract and set x-trans-id if present
+            _extract_x_trans_id(response)
 
         src_object = self._get_object_metadata(src_path)
 
@@ -388,9 +437,12 @@ class S3StorageProvider(BaseStorageProvider):
         def _invoke_api() -> None:
             # conditionally delete the object if if_match(etag) is provided, if not, delete the object unconditionally
             if if_match:
-                self._s3_client.delete_object(Bucket=bucket, Key=key, IfMatch=if_match)
+                response = self._s3_client.delete_object(Bucket=bucket, Key=key, IfMatch=if_match)
             else:
-                self._s3_client.delete_object(Bucket=bucket, Key=key)
+                response = self._s3_client.delete_object(Bucket=bucket, Key=key)
+
+            # Extract and set x-trans-id if present
+            _extract_x_trans_id(response)
 
         return self._collect_metrics(_invoke_api, operation="DELETE", bucket=bucket, key=key)
 
@@ -403,6 +455,10 @@ class S3StorageProvider(BaseStorageProvider):
         def _invoke_api() -> bool:
             # List objects with the given prefix
             response = self._s3_client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1, Delimiter="/")
+
+            # Extract and set x-trans-id if present
+            _extract_x_trans_id(response)
+
             # Check if there are any contents or common prefixes
             return bool(response.get("Contents", []) or response.get("CommonPrefixes", []))
 
@@ -426,6 +482,10 @@ class S3StorageProvider(BaseStorageProvider):
 
             def _invoke_api() -> ObjectMetadata:
                 response = self._s3_client.head_object(Bucket=bucket, Key=key)
+
+                # Extract and set x-trans-id if present
+                _extract_x_trans_id(response)
+
                 return ObjectMetadata(
                     key=path,
                     type="file",
@@ -524,13 +584,16 @@ class S3StorageProvider(BaseStorageProvider):
                 extra_args = {}
                 if self._is_directory_bucket(bucket):
                     extra_args["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
-                self._s3_client.upload_file(
+                response = self._s3_client.upload_file(
                     Filename=f,
                     Bucket=bucket,
                     Key=key,
                     Config=self._transfer_config,
                     ExtraArgs=extra_args,
                 )
+
+                # Extract and set x-trans-id if present
+                _extract_x_trans_id(response)
 
             return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
         else:
@@ -581,14 +644,18 @@ class S3StorageProvider(BaseStorageProvider):
             bucket, key = split_path(remote_path)
 
             def _invoke_api() -> None:
+                response = None
                 with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
-                    self._s3_client.download_fileobj(
+                    response = self._s3_client.download_fileobj(
                         Bucket=bucket,
                         Key=key,
                         Fileobj=fp,
                         Config=self._transfer_config,
                     )
+
+                # Extract and set x-trans-id if present
+                _extract_x_trans_id(response)
                 os.rename(src=temp_file_path, dst=f)
 
             return self._collect_metrics(
@@ -607,12 +674,15 @@ class S3StorageProvider(BaseStorageProvider):
             bucket, key = split_path(remote_path)
 
             def _invoke_api() -> None:
-                self._s3_client.download_fileobj(
+                response = self._s3_client.download_fileobj(
                     Bucket=bucket,
                     Key=key,
                     Fileobj=f,
                     Config=self._transfer_config,
                 )
+
+                # Extract and set x-trans-id if present
+                _extract_x_trans_id(response)
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length

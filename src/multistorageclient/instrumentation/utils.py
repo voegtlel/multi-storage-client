@@ -453,7 +453,6 @@ def _generic_tracer(func: Callable, class_name: str) -> Callable:
 
             for k, v in DEFAULT_ATTRIBUTES.items():
                 span.set_attribute(k, v)
-
             try:
                 result = func(*args, **kwargs)
                 span.set_status(StatusCode.OK)
@@ -515,3 +514,16 @@ class CacheManagerMetricsHelper:
             "proc_id": os.getpid(),
         }
         self._counter.add(1, attributes=self._merge_attributes(attributes))
+
+
+def set_span_attribute(attribute_name: str, attribute_value: Any) -> None:
+    """
+    Safely sets an attribute on the current span, if both span and attribute value exist.
+
+    :param attribute_name: The name of the attribute to set
+    :param attribute_value: The value of the attribute to set
+    """
+    if attribute_value is not None:
+        span = trace.get_current_span()
+        if span is not None:
+            span.set_attribute(attribute_name, attribute_value)
