@@ -376,11 +376,18 @@ class MultiStoragePath:
 
     # Renaming and deleting
 
-    def rename(self, target):
+    def rename(self, target) -> "MultiStoragePath":
+        if not isinstance(target, MultiStoragePath):
+            target = MultiStoragePath(target)
+
         if self._storage_client.is_default_profile():
-            Path(self._internal_path).rename(target)
+            Path(self._internal_path).rename(str(target._internal_path))
         else:
-            raise NotImplementedError("MultiStoragePath.rename() is unsupported for remote storage paths")
+            # Note: This operation is not atomic, and the target path must be a single file.
+            self._storage_client.copy(str(self._internal_path), str(target._internal_path))
+            self._storage_client.delete(str(self._internal_path))
+
+        return target
 
     def replace(self, target):
         if self._storage_client.is_default_profile():

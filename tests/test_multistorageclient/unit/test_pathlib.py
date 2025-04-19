@@ -28,7 +28,7 @@ from test_multistorageclient.unit.utils import config, tempdatastore
 MB = 1024 * 1024
 
 
-def test_path_basic(file_storage_config):
+def test_path_basic():
     with tempfile.TemporaryDirectory() as temp_dir:
         os.makedirs(f"{temp_dir}/dir1")
 
@@ -82,6 +82,10 @@ def test_path_basic(file_storage_config):
 
         with pytest.raises(FileNotFoundError):
             list(path6.iterdir())
+
+        path7 = path1.rename(f"{temp_dir}/dir1/testfile-1.txt")
+        assert not path1.exists()
+        assert path7.exists()
 
 
 def test_path_hierarchy(file_storage_config):
@@ -186,6 +190,14 @@ def verify_pathlib(profile: str, prefix: str):
 
     path4 = msc.Path(f"msc://{profile}/{prefix}/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin")
     assert str(path4) == f"msc://{profile}/{prefix}/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin"
+
+    # rename
+    path5 = msc.Path(f"msc://{profile}/{prefix}/data-2.bin")
+    path6 = path5.rename(f"msc://{profile}/{prefix}/data-3.bin")
+    assert not path5.exists()
+    assert path6 == msc.Path(f"msc://{profile}/{prefix}/data-3.bin")
+    with path6.open("rb") as fp:
+        assert fp.read() == body
 
 
 @pytest.mark.parametrize(

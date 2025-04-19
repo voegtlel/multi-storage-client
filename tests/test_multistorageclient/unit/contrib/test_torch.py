@@ -13,11 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Type
+
 import pytest
 import torch
+import torch.distributed.checkpoint as dcp
 
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
+from test_multistorageclient.unit.utils import config, tempdatastore
 
 
 @pytest.fixture
@@ -43,3 +47,69 @@ def test_torch_load_with_msc_prefix(file_storage_config, sample_data):
 
     result = msc.torch.load(f"{MSC_PROTOCOL}default{filepath}")
     assert torch.equal(result, expected_tensor)
+
+
+class SimpleModel(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = torch.nn.Linear(10, 2)
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryPOSIXDirectory],
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+    ],
+)
+def test_filesystem_reader_writer(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        config.setup_msc_config(
+            config_dict={
+                "profiles": {
+                    "test": temp_data_store.profile_config_dict(),
+                }
+            }
+        )
+
+        # Save model checkpoint
+        model = SimpleModel()
+        state_dict = {"model": model}
+
+        writer = msc.torch.MultiStorageFileSystemWriter("msc://test/checkpoint/1")
+        dcp.save(  # type: ignore[reportPrivateImportUsage]
+            state_dict=state_dict,
+            storage_writer=writer,
+        )
+
+        # Load model checkpoint
+        loaded_model = SimpleModel()
+        loaded_state_dict = {"model": loaded_model}
+
+        reader = msc.torch.MultiStorageFileSystemReader("msc://test/checkpoint/1")
+        dcp.load(  # type: ignore[reportPrivateImportUsage]
+            state_dict=loaded_state_dict,
+            storage_reader=reader,
+        )
+
+        # Compare the state dictionaries
+        assert "model" in loaded_state_dict and "model" in state_dict
+
+        # Get the state_dict from both models to compare parameters
+        original_state_dict = state_dict["model"].state_dict()
+        loaded_state_dict_params = loaded_state_dict["model"].state_dict()
+
+        # Verify both state dictionaries have the same keys
+        assert set(original_state_dict.keys()) == set(loaded_state_dict_params.keys())
+
+        # Compare each parameter tensor
+        for param_name in original_state_dict:
+            assert torch.equal(original_state_dict[param_name], loaded_state_dict_params[param_name]), (
+                f"Parameter {param_name} does not match"
+            )

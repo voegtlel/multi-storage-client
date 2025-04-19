@@ -63,7 +63,7 @@ numpy = [
     "numpy~=2.0"
 ]
 torch = [
-    "torch~=2.3"
+    "torch~=2.6"
 ]
 xarray = [
     "xarray>=2024.07.0"

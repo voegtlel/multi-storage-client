@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +18,8 @@ from typing import Any
 import torch as _torch
 from torch.serialization import FILE_LIKE
 
-from ..shortcuts import open as msc_open
-from ..types import MSC_PROTOCOL
+from ...shortcuts import open as msc_open
+from ...types import MSC_PROTOCOL
 
 
 def load(f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
