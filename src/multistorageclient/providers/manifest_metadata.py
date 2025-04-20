@@ -15,6 +15,7 @@
 
 from __future__ import annotations  # Enables forward references in type hints
 
+import logging
 import io
 import json
 import os
@@ -24,6 +25,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ..types import MetadataProvider, ObjectMetadata, StorageProvider
 from ..utils import glob
+
+logger = logging.Logger(__name__)
+
 
 DEFAULT_MANIFEST_BASE_DIR = ".msc_manifests"
 MANIFEST_INDEX_FILENAME = "msc_manifest_index.json"
@@ -158,14 +162,15 @@ class ManifestMetadataProvider(MetadataProvider):
             candidates = sorted(candidates)
             return candidates[-1] if candidates else ""
 
-        manifest_path = helper_find_manifest_file(manifest_path)
-        if not manifest_path:
+        resolved_manifest_path = helper_find_manifest_file(manifest_path)
+        if not resolved_manifest_path:
+            logger.warning(f"No manifest found at '{manifest_path}'.")
             return
 
-        file_content = storage_provider.get_object(manifest_path)
+        file_content = storage_provider.get_object(resolved_manifest_path)
 
-        prefix = os.path.dirname(manifest_path)
-        _, file_extension = os.path.splitext(manifest_path)
+        prefix = os.path.dirname(resolved_manifest_path)
+        _, file_extension = os.path.splitext(resolved_manifest_path)
         self._load_manifest_file(storage_provider, file_content, prefix, file_extension[1:])
 
     def _load_manifest_file(
