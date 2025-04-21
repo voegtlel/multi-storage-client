@@ -14,13 +14,15 @@
 # limitations under the License.
 
 import os
+
 import pytest
 
+import multistorageclient as msc
 from multistorageclient.utils import (
-    glob,
-    join_paths,
     expand_env_vars,
     extract_prefix_from_glob,
+    glob,
+    join_paths,
     merge_dictionaries_no_overwrite,
 )
 
@@ -200,3 +202,7 @@ def test_merge_dictionaries_no_overwrite_with_conflict():
 
     _, conflicts = merge_dictionaries_no_overwrite(dict_a, dict_b)
     assert "type" in conflicts, "Expected a conflict on 'type' but it wasn't recorded."
+
+
+def test_version():
+    assert msc.__version__ != "0.1.0"

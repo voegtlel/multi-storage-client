@@ -14,22 +14,26 @@
 # limitations under the License.
 
 import importlib
+from importlib.metadata import version
+
+__version__ = version("multi-storage-client")
+
 
 from .cache import CacheConfig
 from .client import StorageClient, StorageClientConfig
 from .pathlib import MultiStoragePath as Path
 from .shortcuts import (
+    delete,
     download_file,
     glob,
     is_empty,
     is_file,
+    list,
     open,
     resolve_storage_client,
     sync,
     upload_file,
-    list,
     write,
-    delete,
 )
 
 __all__ = [
