@@ -77,6 +77,29 @@ This module provides ``load`` and ``save`` methods for loading and saving PyTorc
       "msc://data-s3-iad/pytorch-tensors/tensor-2.pt"
   )
 
+In addition to the ``load`` and ``save`` methods, the ``torch`` module provides the ``MultiStorageFileSystemReader`` and ``MultiStorageFileSystemWriter`` classes for reading and writing PyTorch objects to multiple storage backends.
+
+.. code-block:: python
+  :linenos:
+
+  import multistorageclient as msc
+  import torch
+  import torch.distributed.checkpoint as dcp
+
+  # Create a MultiStorageFileSystemWriter for the data-s3-iad profile.
+  writer = msc.torch.MultiStorageFileSystemWriter("msc://data-s3-iad/checkpoint/1")
+  dcp.save(
+      state_dict=state_dict,
+      storage_writer=writer,
+  )
+
+  # Create a MultiStorageFileSystemReader for the data-s3-iad profile.
+  reader = msc.torch.MultiStorageFileSystemReader("msc://data-s3-iad/checkpoint/1")
+  dcp.load(
+      state_dict=loaded_state_dict,
+      storage_reader=reader,
+  )
+
 Xarray
 ^^^^^^
 

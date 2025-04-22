@@ -92,7 +92,7 @@ def test_filesystem_reader_writer(temp_data_store_type: Type[tempdatastore.Tempo
         loaded_model = SimpleModel()
         loaded_state_dict = {"model": loaded_model}
 
-        reader = msc.torch.MultiStorageFileSystemReader("msc://test/checkpoint/1")
+        reader = msc.torch.MultiStorageFileSystemReader("msc://test/checkpoint/1", thread_count=2)
         dcp.load(  # type: ignore[reportPrivateImportUsage]
             state_dict=loaded_state_dict,
             storage_reader=reader,

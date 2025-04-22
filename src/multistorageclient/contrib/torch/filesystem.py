@@ -13,11 +13,19 @@
 # See the License for the specific language overning permissions and
 # limitations under the License.
 
-from contextlib import contextmanager
 import io
 import os
-from typing import Generator, Union
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from typing import Dict, Generator, List, Union, cast
+
 from torch.distributed.checkpoint.filesystem import FileSystemBase, FileSystemReader, FileSystemWriter
+from torch.distributed.checkpoint.planner import (
+    LoadPlan,
+    LoadPlanner,
+    ReadItem,
+)
+from torch.futures import Future
 
 from ...pathlib import MultiStoragePath
 
@@ -60,18 +68,55 @@ class MultiStorageFileSystem(FileSystemBase):
         MultiStoragePath(path).unlink()
 
 
+def _prefetch_objects(fs: MultiStorageFileSystem, urls: List[MultiStoragePath], thread_count: int) -> None:
+    """
+    Efficiently pre-downloads files from object storage using parallel threads, storing them in cache when enabled for optimized subsequent access.
+    """
+
+    def _prefetch(url: MultiStoragePath) -> None:
+        with fs.create_stream(url, "rb") as _:
+            pass
+
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+        futures = [executor.submit(_prefetch, url) for url in urls]
+        for future in futures:
+            future.result()
+
+
 class MultiStorageFileSystemReader(FileSystemReader):
     """
     A reader implementation that uses the MultiStorageFileSystem class to handle file system operations.
     """
 
-    def __init__(self, path: Union[str, os.PathLike]) -> None:
+    def __init__(self, path: Union[str, os.PathLike], thread_count: int = 1) -> None:
         """
         Initialize the MultiStorageFileSystemReader with the MultiStorageFileSystem.
+
+        :param path: The path to the checkpoint.
+        :param thread_count: The number of threads to use for prefetching.
         """
         super().__init__(path)
         self.fs = MultiStorageFileSystem()
         self.path = self.fs.init_path(path)
+        self.thread_count = thread_count
+
+    def read_data(self, plan: LoadPlan, planner: LoadPlanner) -> Future[None]:
+        """
+        Override the method to prefetch objects from object storage.
+        """
+        if self.thread_count > 1:
+            # group requests by file
+            per_file: Dict[str, List[ReadItem]] = {}
+            for read_item in plan.items:
+                item_md = self.storage_data[read_item.storage_index]
+                path = item_md.relative_path
+                per_file.setdefault(path, []).append(read_item)
+
+            # prefetch objects
+            urls = [cast(MultiStoragePath, self.path) / rel_path for rel_path, _ in per_file.items()]
+            _prefetch_objects(self.fs, urls, self.thread_count)
+
+        return super().read_data(plan, planner)
 
     @classmethod
     def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
