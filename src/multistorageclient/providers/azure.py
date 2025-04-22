@@ -381,7 +381,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             for blob in blobs:
                 if isinstance(blob, BlobPrefix):
                     yield ObjectMetadata(
-                        key=blob.name.rstrip("/"),
+                        key=os.path.join(container_name, blob.name.rstrip("/")),
                         type="directory",
                         content_length=0,
                         last_modified=AWARE_DATETIME_MIN,
@@ -392,14 +392,14 @@ class AzureBlobStorageProvider(BaseStorageProvider):
                         if key.endswith("/"):
                             if include_directories:
                                 yield ObjectMetadata(
-                                    key=key.rstrip("/"),
+                                    key=os.path.join(container_name, key.rstrip("/")),
                                     type="directory",
                                     content_length=0,
                                     last_modified=blob.last_modified,
                                 )
                         else:
                             yield ObjectMetadata(
-                                key=key,
+                                key=os.path.join(container_name, key),
                                 content_length=blob.size,
                                 content_type=blob.content_settings.content_type,
                                 last_modified=blob.last_modified,

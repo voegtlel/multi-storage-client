@@ -19,7 +19,7 @@ from typing import IO, Iterator, List, Optional, Union, Dict
 
 from ..instrumentation.utils import StorageProviderMetricsHelper
 from ..types import ObjectMetadata, Range, StorageProvider
-from ..utils import glob, split_path, extract_prefix_from_glob
+from ..utils import glob, extract_prefix_from_glob
 from ..instrumentation.utils import instrumented
 
 
@@ -86,7 +86,7 @@ class BaseStorageProvider(StorageProvider):
         path = self._realpath(path)
         metadata = self._get_object_metadata(path, strict=strict)
         # Remove base_path from key
-        metadata.key = metadata.key.replace(self._base_path, "", 1).lstrip("/")
+        metadata.key = metadata.key.removeprefix(self._base_path).lstrip("/")
         return metadata
 
     def list_objects(
@@ -101,10 +101,8 @@ class BaseStorageProvider(StorageProvider):
 
         prefix = self._realpath(prefix)
         if self._base_path:
-            # self.base_path will always contain bucket first, so we can safely split
-            _, base_prefix = split_path(self._base_path)
             for object in self._list_objects(prefix, start_after, end_at, include_directories):
-                object.key = object.key.replace(base_prefix, "", 1).lstrip("/")
+                object.key = object.key.removeprefix(self._base_path).lstrip("/")
                 yield object
         else:
             yield from self._list_objects(prefix, start_after, end_at, include_directories)
@@ -123,9 +121,8 @@ class BaseStorageProvider(StorageProvider):
             keys = [object.key for object in self.list_objects(prefix)]
             return [key for key in glob(keys, pattern)]
         else:
-            bucket, pattern = split_path(pattern)
             keys = [object.key for object in self.list_objects(prefix)]
-            return [f"{bucket}/{key}" for key in glob(keys, pattern)]
+            return [f"{key}" for key in glob(keys, pattern)]
 
     def is_file(self, path: str) -> bool:
         try:

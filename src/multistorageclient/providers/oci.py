@@ -394,14 +394,14 @@ class OracleStorageProvider(BaseStorageProvider):
                         if key.endswith("/"):
                             if include_directories:
                                 yield ObjectMetadata(
-                                    key=key.rstrip("/"),
+                                    key=os.path.join(bucket, key.rstrip("/")),
                                     type="directory",
                                     content_length=0,
                                     last_modified=response_object.time_modified,
                                 )
                         else:
                             yield ObjectMetadata(
-                                key=key,
+                                key=os.path.join(bucket, key),
                                 type="file",
                                 content_length=response_object.size,
                                 last_modified=response_object.time_modified,

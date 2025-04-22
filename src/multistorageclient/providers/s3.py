@@ -534,7 +534,7 @@ class S3StorageProvider(BaseStorageProvider):
             for page in page_iterator:
                 for item in page.get("CommonPrefixes", []):
                     yield ObjectMetadata(
-                        key=item["Prefix"].rstrip("/"),
+                        key=os.path.join(bucket, item["Prefix"].rstrip("/")),
                         type="directory",
                         content_length=0,
                         last_modified=AWARE_DATETIME_MIN,
@@ -548,14 +548,14 @@ class S3StorageProvider(BaseStorageProvider):
                         if key.endswith("/"):
                             if include_directories:
                                 yield ObjectMetadata(
-                                    key=key.rstrip("/"),
+                                    key=os.path.join(bucket, key.rstrip("/")),
                                     type="directory",
                                     content_length=0,
                                     last_modified=response_object["LastModified"],
                                 )
                         else:
                             yield ObjectMetadata(
-                                key=key,
+                                key=os.path.join(bucket, key),
                                 type="file",
                                 content_length=response_object["Size"],
                                 last_modified=response_object["LastModified"],

@@ -378,14 +378,14 @@ class GoogleStorageProvider(BaseStorageProvider):
                     if key.endswith("/"):
                         if include_directories:
                             yield ObjectMetadata(
-                                key=key.rstrip("/"),
+                                key=os.path.join(bucket, key.rstrip("/")),
                                 type="directory",
                                 content_length=0,
                                 last_modified=blob.updated,
                             )
                     else:
                         yield ObjectMetadata(
-                            key=key,
+                            key=os.path.join(bucket, key),
                             content_length=blob.size,
                             content_type=blob.content_type,
                             last_modified=blob.updated,
@@ -398,7 +398,7 @@ class GoogleStorageProvider(BaseStorageProvider):
             if include_directories:
                 for directory in blobs.prefixes:
                     yield ObjectMetadata(
-                        key=directory.rstrip("/"),
+                        key=os.path.join(bucket, directory.rstrip("/")),
                         type="directory",
                         content_length=0,
                         last_modified=AWARE_DATETIME_MIN,

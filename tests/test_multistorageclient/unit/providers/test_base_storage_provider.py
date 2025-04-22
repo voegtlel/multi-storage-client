@@ -70,9 +70,9 @@ def test_list_objects_with_base_path():
 
 def test_list_objects_with_prefix_in_base_path():
     mock_objects = [
-        ObjectMetadata(key="prefix/dir/file1.txt", content_length=0, type="file", last_modified=datetime.now()),
-        ObjectMetadata(key="prefix/dir/file2.txt", content_length=0, type="file", last_modified=datetime.now()),
-        ObjectMetadata(key="prefix/dir", content_length=0, type="directory", last_modified=datetime.now()),
+        ObjectMetadata(key="bucket/prefix/dir/file1.txt", content_length=0, type="file", last_modified=datetime.now()),
+        ObjectMetadata(key="bucket/prefix/dir/file2.txt", content_length=0, type="file", last_modified=datetime.now()),
+        ObjectMetadata(key="bucket/prefix/dir", content_length=0, type="directory", last_modified=datetime.now()),
     ]
     provider = MockBaseStorageProvider(base_path="bucket/prefix", provider_name="mock")
     provider._list_objects = MagicMock(return_value=iter(mock_objects))

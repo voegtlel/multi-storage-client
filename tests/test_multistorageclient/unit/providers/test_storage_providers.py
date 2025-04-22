@@ -452,3 +452,45 @@ def test_put_object_with_conditional_params(temp_data_store_type: Type[tempdatas
         with pytest.raises(PreconditionFailedError, match="412"):
             storage_provider._put_object(path=file_path, body=file_body, if_match=mismatched_etag)
         assert storage_provider._get_object(path=file_path) == updated_body
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryAzureBlobStorageContainer],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket],
+        [tempdatastore.TemporarySwiftStackBucket],
+        [tempdatastore.TemporaryPOSIXDirectory],
+    ],
+)
+def test_storage_with_root_base_path(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        profile_dict = temp_data_store.profile_config_dict()
+
+        bucket = profile_dict["storage_provider"]["options"]["base_path"].removeprefix("/")
+        profile_dict["storage_provider"]["options"]["base_path"] = ""
+        config_dict = {"profiles": {profile: profile_dict}}
+
+        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+
+        # Write files.
+        file_body_bytes = b"\x99" * 10
+        file_names = [f"{bucket}/folder/file{i}.txt" for i in range(5)]
+        for fname in file_names:
+            storage_client.write(path=fname, body=file_body_bytes)
+
+        # List the files.
+        files = list(storage_client.list(prefix=bucket))
+        assert len(files) == len(file_names)
+
+        for file, fname in zip(files, file_names):
+            meta = storage_client.info(file.key)
+            assert file.key == fname == meta.key
+
+        # Delete the files.
+        for fname in file_names:
+            storage_client.delete(path=fname)
+
+        assert len(list(storage_client.list(prefix=bucket))) == 0
