@@ -552,6 +552,7 @@ class PosixFile(IO):
         mode: str = "rb",
         buffering: int = -1,
         encoding: Optional[str] = None,
+        atomic: bool = True,
     ):
         # Initialize parent trace span for this file to share the context with following R/W operations
         self._trace_span = TRACER.start_span("PosixFile Lifecycle", attributes=DEFAULT_ATTRIBUTES)
@@ -572,11 +573,12 @@ class PosixFile(IO):
 
         self._path = path
         self._mode = mode
+        self._atomic = atomic
 
         # Ensure the parent directory exists
         os.makedirs(os.path.dirname(self._real_path), exist_ok=True)
 
-        if "w" in mode:
+        if "w" in mode and self._atomic:
             # Create a temporary file in the same directory as the target file
             self._temp_path = os.path.join(
                 os.path.dirname(self._real_path), f".{os.path.basename(self._real_path)}.tmp"
@@ -677,7 +679,7 @@ class PosixFile(IO):
     def close(self) -> None:
         self._file.close()
 
-        if "w" in self._mode:
+        if self._atomic and "w" in self._mode:
             # Rename the temporary file to the target file
             os.rename(self._temp_path, self._real_path)
 

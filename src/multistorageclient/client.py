@@ -324,6 +324,7 @@ class StorageClient:
         encoding: Optional[str] = None,
         disable_read_cache: bool = False,
         memory_load_limit: int = MEMORY_LOAD_LIMIT,
+        atomic: bool = True,
     ) -> Union[PosixFile, ObjectFile]:
         """
         Returns a file-like object from the storage provider at the specified path.
@@ -336,12 +337,17 @@ class StorageClient:
             This parameter is only applicable to ObjectFile when the mode is "r" or "rb".
         :param memory_load_limit: Size limit in bytes for loading files into memory. Defaults to 512MB.
             This parameter is only applicable to ObjectFile when the mode is "r" or "rb".
+        :param atomic: When set to True, the file will be written atomically (rename upon close).
+            This parameter is only applicable to PosixFile in write mode.
 
         :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
         if self._is_posix_file_storage_provider():
-            return PosixFile(self, path=path, mode=mode, buffering=buffering, encoding=encoding)
+            return PosixFile(self, path=path, mode=mode, buffering=buffering, encoding=encoding, atomic=atomic)
         else:
+            if atomic is False:
+                logger.warning("Non-atomic writes are not supported for object storage providers.")
+
             return ObjectFile(
                 self,
                 remote_path=path,

@@ -137,3 +137,33 @@ def test_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore])
         file_info = storage_client.info(path=file_path)
         assert file_info is not None
         assert file_info.content_length == file_content_length
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[[tempdatastore.TemporaryPOSIXDirectory]],
+)
+def test_file_open_atomic(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+    with temp_data_store_type() as temp_data_store:
+        profile = "data"
+        storage_client = StorageClient(
+            config=StorageClientConfig.from_dict(
+                config_dict={"profiles": {profile: temp_data_store.profile_config_dict()}}, profile=profile
+            )
+        )
+
+        # Open a file for writes (atomic=False)
+        with storage_client.open(path="file.txt", mode="wb", atomic=False) as file:
+            assert not hasattr(file, "_temp_path"), "File should not have a temporary path"
+            file.write(b"\x00" * 1024)
+
+        with storage_client.open(path="file.txt", mode="rb") as file:
+            assert file.read() == b"\x00" * 1024
+
+        # Open a file for writes (atomic=True)
+        with storage_client.open(path="file.txt", mode="wb", atomic=True) as file:
+            assert hasattr(file, "_temp_path"), "File should have a temporary path"
+            file.write(b"\x00" * 2048)
+
+        with storage_client.open(path="file.txt", mode="rb") as file:
+            assert file.read() == b"\x00" * 2048
