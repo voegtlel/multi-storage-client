@@ -448,7 +448,7 @@ def _generic_tracer(func: Callable, class_name: str) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Use the class_name captured at decoration time
         full_function_name = f"{class_name}.{func.__name__}"
-        with TRACER.start_as_current_span(full_function_name) as span:  # pyright: ignore[reportAttributeAccessIssue]
+        with TRACER.start_as_current_span(full_function_name) as span:  # pyright: ignore[reportCallIssue,reportAttributeAccessIssue]
             span.set_attribute("function_name", full_function_name)
 
             for k, v in DEFAULT_ATTRIBUTES.items():

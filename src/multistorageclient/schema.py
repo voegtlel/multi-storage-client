@@ -72,10 +72,32 @@ OTEL_SCHEMA = {
 CACHE_SCHEMA = {
     "type": "object",
     "properties": {
+        "size": {
+            "type": "string",
+            "pattern": "(?i)^[0-9]+[MGT]$",  # Accepts size with M, G suffix
+        },
+        "size_mb": {"type": "integer"},
         "location": {"type": "string"},
         "use_etag": {"type": "boolean"},
-        "size_mb": {"type": "integer"},
-        "eviction_policy": {"type": "string", "enum": ["lru", "fifo", "random"]},
+        "eviction_policy": {
+            "oneOf": [
+                {"type": "string", "enum": ["lru", "fifo", "random"]},
+                {
+                    "type": "object",
+                    "properties": {
+                        "policy": {"type": "string", "enum": ["lru", "fifo", "random", "LRU", "FIFO", "RANDOM"]},
+                        "refresh_interval": {"type": "integer", "minimum": 300},
+                    },
+                },
+            ]
+        },
+        "cache_backend": {  # Optional: If not specified, default cache backend will be used
+            "type": "object",
+            "properties": {
+                "cache_path": {"type": "string"},
+                "storage_provider_profile": {"type": "string"},
+            },
+        },
     },
     "additionalProperties": False,
 }
