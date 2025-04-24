@@ -21,11 +21,16 @@ from opentelemetry.context import get_current
 from opentelemetry.metrics import Counter, _Gauge as Gauge, Meter, MeterProvider
 from opentelemetry.trace import Span, Tracer, TracerProvider, use_span
 import pytest
+from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
+from test_multistorageclient.unit.utils.telemetry.trace.export import InMemorySpanExporter
 from typing import Any, Dict, Optional, Tuple, Union
 
 
 def test_telemetry_local_objects():
-    opentelemetry_config = {"metrics": {"exporter": {"type": "null"}}, "traces": {"exporter": {"type": "null"}}}
+    opentelemetry_config = {
+        "metrics": {"exporter": {"type": telemetry._fully_qualified_name(InMemoryMetricExporter)}},
+        "traces": {"exporter": {"type": telemetry._fully_qualified_name(InMemorySpanExporter)}},
+    }
 
     # Make sure caching works.
     telemetry_resources_str: Optional[str] = None
@@ -148,7 +153,10 @@ def _test_telemetry_proxy_objects_client(
 @pytest.mark.parametrize(argnames=["process_start_method", "manager_port"], argvalues=[["fork", 4315], ["spawn", 4316]])
 def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
     manager_address = ("127.0.0.1", manager_port)
-    opentelemetry_config = {"metrics": {"exporter": {"type": "null"}}, "traces": {"exporter": {"type": "null"}}}
+    opentelemetry_config = {
+        "metrics": {"exporter": {"type": telemetry._fully_qualified_name(InMemoryMetricExporter)}},
+        "traces": {"exporter": {"type": telemetry._fully_qualified_name(InMemorySpanExporter)}},
+    }
 
     # --------------------------------------------------------------------------------
     #

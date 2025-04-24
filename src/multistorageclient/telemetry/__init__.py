@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import atexit
 import enum
 import inspect
 import json
@@ -34,28 +35,18 @@ from .. import utils
 #
 # * Decomposable aggregate functions (e.g. count, sum, min, max).
 #     * Use client-side aggregation.
-#         * E.g. preserve total requests + errors.
+#         * E.g. preserve request + response counts.
 # * Non-decomposable aggregate functions (e.g. average, percentile).
-#     * Use decimation by an integer factor.
+#     * Use decimation by an integer factor or last value.
 #         * E.g. preserve the shape of the latency distribution (unlike tail sampling).
 
 _METRICS_EXPORTER_MAPPING = {
     "console": "opentelemetry.sdk.metrics.export.ConsoleMetricExporter",
-    # Discards the output.
-    #
-    # For testing. Use instead of the in-memory exporter (to prevent memory leaks)
-    # and the standard console exporter (to prevent stdout closed error logs and noise).
-    "null": "opentelemetry.sdk.metrics.export.ConsoleMetricExporter",
     "otlp": "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter",
 }
 
 _TRACE_EXPORTER_MAPPING = {
     "console": "opentelemetry.sdk.trace.export.ConsoleSpanExporter",
-    # Discards the output.
-    #
-    # For testing. Use instead of the in-memory exporter (to prevent memory leaks)
-    # and the standard console exporter (to prevent stdout closed error logs and noise).
-    "null": "opentelemetry.sdk.trace.export.ConsoleSpanExporter",
     "otlp": "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
 }
 
@@ -69,18 +60,18 @@ class Telemetry:
     Instances can be shared between processes by registering with a :py:class:``multiprocessing.Manager`` and using proxy objects.
     """
 
-    _meter_provider_cache_lock: threading.Lock
     # Map of config as a sorted JSON string (since dictionaries can't be hashed) to provider.
     _meter_provider_cache: Dict[str, api_metrics.MeterProvider]
-    _tracer_provider_cache_lock: threading.Lock
+    _meter_provider_cache_lock: threading.Lock
     # Map of config as a sorted JSON string (since dictionaries can't be hashed) to provider.
     _tracer_provider_cache: Dict[str, api_trace.TracerProvider]
+    _tracer_provider_cache_lock: threading.Lock
 
     def __init__(self):
-        self._meter_provider_cache_lock = threading.Lock()
         self._meter_provider_cache = {}
-        self._tracer_provider_cache_lock = threading.Lock()
+        self._meter_provider_cache_lock = threading.Lock()
         self._tracer_provider_cache = {}
+        self._tracer_provider_cache_lock = threading.Lock()
 
     def meter_provider(self, config: Dict[str, Any]) -> Optional[api_metrics.MeterProvider]:
         """
@@ -98,27 +89,18 @@ class Telemetry:
                     try:
                         import opentelemetry.sdk.metrics as sdk_metrics
                         import opentelemetry.sdk.metrics.export as sdk_metrics_export
+                        from .metrics.export import DiperiodicExportingMetricReader
 
                         exporter_type = config["exporter"]["type"]
                         exporter_fully_qualified_name = _METRICS_EXPORTER_MAPPING.get(exporter_type, exporter_type)
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)
                         exporter_options = config["exporter"].get("options", {})
-                        if exporter_type == "null":
-                            exporter_options |= {"out": open(os.devnull, "w")}
                         # TODO: Auth options.
-                        exporter: sdk_metrics_export.MetricExporter = cls(
-                            **exporter_options,
-                            # TODO: Custom gauge aggregators for raw samples + resampling.
-                            #
-                            # https://opentelemetry-python.readthedocs.io/en/latest/sdk/metrics.view.html#opentelemetry.sdk.metrics.view.Aggregation
-                            preferred_aggregation={},
-                            preferred_temporality={},
-                        )
+                        exporter: sdk_metrics_export.MetricExporter = cls(**exporter_options)
 
-                        reader: sdk_metrics_export.MetricReader = sdk_metrics_export.PeriodicExportingMetricReader(
-                            exporter=exporter
-                        )
+                        # TODO: Make collect + export intervals + timeouts configurable from MSC configs?
+                        reader: sdk_metrics_export.MetricReader = DiperiodicExportingMetricReader(exporter=exporter)
 
                         return self._meter_provider_cache.setdefault(
                             config_json, sdk_metrics.MeterProvider(metric_readers=[reader])
@@ -156,8 +138,6 @@ class Telemetry:
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)
                         exporter_options = config["exporter"].get("options", {})
-                        if exporter_type == "null":
-                            exporter_options |= {"out": open(os.devnull, "w")}
                         # TODO: Auth options.
                         exporter: sdk_trace_export.SpanExporter = cls(**exporter_options)
 
@@ -394,6 +374,7 @@ def init(
                     logging.debug(f"Creating telemetry manager server at {telemetry_manager.address}.")
                     try:
                         telemetry_manager.start()
+                        atexit.register(telemetry_manager.shutdown)
                         logging.debug(f"Started telemetry manager server at {telemetry_manager.address}.")
                     except Exception as e:
                         logging.error(
