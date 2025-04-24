@@ -70,3 +70,17 @@ def file_storage_config_with_cache():
     config_filename = setup_config_file(CONFIG_YAML_WITH_CACHE)
     yield config_filename
     delete_config_file(config_filename)
+
+
+@pytest.fixture(autouse=True, scope="function")
+def reset_globals():
+    # Reset the instance cache before each test.
+    from multistorageclient import shortcuts
+
+    with shortcuts._cache_lock:
+        shortcuts._instance_cache.clear()
+
+    # Reset the environment variables before each test.
+    os.environ.clear()
+
+    yield

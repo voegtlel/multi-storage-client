@@ -81,7 +81,7 @@ def test_expand_env_vars():
 
 
 def test_expand_env_vars_unresolved_var():
-    del os.environ["VAR"]
+    os.environ.clear()
     with pytest.raises(ValueError):
         options = {"key1": "${VAR}"}
 

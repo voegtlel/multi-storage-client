@@ -219,8 +219,9 @@ class DistributedHint(AbstractContextManager):
             # Stop heartbeat thread if it's running
             if self._heartbeat_daemon and self._heartbeat_daemon.is_alive():
                 self._stop_heartbeat.set()
-                self._heartbeat_daemon.join(timeout=1.0)
-                self._heartbeat_daemon = None
+                if threading.current_thread() is not self._heartbeat_daemon:
+                    self._heartbeat_daemon.join(timeout=1.0)
+                    self._heartbeat_daemon = None
 
             # Delete the hint with if_match precondition
             self._storage_provider.delete_object(self._object_key, if_match=self._hint_object.metadata.etag)

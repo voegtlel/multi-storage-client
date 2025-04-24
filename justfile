@@ -112,7 +112,7 @@ run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storag
     # Remove test artifacts.
     rm -rf .reports/unit
     # Unit test.
-    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report term --cov-report html --cov-report xml --numprocesses 2
+    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report term --cov-report html --cov-report xml --numprocesses 8
 
 # Create package archives.
 package: prepare-virtual-environment

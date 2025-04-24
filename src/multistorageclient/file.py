@@ -18,6 +18,7 @@ from __future__ import annotations  # Enables forward references in type hints
 import io
 import logging
 import os
+import sys
 import tempfile
 import threading
 from io import BytesIO, StringIO
@@ -432,6 +433,12 @@ class ObjectFile(IO):
     def fileno(self) -> int:
         if self.readable():
             self._download_complete.wait()
+
+        if isinstance(self._file, StringIO) or isinstance(self._file, BytesIO):
+            # In-memory file objects (StringIO/BytesIO) don't have real file descriptors,
+            # so we return stdout's fileno instead to prevent "io.UnsupportedOperation: fileno" errors
+            return sys.stdout.fileno()
+
         return self._file.fileno()
 
     @file_tracer
