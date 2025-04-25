@@ -14,48 +14,37 @@
 # limitations under the License.
 
 import os
-import tempfile
 import uuid
-from typing import List
 import multistorageclient as msc
-
-
-def create_test_files(num_files: int, size_mb: int) -> List[str]:
-    """Create test files of specified size and return their paths."""
-    file_paths = []
-    for i in range(num_files):
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            # Create a 1MB file with random data
-            temp_file.write(os.urandom(size_mb * 1024 * 1024))
-            file_paths.append(temp_file.name)
-    return file_paths
 
 
 def test_file_reads_from_cache_with_shortcuts():
     """Test file reads from cache using MSC shortcuts."""
     # Create test files
-    num_files = 5
+    num_files = 3
     file_size_mb = 1
-    test_files = create_test_files(num_files=num_files, size_mb=file_size_mb)
+
     profile = "test-s3-iad"
+    s3_express_profile = "test-s3e"
     test_uuid = str(uuid.uuid4())
     base_path = f"msc://{profile}/{test_uuid}"
+    cache_path = "tmp/msc_cache"
 
     # Upload files using shortcuts
-    for file_path in test_files:
-        msc.upload_file(f"{base_path}/{file_path.lstrip('/')}", file_path)
+    for i in range(num_files):
+        with msc.open(f"{base_path}/{i}", "wb") as f:
+            f.write(os.urandom(file_size_mb * 1024 * 1024))
 
-    # Read files using shortcuts and verify cache hits
-    for file_path in test_files:
-        # First read should be a cache miss
-        with msc.open(f"{base_path}/{file_path.lstrip('/')}", "rb") as f:
+    for i in range(num_files):
+        file_path = f"{base_path}/{i}"
+        with msc.open(file_path, "rb") as f:
             content = f.read()
 
         # Verify file exists in cache
-        assert msc.os.path.exists(f"{base_path}/{file_path.lstrip('/')}")
+        assert msc.os.path.exists(f"msc://{s3_express_profile}/{cache_path}/{profile}/{test_uuid}/{i}")
 
         # Second read should be a cache hit
-        with msc.open(f"{base_path}/{file_path.lstrip('/')}", "rb") as f:
+        with msc.open(file_path, "rb") as f:
             cached_content = f.read()
 
         # Verify content matches
@@ -66,11 +55,3 @@ def test_file_reads_from_cache_with_shortcuts():
     iter = msc.list(base_path + "/")
     for item in iter:
         msc.delete(item.key)
-
-    # delete all files from test-s3e
-    cache_iter = msc.list("msc://test-s3e/")
-    for item in cache_iter:
-        msc.delete(item.key)
-
-    for file_path in test_files:
-        os.remove(file_path)
