@@ -114,7 +114,7 @@ run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storag
     # Unit test.
     #
     # The CI/CD runner setup only allows 4 cores per job, so using 1 parent + 3 child processes.
-    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report term --cov-report html --cov-report xml --numprocesses 3
+    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report term --cov-report html --cov-report xml --numprocesses 2
 
 # Create package archives.
 package: prepare-virtual-environment

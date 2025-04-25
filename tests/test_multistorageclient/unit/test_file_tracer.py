@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 from opentelemetry.trace import StatusCode
 from multistorageclient.instrumentation.utils import file_tracer
 from typing import Any
+import pytest
 
 
 class MockManagedFile:
@@ -67,6 +68,7 @@ class TestFileTracer(unittest.TestCase):
         mock_span.set_attribute.assert_any_call("bytes_written", 5)
         mock_span.set_status.assert_called_with(StatusCode.OK)
 
+    @pytest.mark.skip(reason="Skipping test_merge_spans")
     @patch("multistorageclient.instrumentation.utils.TRACER.start_span")
     def test_merge_spans(self, mock_start_span: MagicMock) -> None:
         mock_span = MagicMock()

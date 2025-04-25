@@ -15,6 +15,7 @@
 
 import time
 import pytest
+import uuid
 from multistorageclient.caching.distributed_hint import DistributedHint
 from multistorageclient import StorageClient, StorageClientConfig
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
@@ -39,19 +40,17 @@ def storage_client(temp_s3_bucket):
     return StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
 
 
-@pytest.fixture
-def distributed_hint(storage_client):
-    """Create a DistributedHint instance with the storage client."""
-    return DistributedHint(
+def test_acquire_and_release_hint(storage_client):
+    """Test basic hint acquisition and release, using a unique hint prefix."""
+
+    test_uuid = str(uuid.uuid4())
+    distributed_hint = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=5.0),  # Short interval for testing
         heartbeat_buffer=timedelta(seconds=2.0),  # Short buffer for testing
     )
 
-
-def test_acquire_and_release_hint(distributed_hint):
-    """Test basic hint acquisition and release."""
     # First acquisition should succeed
     assert distributed_hint.acquire()
 
@@ -62,8 +61,15 @@ def test_acquire_and_release_hint(distributed_hint):
     assert distributed_hint.acquire()
 
 
-def test_lease_expiration(distributed_hint):
+def test_lease_expiration(storage_client):
     """Test that hint expires after duration."""
+    test_uuid = str(uuid.uuid4())
+    distributed_hint = DistributedHint(
+        storage_provider=storage_client._storage_provider,
+        hint_prefix=f"{test_uuid}/test-lock",
+        heartbeat_interval=timedelta(seconds=5.0),  # Short interval for testing
+        heartbeat_buffer=timedelta(seconds=2.0),  # Short buffer for testing
+    )
     # Acquire hint
     assert distributed_hint.acquire()
 
@@ -77,10 +83,18 @@ def test_lease_expiration(distributed_hint):
     distributed_hint.release()
 
 
-def test_hint_refresh(distributed_hint):
+def test_hint_refresh(storage_client):
     """Test that the hint is refreshed before expiration."""
+    test_uuid = str(uuid.uuid4())
+    distributed_hint = DistributedHint(
+        storage_provider=storage_client._storage_provider,
+        hint_prefix=f"{test_uuid}/test-lock",
+        heartbeat_interval=timedelta(seconds=5.0),  # Short interval for testing
+        heartbeat_buffer=timedelta(seconds=2.0),  # Short buffer for testing
+    )
     # Acquire the hint
     assert distributed_hint.acquire()
+    assert distributed_hint._hint_object is not None, "Hint object should not be None after successful acquisition"
 
     # Get initial metadata
     initial_metadata = distributed_hint._hint_object.metadata
@@ -96,15 +110,16 @@ def test_hint_refresh(distributed_hint):
 def test_concurrent_hint_acquisition(storage_client):
     """Test hint acquisition between two clients."""
     # Create two hint instances
+    test_uuid = str(uuid.uuid4())
     hint1 = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=5.0),
         heartbeat_buffer=timedelta(seconds=2.0),
     )
     hint2 = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=5.0),
         heartbeat_buffer=timedelta(seconds=2.0),
     )
@@ -134,15 +149,16 @@ def test_concurrent_hint_acquisition(storage_client):
 def test_multiple_threads_acquire_hint(storage_client):
     """Test that multiple threads cannot acquire the hint simultaneously."""
     # Create two hint instances
+    test_uuid = str(uuid.uuid4())
     hint1 = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=3.0),
         heartbeat_buffer=timedelta(seconds=1.0),
     )
     hint2 = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=3.0),
         heartbeat_buffer=timedelta(seconds=1.0),
     )
@@ -179,7 +195,8 @@ def test_multiple_threads_acquire_hint(storage_client):
 
 def test_multiple_processes_acquire_hint(temp_s3_bucket):
     """Test that only one process acquires the hint."""
-    hint_prefix = "test-lock"
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock"
     acquired_count = Value("i", 0)  # Shared integer initialized to 0
     bucket_config = temp_s3_bucket.profile_config_dict()
 
@@ -202,10 +219,11 @@ def test_multiple_processes_acquire_hint(temp_s3_bucket):
 
 def test_heartbeat_thread_termination(storage_client):
     """Test that release() terminates promptly without waiting for the full heartbeat interval."""
+    test_uuid = str(uuid.uuid4())
     # Create hint with longer heartbeat interval to better verify quick release
     distributed_hint = DistributedHint(
         storage_provider=storage_client._storage_provider,
-        hint_prefix="test-lock",
+        hint_prefix=f"{test_uuid}/test-lock",
         heartbeat_interval=timedelta(seconds=30.0),  # Long interval to verify quick release
         heartbeat_buffer=timedelta(seconds=2.0),
     )
