@@ -312,12 +312,7 @@ class ObjectFile(IO):
         """
         Generate a temporary file path.
         """
-        if self._cache_manager:
-            temp_file = tempfile.NamedTemporaryFile(
-                mode=self._mode, delete=False, dir=self._cache_manager.get_cache_dir(), prefix="."
-            )
-        else:
-            temp_file = tempfile.NamedTemporaryFile(mode=self._mode, delete=False)
+        temp_file = tempfile.NamedTemporaryFile(mode=self._mode, delete=False)
         temp_file_path = temp_file.name
         temp_file.close()
         os.unlink(temp_file_path)

@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Tuple
 import time
 
 from opentelemetry import metrics, trace
-from opentelemetry.trace import StatusCode, set_span_in_context
+from opentelemetry.trace import StatusCode, set_span_in_context, Tracer
 from opentelemetry.metrics import get_meter_provider
 
 from . import HAS_OBSERVABILITY_DEPS
@@ -32,7 +32,7 @@ if HAS_OBSERVABILITY_DEPS:
     from opentelemetry.sdk.metrics import MeterProvider as SdkMeterProvider
 
 METER = metrics.get_meter("opentelemetry.instrumentation.multistorageclient")
-TRACER = trace.get_tracer("opentelemetry.instrumentation.multistorageclient")
+TRACER: Tracer = trace.get_tracer("opentelemetry.instrumentation.multistorageclient")
 
 MB = 1024 * 1024
 TRACE_INACTIVITY_TIMEOUT_IN_SECONDS = 0.1

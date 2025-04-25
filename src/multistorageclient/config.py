@@ -21,7 +21,8 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from .cache import DEFAULT_CACHE_SIZE_MB, CacheConfig, CacheManager
+from .cache import DEFAULT_CACHE_SIZE_MB, CacheBackendFactory, CacheManager
+from .caching.cache_config import CacheConfig, CacheBackendConfig, EvictionPolicyConfig
 from .instrumentation import setup_opentelemetry
 from .providers.manifest_metadata import ManifestMetadataProvider
 from .schema import validate_config
@@ -96,6 +97,11 @@ class SimpleProviderBundle(ProviderBundle):
         return self._metadata_provider
 
 
+DEFAULT_CACHE_REFRESH_INTERVAL = 300
+DEFAULT_EVICTION_POLICY = "fifo"
+S3_EXPRESS_ONEZONE_BUCKET_SUFFIX = "--x-s3"
+
+
 class StorageClientConfigLoader:
     def __init__(
         self,
@@ -164,6 +170,36 @@ class StorageClientConfigLoader:
         cls = import_class(class_name, module_name, PACKAGE_NAME)
         return cls(**storage_options)
 
+    def _build_storage_provider_from_profile(self, storage_provider_profile: str):
+        storage_profile_dict = self._profiles.get(storage_provider_profile)
+        if not storage_profile_dict:
+            raise ValueError(
+                f"Profile '{storage_provider_profile}' referenced by storage_provider_profile does not exist."
+            )
+
+        # Check if metadata provider is configured for this profile
+        # NOTE: The storage profile for manifests does not support metadata provider (at the moment).
+        local_metadata_provider_dict = storage_profile_dict.get("metadata_provider", None)
+        if local_metadata_provider_dict:
+            raise ValueError(
+                f"Profile '{storage_provider_profile}' cannot have a metadata provider when used for manifests"
+            )
+
+        # Initialize CredentialsProvider
+        local_creds_provider_dict = storage_profile_dict.get("credentials_provider", None)
+        local_creds_provider = self._build_credentials_provider(credentials_provider_dict=local_creds_provider_dict)
+
+        # Initialize StorageProvider
+        local_storage_provider_dict = storage_profile_dict.get("storage_provider", None)
+        if local_storage_provider_dict:
+            local_name = local_storage_provider_dict["type"]
+            local_storage_options = local_storage_provider_dict.get("options", {})
+        else:
+            raise ValueError(f"Missing storage_provider in the config for profile {storage_provider_profile}.")
+
+        storage_provider = self._build_storage_provider(local_name, local_storage_options, local_creds_provider)
+        return storage_provider
+
     def _build_credentials_provider(
         self,
         credentials_provider_dict: Optional[Dict[str, Any]],
@@ -231,41 +267,7 @@ class StorageClientConfigLoader:
                 # If MetadataProvider has a reference to a different storage provider profile
                 storage_provider_profile = metadata_options.pop("storage_provider_profile", None)
                 if storage_provider_profile:
-                    storage_profile_dict = self._profiles.get(storage_provider_profile)
-                    if not storage_profile_dict:
-                        raise ValueError(
-                            f"Profile '{storage_provider_profile}' referenced by "
-                            f"storage_provider_profile does not exist."
-                        )
-
-                    # Check if metadata provider is configured for this profile
-                    # NOTE: The storage profile for manifests does not support metadata provider (at the moment).
-                    local_metadata_provider_dict = storage_profile_dict.get("metadata_provider", None)
-                    if local_metadata_provider_dict:
-                        raise ValueError(
-                            f"Found metadata_provider for profile '{storage_provider_profile}'. "
-                            f"This is not supported for storage profiles used by manifests.'"
-                        )
-
-                    # Initialize StorageProvider
-                    local_storage_provider_dict = storage_profile_dict.get("storage_provider", None)
-                    if local_storage_provider_dict:
-                        local_name = local_storage_provider_dict["type"]
-                        local_storage_options = local_storage_provider_dict.get("options", {})
-                    else:
-                        raise ValueError("Missing storage_provider in the config.")
-
-                    # Initialize CredentialsProvider
-                    # We need to pass the storage_provider options to the credentials provider.
-                    local_creds_provider_dict = storage_profile_dict.get("credentials_provider", None)
-                    local_creds_provider = self._build_credentials_provider(
-                        credentials_provider_dict=local_creds_provider_dict,
-                        storage_options=local_storage_options,
-                    )
-
-                    storage_provider = self._build_storage_provider(
-                        local_name, local_storage_options, local_creds_provider
-                    )
+                    storage_provider = self._build_storage_provider_from_profile(storage_provider_profile)
                 else:
                     storage_provider = self._build_storage_provider(
                         storage_provider_name, storage_options, credentials_provider
@@ -307,6 +309,59 @@ class StorageClientConfigLoader:
 
         return self._build_provider_bundle_from_config(self._profile_dict)
 
+    def _build_cache_manager(self, cache_config: CacheConfig) -> CacheManager:
+        cache_storage_provider = None
+
+        # Use the storage provider profile from cache config if specified
+        if cache_config.backend and cache_config.backend.storage_provider_profile:
+            cache_profile = cache_config.backend.storage_provider_profile
+            if cache_profile == self._profile:
+                logger.warning(
+                    f"Same profile used for cache backend and storage provider: {cache_profile}. "
+                    "This is not recommended as it may lead to unintended modifications of the source data. "
+                    "Consider using a separate read-only profile for the cache backend."
+                )
+
+            cache_storage_provider = self._build_storage_provider_from_profile(cache_profile)
+
+            if S3_EXPRESS_ONEZONE_BUCKET_SUFFIX not in cache_storage_provider._base_path:  # type: ignore
+                raise ValueError(f"This is not a valid S3Express OneZone bucket {cache_storage_provider._base_path}")  # type: ignore
+
+        cache_manager = CacheBackendFactory.create(
+            profile=self._profile, cache_config=cache_config, storage_provider=cache_storage_provider
+        )
+        return cache_manager
+
+    def _migrate_legacy_cache_config(self) -> Dict[str, Any]:
+        """Convert legacy cache config to new format if needed."""
+
+        # If it's already in new format (has size and no size_mb), return as is
+        if "size" in self._cache_dict and "size_mb" not in self._cache_dict:
+            return self._cache_dict
+
+        # Check if mixing old and new formats
+        if "size_mb" in self._cache_dict and (
+            "eviction_policy" in self._cache_dict and isinstance(self._cache_dict["eviction_policy"], dict)
+        ):
+            raise ValueError(
+                f"Cannot mix old and new cache config formats, eviction_policy must be a string not a dict, provided: {self._cache_dict['eviction_policy']}"
+            )
+
+        # Convert legacy format to new format
+        return {
+            "size": f"{self._cache_dict['size_mb']}M",
+            "use_etag": self._cache_dict.get("use_etag", True),  # default to True
+            "eviction_policy": {
+                "policy": self._cache_dict.get("eviction_policy", DEFAULT_EVICTION_POLICY).lower()
+                if isinstance(self._cache_dict.get("eviction_policy"), str)
+                else DEFAULT_EVICTION_POLICY,
+                "refresh_interval": DEFAULT_CACHE_REFRESH_INTERVAL,
+            },
+            "cache_backend": {
+                "cache_path": self._cache_dict.get("location", os.path.join(tempfile.gettempdir(), ".msc_cache"))
+            },
+        }
+
     def build_config(self) -> "StorageClientConfig":
         bundle = self._build_provider_bundle()
         storage_provider = self._build_storage_provider(
@@ -315,22 +370,37 @@ class StorageClientConfigLoader:
             bundle.credentials_provider,
         )
 
-        # Cache Config
         cache_config: Optional[CacheConfig] = None
+        cache_manager: Optional[CacheManager] = None
+
         if self._cache_dict is not None:
             tempdir = tempfile.gettempdir()
             default_location = os.path.join(tempdir, ".msc_cache")
-            cache_location = self._cache_dict.get("location", default_location)
-            size_mb = self._cache_dict.get("size_mb", DEFAULT_CACHE_SIZE_MB)
-            os.makedirs(cache_location, exist_ok=True)
-            use_etag = self._cache_dict.get("use_etag", False)
-            eviction_policy = self._cache_dict.get("eviction_policy", "fifo")
+
+            # Initialize cache_dict with default values
+            cache_dict = self._cache_dict
+
+            # Migrate legacy config if needed
+            if self._cache_dict != {}:
+                cache_dict = self._migrate_legacy_cache_config()
+
+            # Create cache config from the standardized format
             cache_config = CacheConfig(
-                location=cache_location,
-                size_mb=size_mb,
-                use_etag=use_etag,
-                eviction_policy=eviction_policy,
+                size=cache_dict.get("size", DEFAULT_CACHE_SIZE_MB),
+                use_etag=cache_dict.get("use_etag", True),
+                eviction_policy=EvictionPolicyConfig(
+                    policy=cache_dict.get("eviction_policy", {}).get("policy", DEFAULT_EVICTION_POLICY).lower(),
+                    refresh_interval=cache_dict.get("eviction_policy", {}).get(
+                        "refresh_interval", DEFAULT_CACHE_REFRESH_INTERVAL
+                    ),
+                ),
+                backend=CacheBackendConfig(
+                    cache_path=cache_dict.get("cache_backend", {}).get("cache_path", default_location),
+                    storage_provider_profile=cache_dict.get("cache_backend", {}).get("storage_provider_profile"),
+                ),
             )
+
+            cache_manager = self._build_cache_manager(cache_config)
 
         # retry options
         retry_config_dict = self._profile_dict.get("retry", None)
@@ -351,6 +421,7 @@ class StorageClientConfigLoader:
             credentials_provider=bundle.credentials_provider,
             metadata_provider=bundle.metadata_provider,
             cache_config=cache_config,
+            cache_manager=cache_manager,
             retry_config=retry_config,
         )
 
@@ -377,6 +448,7 @@ class StorageClientConfig:
         credentials_provider: Optional[CredentialsProvider] = None,
         metadata_provider: Optional[MetadataProvider] = None,
         cache_config: Optional[CacheConfig] = None,
+        cache_manager: Optional[CacheManager] = None,
         retry_config: Optional[RetryConfig] = None,
     ):
         self.profile = profile
@@ -385,7 +457,7 @@ class StorageClientConfig:
         self.metadata_provider = metadata_provider
         self.cache_config = cache_config
         self.retry_config = retry_config
-        self.cache_manager = CacheManager(profile, cache_config) if cache_config else None
+        self.cache_manager = cache_manager
 
     @staticmethod
     def from_json(config_json: str, profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":

@@ -43,7 +43,7 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
         profile = "data"
         config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
         if with_cache:
-            config_dict["cache"] = {"size_mb": 5000}
+            config_dict["cache"] = {"size": "10M", "use_etag": True, "eviction_policy": {"policy": "random"}}
         storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
 
         file_extension = ".txt"

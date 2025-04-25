@@ -11,6 +11,10 @@ from .eviction_policy import (
     EvictionPolicyFactory,
 )
 
+from .cache_backend import CacheBackend, FileSystemBackend, StorageProviderBackend
+from .cache_config import CacheConfig, CacheBackendConfig, EvictionPolicyConfig
+from .distributed_hint import DistributedHint, DistributedHintConflictError
+
 __all__ = [
     "CacheItem",
     "LRU",
@@ -22,4 +26,12 @@ __all__ = [
     "FIFOEvictionPolicy",
     "RandomEvictionPolicy",
     "EvictionPolicyFactory",
+    "CacheConfig",
+    "CacheBackend",
+    "FileSystemBackend",
+    "StorageProviderBackend",
+    "CacheBackendConfig",
+    "EvictionPolicyConfig",
+    "DistributedHint",
+    "DistributedHintConflictError",
 ]

@@ -285,20 +285,49 @@ Cache
 
 The MSC cache configuration allows you to specify caching behavior for improved performance. The cache stores 
 files locally for faster access on subsequent reads. It maintains a maximum size limit and automatically evicts files 
-when the limit is reached. The cache validates file freshness using ETags when enabled.
+when the limit is reached. The cache validates file freshness using ETags when enabled. Storage-provider-based cache backend is an 
+early access feature that doesn't yet support all storage providers or cache eviction and cleanup operations. 
+
+Note: These cache changes are backward compatible with previous cache configuration.
 
 Options:
-  - ``location``: Directory path for storing cached files (required)
-  - ``size_mb``: Maximum cache size in megabytes (optional, default: 1000)
+  - ``size``: Maximum cache size with unit (e.g., "100M", "1G") (optional, default: "10G")
   - ``use_etag``: Use ETag for cache validation (optional, default: true)
+  - ``eviction_policy``: Cache eviction policy configuration
+    - ``policy``: Eviction policy type ("fifo", "lru", "random") (optional, default: "fifo")
+    - ``refresh_interval``: Interval in seconds to refresh cache (optional, default: 300)
+  - ``cache_backend``: Cache backend configuration
+    - ``cache_path``: Directory path for storing cached files (optional, default: system temp directory + "/.msc_cache")
+    - ``storage_provider_profile``: Optional profile to use for cache storage, should point to a valid s3-express profile. 
+                                    If not provided, FileSystem cachebackend gets used(recommended to use a separate read-only profile)
+                                    (optional, default: FileSystem cache backend)
 
 .. code-block:: yaml
-  :caption: Example configuration.
+  :caption: Example configuration when using a storage provider based cache backend.
   
   cache:
-    location: /tmp/msc_cache
-    size_mb: 1000
+    size: "10M"
     use_etag: true
+    eviction_policy:
+      policy: "fifo"
+      refresh_interval: 300
+    cache_backend:
+      cache_path: tmp/msc_cache  
+      storage_provider_profile: s3-express-profile
+
+
+.. code-block:: yaml
+  :caption: Example configuration when using a filesystem based cache backend (local cache). Note that the storage_provider_profile is not provided.
+  
+  cache:
+    size: "10M"
+    use_etag: true
+    eviction_policy:
+      policy: "fifo"
+      refresh_interval: 300
+    cache_backend:
+      cache_path: /tmp/msc_cache  
+  
 
 *************
 OpenTelemetry

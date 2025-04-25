@@ -359,8 +359,9 @@ def test_storage_provider_profile_with_manifest() -> None:
             profile="profile-data",
         )
 
-    assert "Found metadata_provider for profile" in str(e), f"Unexpected error message: {str(e)}"
-    assert "not supported" in str(e), f"Unexpected error message: {str(e)}"
+    assert "Profile 'profile-manifest' cannot have a metadata provider when used for manifests" in str(e), (
+        f"Unexpected error message: {str(e)}"
+    )
 
 
 def test_load_retry_config() -> None:
@@ -726,3 +727,108 @@ def test_storage_options_does_not_override_creds_provider_options() -> None:
     assert storage_client._credentials_provider._base_path == "mybucket/myprefix/mysubprefix"
     assert storage_client._credentials_provider._endpoint_url == "https://pdx.s8k.io"
     assert storage_client._credentials_provider._expiry == 1000
+
+
+def test_legacy_cache_config():
+    """Test loading old cache config format."""
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {"location": "/tmp/msc_cache", "size_mb": 200000, "use_etag": True},
+    }
+
+    config = StorageClientConfig.from_dict(config_dict, "test")
+    assert config.cache_config is not None
+    assert config.cache_manager is not None
+
+    # Verify cache config values
+    assert config.cache_config.size == "200000M"  # Converted from size_mb
+    assert config.cache_config.use_etag is True
+    assert config.cache_config.backend.cache_path == "/tmp/msc_cache"
+    assert config.cache_config.eviction_policy.policy == "fifo"  # Default value
+    assert config.cache_config.eviction_policy.refresh_interval == 300  # Default value
+
+
+def test_new_cache_config():
+    """Test loading new cache config format."""
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {
+            "size": "200G",
+            "use_etag": True,
+            "eviction_policy": {"policy": "fifo", "refresh_interval": 300},
+            "cache_backend": {"cache_path": "/tmp/msc_cache", "storage_provider_profile": "test"},
+        },
+    }
+
+    with pytest.raises(ValueError, match="This is not a valid S3Express OneZone bucket"):
+        StorageClientConfig.from_dict(config_dict, "test")
+
+
+def test_cache_config_defaults():
+    """Test cache config with minimal configuration."""
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {"size": "100M"},
+    }
+
+    config = StorageClientConfig.from_dict(config_dict, "test")
+    assert config.cache_config is not None
+    assert config.cache_manager is not None
+
+    # Verify default values
+    assert config.cache_config.size == "100M"
+    assert config.cache_config.use_etag is True  # Default value
+    assert config.cache_config.eviction_policy.policy == "fifo"  # Default value
+    assert config.cache_config.eviction_policy.refresh_interval == 300  # Default value
+
+
+def test_invalid_cache_config():
+    """Test invalid cache config combinations."""
+    # Test invalid size format
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {
+            "size": "invalid",  # Invalid size format
+            "use_etag": True,
+            "eviction_policy": {"policy": "lru", "refresh_interval": 300},
+            "cache_backend": {"cache_path": "/tmp/msc_cache"},
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="Failed to validate the config file"):
+        StorageClientConfig.from_dict(config_dict, "test")
+
+    # Test missing required profile
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {
+            "size": "200G",
+            "use_etag": True,
+            "eviction_policy": {"policy": "lru", "refresh_interval": 300},
+            "cache_backend": {"cache_path": "/tmp/msc_cache", "storage_provider_profile": "non-existent-profile"},
+        },
+    }
+
+    with pytest.raises(
+        ValueError, match="Profile 'non-existent-profile' referenced by storage_provider_profile does not exist"
+    ):
+        StorageClientConfig.from_dict(config_dict, "test")
+
+
+def test_mixed_cache_config():
+    """Test that mixing old and new cache config formats raises an error."""
+    config_dict = {
+        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
+        "cache": {
+            "size_mb": 20000,
+            "use_etag": True,
+            "location": "/tmp/msc_cache",
+            "eviction_policy": {"policy": "fifo", "refresh_interval": 300},
+            "cache_backend": {"storage_provider_profile": "s3e"},
+        },
+    }
+
+    # Should raise an error because mixing old format (size_mb, location)
+    # with new format (eviction_policy, cache_backend)
+    with pytest.raises(ValueError, match="Cannot mix old and new cache config formats"):
+        StorageClientConfig.from_dict(config_dict, "test")

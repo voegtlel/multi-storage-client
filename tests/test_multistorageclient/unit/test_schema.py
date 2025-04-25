@@ -87,8 +87,13 @@ def test_validate_cache():
                 "default": default_storage_provider,
             },
             "cache": {
-                "location": "/path/to/cache",
-                "size_mb": 50000,
+                "size": "50M",
+                "use_etag": True,
+                "eviction_policy": {
+                    "policy": "FIFO",
+                    "refresh_interval": 300,
+                },
+                "cache_backend": {"cache_path": "/path/to/cache", "storage_provider_profile": "test"},
             },
         }
     )
