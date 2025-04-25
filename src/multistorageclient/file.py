@@ -18,7 +18,6 @@ from __future__ import annotations  # Enables forward references in type hints
 import io
 import logging
 import os
-import sys
 import tempfile
 import threading
 from io import BytesIO, StringIO
@@ -225,6 +224,7 @@ class ObjectFile(IO):
         self._encoding = encoding
         self._cache_manager = storage_client._cache_manager
         self._memory_load_limit = memory_load_limit
+        self._open_files = []
 
         if disable_read_cache:
             self._cache_manager = None
@@ -260,6 +260,8 @@ class ObjectFile(IO):
             self._file = BytesIO()
         else:
             self._file = StringIO()
+
+        self._open_files.append(self._file)
 
     def _download_file(self) -> None:
         """
@@ -303,6 +305,7 @@ class ObjectFile(IO):
                 raise FileNotFoundError(f"Unexpected error, file not found at {self._remote_path}")
 
             self._file = file_object
+            self._open_files.append(self._file)
         except Exception as e:
             raise IOError(f"Failed to download file {self._remote_path}") from e
         finally:
@@ -430,9 +433,11 @@ class ObjectFile(IO):
             self._download_complete.wait()
 
         if isinstance(self._file, StringIO) or isinstance(self._file, BytesIO):
-            # In-memory file objects (StringIO/BytesIO) don't have real file descriptors,
-            # so we return stdout's fileno instead to prevent "io.UnsupportedOperation: fileno" errors
-            return sys.stdout.fileno()
+            # In-memory file objects (StringIO/BytesIO) don't have real file descriptors.
+            # Create a temporary file and return its file descriptor when needed for operations that require one.
+            fd_holder = tempfile.TemporaryFile()
+            self._open_files.append(fd_holder)
+            return fd_holder.fileno()
 
         return self._file.fileno()
 
@@ -472,8 +477,8 @@ class ObjectFile(IO):
         else:
             self._upload_file()
 
-        if self._file:
-            self._file.close()
+        for fp in self._open_files:
+            fp.close()
 
     def _upload_file(self) -> None:
         """
