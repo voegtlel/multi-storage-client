@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import mmap
 import os
 import tempfile
@@ -26,6 +27,9 @@ import multistorageclient as msc
 from multistorageclient.client import StorageClient
 from multistorageclient.file import ObjectFile
 from multistorageclient.types import MSC_PROTOCOL
+from multistorageclient.providers.manifest_metadata import (
+    DEFAULT_MANIFEST_BASE_DIR,
+)
 from test_multistorageclient.unit.utils import config, tempdatastore
 
 MB = 1024 * 1024
@@ -204,6 +208,7 @@ def verify_shortcuts(profile: str, prefix: str):
         with msc.open(f"msc://{profile}/{prefix}/data-{i}.bin", "wb") as fp:
             fp.write(body)
 
+    msc.commit_metadata(f"msc://{profile}")
     # glob
     assert len(msc.glob(f"msc://{profile}/{prefix}/**/*.bin")) == 10
 
@@ -212,6 +217,8 @@ def verify_shortcuts(profile: str, prefix: str):
     fp.write(body)
     fp.close()
     msc.upload_file(f"msc://{profile}/{prefix}/data-11.bin", fp.name)
+
+    msc.commit_metadata(f"msc://{profile}")
 
     file_list = msc.glob(f"msc://{profile}/{prefix}/**/*.bin")
     assert len(file_list) == 11
@@ -227,6 +234,8 @@ def verify_shortcuts(profile: str, prefix: str):
     # numpy
     arr = np.array([1, 2, 3, 4, 5], dtype=np.int32)
     msc.numpy.save(f"msc://{profile}/{prefix}/arr-01.npy", arr)
+    msc.commit_metadata(f"msc://{profile}")
+
     assert msc.numpy.load(f"msc://{profile}/{prefix}/arr-01.npy").all() == arr.all()
     assert msc.numpy.memmap(f"msc://{profile}/{prefix}/arr-01.npy", dtype=np.int32, shape=(5,)).all() == arr.all()
 
@@ -261,6 +270,42 @@ def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.Temporar
             config_dict={
                 "profiles": {
                     "test": temp_data_store.profile_config_dict(),
+                },
+                "cache": {
+                    "size_mb": 5000,
+                    "location": "/tmp/msc_cache",
+                    "use_etag": True,
+                },
+            }
+        )
+
+        verify_shortcuts(profile="test", prefix="files")
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket],
+    ],
+)
+def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+    # Clear the instance cache to ensure that the config is not reused from the previous test
+    msc.shortcuts._instance_cache.clear()
+
+    with temp_data_store_type() as temp_data_store:
+        data_with_manifest_profile_config_dict = copy.deepcopy(temp_data_store.profile_config_dict()) | {
+            "metadata_provider": {
+                "type": "manifest",
+                "options": {
+                    "manifest_path": DEFAULT_MANIFEST_BASE_DIR,
+                    "writable": True,
+                },
+            }
+        }
+        config.setup_msc_config(
+            config_dict={
+                "profiles": {
+                    "test": data_with_manifest_profile_config_dict,
                 },
                 "cache": {
                     "size_mb": 5000,

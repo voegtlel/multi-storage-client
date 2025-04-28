@@ -257,3 +257,13 @@ def delete(url: str) -> None:
     """
     client, path = resolve_storage_client(url)
     client.delete(path)
+
+
+def commit_metadata(url: str) -> None:
+    """
+    Commits the metadata updates for the specified storage client profile.
+
+    :param url: The URL of the path to commit metadata for.
+    """
+    client, path = resolve_storage_client(url)
+    client.commit_metadata(prefix=path)

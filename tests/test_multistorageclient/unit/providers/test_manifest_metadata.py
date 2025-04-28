@@ -85,7 +85,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 0
         assert data_with_manifest_storage_client.is_empty(path="dir")
 
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
 
         # Check if the manifest is persisted.
@@ -128,7 +128,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         # Delete the file.
         data_with_manifest_storage_client.delete(path=file_path)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 0
 
         # Upload the file.
@@ -137,7 +137,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             temp_file.close()
             data_with_manifest_storage_client.upload_file(remote_path=file_path, local_path=temp_file.name)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 0
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
 
         # Check the file metadata.
@@ -151,7 +151,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         file_copy_path = f"copy-{file_path}"
         data_with_manifest_storage_client.copy(src_path=file_path, dest_path=file_copy_path)
         assert len(data_with_manifest_storage_client.glob(pattern=file_copy_path)) == 0
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
         assert len(data_with_manifest_storage_client.glob(pattern=file_copy_path)) == 1
 
         # Check the file copy metadata.
@@ -164,7 +164,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         # Delete the file and its copy.
         for path in [file_path, file_copy_path]:
             data_with_manifest_storage_client.delete(path=path)
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
 
         # Write files.
         file_directory = "directory"
@@ -172,7 +172,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         for i in range(file_count):
             data_storage_client.write(path=os.path.join(file_directory, f"{i}.txt"), body=file_body_bytes)
         assert len(list(data_with_manifest_storage_client.list(prefix=f"{file_directory}/"))) == 0
-        data_with_manifest_storage_client.commit_updates(prefix=f"{file_directory}/")
+        data_with_manifest_storage_client.commit_metadata(prefix=f"{file_directory}/")
         assert len(list(data_with_manifest_storage_client.list(prefix=f"{file_directory}/"))) == file_count
 
         # Test listing with directories
@@ -225,7 +225,7 @@ def test_nonexistent_and_read_only():
         # Write a file.
         data_with_manifest_storage_client.write(path=file_path, body=file_body_bytes)
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 0
-        data_with_manifest_storage_client.commit_updates()
+        data_with_manifest_storage_client.commit_metadata()
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
 
         # Create the data with read-only manifest storage client.

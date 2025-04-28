@@ -370,7 +370,7 @@ class StorageClient:
             return exists
         return self._storage_provider.is_file(path)
 
-    def commit_updates(self, prefix: Optional[str] = None) -> None:
+    def commit_metadata(self, prefix: Optional[str] = None) -> None:
         """
         Commits any pending updates to the metadata provider. No-op if not using a metadata provider.
 
@@ -528,7 +528,7 @@ class StorageClient:
                 else:
                     raise RuntimeError(f"Unknown operation: {op}")
 
-        self.commit_updates()
+        self.commit_metadata()
 
 
 def _sync_worker_process(

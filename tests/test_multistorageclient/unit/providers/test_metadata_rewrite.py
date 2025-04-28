@@ -121,7 +121,7 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         for path, content in content_dict.items():
             storage_client.write(path, content)
 
-        # Nothing visible until commit_updates
+        # Nothing visible until commit_metadata
         assert len(list(storage_client.list(prefix=""))) == 0
 
         with pytest.raises(FileNotFoundError):
@@ -129,7 +129,7 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         with pytest.raises(FileNotFoundError):
             _ = storage_client.read("file1.txt")
 
-        storage_client.commit_updates()
+        storage_client.commit_metadata()
 
         assert set([f.key for f in storage_client.list(prefix="")]) == set(content_dict.keys())
 
@@ -172,13 +172,13 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
             temp_file.flush()
             storage_client.upload_file(upload_filename, temp_file.name)
 
-        # Not visible until commit_updates
+        # Not visible until commit_metadata
         with pytest.raises(FileNotFoundError):
             _ = storage_client.info("file1_copy.txt")
         with pytest.raises(FileNotFoundError):
             _ = storage_client.read("file1_copy.txt")
 
-        storage_client.commit_updates()
+        storage_client.commit_metadata()
 
         assert storage_client.is_file("file1_copy.txt")
         assert storage_client.is_file(upload_filename)
@@ -196,7 +196,7 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
 
         # Test delete API
         storage_client.delete("file1_copy.txt")
-        storage_client.commit_updates()
+        storage_client.commit_metadata()
         del content_dict["file1_copy.txt"]
 
         assert not storage_client.is_file("file1_copy.txt")
@@ -205,6 +205,6 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         with pytest.raises(FileNotFoundError):
             _ = storage_client.read("file1_copy.txt")
 
-        # call commit_updates again, should be a no-op
-        storage_client.commit_updates()
+        # call commit_metadata again, should be a no-op
+        storage_client.commit_metadata()
         assert set([f.key for f in storage_client.list(prefix="")]) == set(content_dict.keys())
