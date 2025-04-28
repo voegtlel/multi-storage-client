@@ -748,22 +748,6 @@ def test_legacy_cache_config():
     assert config.cache_config.eviction_policy.refresh_interval == 300  # Default value
 
 
-def test_new_cache_config():
-    """Test loading new cache config format."""
-    config_dict = {
-        "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
-        "cache": {
-            "size": "200G",
-            "use_etag": True,
-            "eviction_policy": {"policy": "fifo", "refresh_interval": 300},
-            "cache_backend": {"cache_path": "/tmp/msc_cache", "storage_provider_profile": "test"},
-        },
-    }
-
-    with pytest.raises(ValueError, match="This is not a valid S3Express OneZone bucket"):
-        StorageClientConfig.from_dict(config_dict, "test")
-
-
 def test_cache_config_defaults():
     """Test cache config with minimal configuration."""
     config_dict = {

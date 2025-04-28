@@ -28,6 +28,10 @@ from multistorageclient.cache import CacheBackendFactory, DEFAULT_CACHE_SIZE_MB,
 from multistorageclient.caching.cache_backend import FileSystemBackend
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient.config import StorageClientConfig
+from multistorageclient.providers import (
+    S3StorageProvider,
+    S8KStorageProvider,
+)
 
 
 @pytest.fixture
@@ -547,3 +551,49 @@ def test_storage_provider_partial_cache_config(storage_provider_partial_cache_co
         assert cache_config.eviction_policy.refresh_interval == DEFAULT_CACHE_REFRESH_INTERVAL
         assert cache_config.use_etag
         assert isinstance(cache_backend, FileSystemBackend)
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type", "expected_error"],
+    argvalues=[
+        [tempdatastore.TemporaryAWSS3Bucket, None],  # S3 should work
+        [tempdatastore.TemporarySwiftStackBucket, None],  # SwiftStack (S8K) should work
+        [tempdatastore.TemporaryAzureBlobStorageContainer, ValueError],  # Azure should fail
+        [tempdatastore.TemporaryGoogleCloudStorageBucket, ValueError],  # GCS should fail
+    ],
+    ids=["s3", "swiftstack", "azure", "gcs"],
+)
+def test_storage_provider_backend_requires_s3_provider(temp_data_store_type, expected_error):
+    """Test that storage provider based cache backend only works with S3-based providers."""
+    with temp_data_store_type() as temp_data_store:
+        # Get the profile name from the temp data store
+        profile_config = temp_data_store.profile_config_dict()
+        print(f"Profile config: {profile_config}")  # Debug logging
+        profile_name = list(profile_config.keys())[0]
+        print(f"Profile name from temp_data_store: {profile_name}")  # Debug logging
+
+        # Create a cache config with storage provider profile
+        cache_config = CacheConfig(
+            size="100M",
+            use_etag=True,
+            eviction_policy=EvictionPolicyConfig(policy="fifo", refresh_interval=300),
+            backend=CacheBackendConfig(cache_path="tmp/msc_cache", storage_provider_profile=profile_name),
+        )
+
+        # Get the storage provider from the temp data store
+        profile = "test-profile"
+        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        storage_config = StorageClientConfig.from_dict(config_dict=config_dict, profile=profile)
+        storage_provider = storage_config.storage_provider
+
+        if expected_error is None:
+            # For S3-based providers, creation should succeed
+            backend = CacheBackendFactory.create(profile, cache_config, storage_provider)
+            assert isinstance(backend._storage_provider, (S3StorageProvider, S8KStorageProvider))
+        else:
+            # For non-S3 providers, creation should fail
+            with pytest.raises(
+                expected_error,
+                match="The storage_provider_profile must reference a profile that uses a storage provider of type s3 or s8k",
+            ):
+                CacheBackendFactory.create(profile, cache_config, storage_provider)

@@ -99,7 +99,6 @@ class SimpleProviderBundle(ProviderBundle):
 
 DEFAULT_CACHE_REFRESH_INTERVAL = 300
 DEFAULT_EVICTION_POLICY = "fifo"
-S3_EXPRESS_ONEZONE_BUCKET_SUFFIX = "--x-s3"
 
 
 class StorageClientConfigLoader:
@@ -323,9 +322,6 @@ class StorageClientConfigLoader:
                 )
 
             cache_storage_provider = self._build_storage_provider_from_profile(cache_profile)
-
-            if S3_EXPRESS_ONEZONE_BUCKET_SUFFIX not in cache_storage_provider._base_path:  # type: ignore
-                raise ValueError(f"This is not a valid S3Express OneZone bucket {cache_storage_provider._base_path}")  # type: ignore
 
         cache_manager = CacheBackendFactory.create(
             profile=self._profile, cache_config=cache_config, storage_provider=cache_storage_provider

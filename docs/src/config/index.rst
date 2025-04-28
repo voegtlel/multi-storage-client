@@ -298,9 +298,7 @@ Options:
     - ``refresh_interval``: Interval in seconds to refresh cache (optional, default: 300)
   - ``cache_backend``: Cache backend configuration
     - ``cache_path``: Directory path for storing cached files (optional, default: system temp directory + "/.msc_cache")
-    - ``storage_provider_profile``: Optional profile to use for cache storage, should point to a valid s3-express profile. 
-                                    If not provided, FileSystem cachebackend gets used(recommended to use a separate read-only profile)
-                                    (optional, default: FileSystem cache backend)
+    - ``storage_provider_profile``: Optional profile to use for cache storage, should point to a valid s3-express profile. If not provided, FileSystem cachebackend gets used(recommended to use a separate read-only profile) (optional, default: FileSystem cache backend)
 
 .. code-block:: yaml
   :caption: Example configuration when using a storage provider based cache backend.
@@ -315,7 +313,6 @@ Options:
       cache_path: tmp/msc_cache  
       storage_provider_profile: s3-express-profile
 
-
 .. code-block:: yaml
   :caption: Example configuration when using a filesystem based cache backend (local cache). Note that the storage_provider_profile is not provided.
   
@@ -326,8 +323,7 @@ Options:
       policy: "fifo"
       refresh_interval: 300
     cache_backend:
-      cache_path: /tmp/msc_cache  
-  
+      cache_path: /tmp/msc_cache
 
 *************
 OpenTelemetry
