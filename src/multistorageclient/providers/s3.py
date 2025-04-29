@@ -414,8 +414,11 @@ class S3StorageProvider(BaseStorageProvider):
         dest_bucket, dest_key = split_path(dest_path)
 
         def _invoke_api() -> None:
-            response = self._s3_client.copy_object(
-                CopySource={"Bucket": src_bucket, "Key": src_key}, Bucket=dest_bucket, Key=dest_key
+            response = self._s3_client.copy(
+                CopySource={"Bucket": src_bucket, "Key": src_key},
+                Bucket=dest_bucket,
+                Key=dest_key,
+                Config=self._transfer_config,
             )
 
             # Extract and set x-trans-id if present
