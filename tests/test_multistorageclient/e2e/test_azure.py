@@ -34,10 +34,9 @@ def test_azure_storage_client(profile_name, config_suffix):
 
 
 @pytest.mark.parametrize("profile_name", ["test-azure-uswest"])
-@pytest.mark.parametrize("config_suffix", [""])
-def test_azure_conditional_put(profile_name, config_suffix):
+def test_azure_conditional_put(profile_name):
     """Test conditional PUT operations in Azure using if-match and if-none-match conditions."""
-    profile = profile_name + config_suffix
+    profile = profile_name
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
 
     # Azure uses PreconditionFailedError for if_match failures (412)

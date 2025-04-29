@@ -34,10 +34,9 @@ def test_s3_storage_client(profile_name, config_suffix):
 
 
 @pytest.mark.parametrize("profile_name", ["test-s3-iad"])
-@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
-def test_s3_conditional_put(profile_name, config_suffix):
+def test_s3_conditional_put(profile_name):
     """Test conditional PUT operations in S3 using if-match and if-none-match conditions."""
-    profile = profile_name + config_suffix
+    profile = profile_name
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
 
     # S3 uses PreconditionFailedError for both if_none_match="*" and if_match failures

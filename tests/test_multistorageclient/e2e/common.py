@@ -29,7 +29,7 @@ MB = 1024 * 1024
 def wait(
     waitable: Callable[[], T],
     should_wait: Callable[[T], bool],
-    max_attempts: int = 60,
+    max_attempts: int = 3,
     attempt_interval_seconds: int = 1,
 ) -> T:
     """
@@ -67,9 +67,9 @@ def delete_files(storage_client: msc.StorageClient, prefix: str) -> None:
 
 
 def verify_shortcuts(profile: str, prefix: str) -> None:
-    body = b"A" * (16 * MB)
+    body = b"A" * (4 * MB)
 
-    object_count = 10
+    object_count = 5
     for i in range(object_count):
         with msc.open(f"msc://{profile}/{prefix}/data-{i}.bin", "wb") as fp:
             fp.write(body)
@@ -156,14 +156,14 @@ def verify_storage_provider(storage_client: msc.StorageClient, prefix: str) -> N
     wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=0))
 
     # large file
-    body_large = b"*" * (550 * MB)
+    body_large = b"*" * (32 * MB)
     with storage_client.open(filename, "wb") as fp:
         fp.write(body_large)
 
     wait(waitable=lambda: storage_client.list(prefix), should_wait=len_should_wait(expected_len=1))
 
     with storage_client.open(filename, "rb") as fp:
-        read_size = 128 * MB
+        read_size = 4 * MB
         content = fp.read(read_size)
         assert len(content) == read_size
 

@@ -138,4 +138,4 @@ run-e2e-tests: prepare-virtual-environment
     # Remove test artifacts.
     rm -rf .reports/e2e
     # E2E test.
-    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/test_multistorageclient/e2e --numprocesses 2
+    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/test_multistorageclient/e2e --durations 0 --durations-min 60 --numprocesses 4

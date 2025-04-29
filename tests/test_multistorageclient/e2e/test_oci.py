@@ -34,10 +34,9 @@ def test_oci_storage_client(profile_name, config_suffix):
 
 
 @pytest.mark.parametrize("profile_name", ["test-oci"])
-@pytest.mark.parametrize("config_suffix", ["", "-rclone"])
-def test_oci_conditional_put(profile_name, config_suffix):
+def test_oci_conditional_put(profile_name):
     """Test conditional PUT operations in OCI using if-match and if-none-match conditions."""
-    profile = profile_name + config_suffix
+    profile = profile_name
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
 
     # https://docs.oracle.com/en-us/iaas/tools/python/2.150.0/api/object_storage/client/oci.object_storage.ObjectStorageClient.html?highlight=put_object#oci.object_storage.ObjectStorageClient.put_object

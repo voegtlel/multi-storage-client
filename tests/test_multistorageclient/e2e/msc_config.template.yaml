@@ -22,12 +22,17 @@ profiles:
       options:
         base_path: nvdataplatformdev/msc-test
         project_id: data-platform-dev
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunk_size: 4194304 # 4MB
   test-oci:
     storage_provider:
       type: oci
       options:
         base_path: msc-test
         namespace: "*****"
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
   test-s3-iad:
     credentials_provider:
       type: S3Credentials
@@ -40,6 +45,9 @@ profiles:
         base_path: msc-integration-test-0001
         endpoint_url: https://s3.us-east-1.amazonaws.com
         region_name: us-east-1
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunksize: 4194304 # 4MB
   test-s3-iad-base-path-with-prefix:
     credentials_provider:
       type: S3Credentials
@@ -52,6 +60,9 @@ profiles:
         base_path: msc-integration-test-0001/test-data
         endpoint_url: https://s3.us-east-1.amazonaws.com
         region_name: us-east-1
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunksize: 4194304 # 4MB
   test-swift-pdx:
     credentials_provider:
       type: S3Credentials
@@ -64,6 +75,9 @@ profiles:
         base_path: msc-integration-test-0001
         endpoint_url: https://pdx.s8k.io
         region_name: us-east-1
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunksize: 4194304 # 4MB
   test-swift-pdx-base-path-with-prefix:
     credentials_provider:
       type: S3Credentials
@@ -76,3 +90,6 @@ profiles:
         base_path: msc-integration-test-0001/test-data
         endpoint_url: https://pdx.s8k.io
         region_name: us-east-1
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunksize: 4194304 # 4MB
