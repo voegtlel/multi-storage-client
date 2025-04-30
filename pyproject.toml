@@ -16,6 +16,7 @@ readme = "README.md"
 requires-python = "~=3.9"
 dependencies = [
     "filelock~=3.14",
+    "jmespath~=1.0.1",
     "jsonschema~=4.0",
     "python-dateutil~=2.8",
     "pyyaml~=6.0.1",
