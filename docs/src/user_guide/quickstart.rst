@@ -237,3 +237,50 @@ instances directly.
   file = client.open("animal-photos/red-panda.png")
 
 Clients use file/object paths relative to the storage provider's base path.
+
+Syncing Files
+-------------
+
+MSC supports concurrent copying of multiple files between different storage backends using the ``StorageClient.sync_from()`` method.
+
+``StorageClient.sync_from``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``sync_from()`` to copy files from one ``StorageClient`` to another. This is useful for duplicating data across storage backends or syncing environments (e.g., staging to production). This function uses multiple processes and threads to improve performance, which can be controlled by environment variables ``MSC_NUM_PROCESSES`` and ``MSC_NUM_THREADS_PER_PROCESS``.
+
+.. code-block:: python
+   :linenos:
+
+   from multistorageclient import StorageClient, StorageClientConfig
+
+   # Load two clients with different profiles
+   config = StorageClientConfig.from_file()
+   src_client = StorageClient(config=config, profile="staging-data")
+   dst_client = StorageClient(config=config, profile="prod-data")
+
+   # Sync files in images/ from the staging bucket to the prod bucket
+   dst_client.sync_from(
+       source_client=src_client,
+       source_path="images/",
+       target_path="images/",
+       delete_unmatched_files=False
+   )
+
+If ``delete_unmatched_files`` is ``True``, any files in the target not found in the source will be deleted
+
+``multistorageclient.sync``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``sync()`` shortcut provides a quick way to sync files using MSC URLs:
+
+.. code-block:: python
+   :linenos:
+
+   import multistorageclient as msc
+
+   # Sync data from one profile to another
+   msc.sync(
+       source_url="msc://staging-data/images/",
+       target_url="msc://prod-data/images/",
+       delete_unmatched_files=True
+   )
