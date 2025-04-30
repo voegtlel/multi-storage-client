@@ -55,6 +55,7 @@ CREDENTIALS_PROVIDER_MAPPING = {
     "S3Credentials": "StaticS3CredentialsProvider",
     "AzureCredentials": "StaticAzureCredentialsProvider",
     "AISCredentials": "StaticAISCredentialProvider",
+    "GoogleIdentityPoolCredentialsProvider": "GoogleIdentityPoolCredentialsProvider",
 }
 
 DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS = (

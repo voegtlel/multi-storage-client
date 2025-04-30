@@ -53,6 +53,8 @@ class Credentials:
     token: Optional[str]
     #: The expiration time of the credentials in ISO 8601 format.
     expiration: Optional[str]
+    #: A dictionary for storing custom key-value pairs.
+    custom_fields: Dict[str, Any] = field(default_factory=dict)
 
     def is_expired(self) -> bool:
         """
@@ -64,6 +66,16 @@ class Credentials:
         if expiry is None:
             return False
         return expiry <= datetime.now(tz=timezone.utc)
+
+    def get_custom_field(self, key: str, default: Any = None) -> Any:
+        """
+        Retrieves a value from custom fields by its key.
+
+        :param key: The key to look up in custom fields.
+        :param default: The default value to return if the key is not found.
+        :return: The value associated with the key, or the default value if not found.
+        """
+        return self.custom_fields.get(key, default)
 
 
 @dataclass

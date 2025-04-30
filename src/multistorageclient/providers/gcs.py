@@ -17,21 +17,23 @@ import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Iterator, Optional, Union, Dict
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
 
-from google.api_core.exceptions import NotFound, GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, NotFound
+from google.auth import identity_pool
 from google.cloud import storage
 from google.cloud.storage import transfer_manager
 from google.cloud.storage.exceptions import InvalidResponse
-from google.oauth2.credentials import Credentials as GoogleCredentials
+from google.oauth2.credentials import Credentials as OAuth2Credentials
 
 from ..types import (
-    CredentialsProvider,
-    ObjectMetadata,
-    Range,
     AWARE_DATETIME_MIN,
-    PreconditionFailedError,
+    Credentials,
+    CredentialsProvider,
     NotModifiedError,
+    ObjectMetadata,
+    PreconditionFailedError,
+    Range,
     RetryableError,
 )
 from ..utils import split_path
@@ -45,6 +47,46 @@ DEFAULT_MULTIPART_THRESHOLD = 512 * MB
 DEFAULT_MULTIPART_CHUNK_SIZE = 256 * MB
 DEFAULT_IO_CHUNK_SIZE = 256 * MB
 DEFAULT_MAX_CONCURRENCY = 8
+
+
+class StringTokenSupplier(identity_pool.SubjectTokenSupplier):
+    """
+    Supply a string token to the Google Identity Pool.
+    """
+
+    def __init__(self, token: str):
+        self._token = token
+
+    def get_subject_token(self, context, request):
+        return self._token
+
+
+class GoogleIdentityPoolCredentialsProvider(CredentialsProvider):
+    """
+    A concrete implementation of the :py:class:`multistorageclient.types.CredentialsProvider` that provides Google's identity pool credentials.
+    """
+
+    def __init__(self, audience: str, token_supplier: str):
+        """
+        Initializes the :py:class:`GoogleIdentityPoolCredentials` with the audience and token supplier.
+
+        :param audience: The audience for the Google Identity Pool.
+        :param token_supplier: The token supplier for the Google Identity Pool.
+        """
+        self._audience = audience
+        self._token_supplier = token_supplier
+
+    def get_credentials(self) -> Credentials:
+        return Credentials(
+            access_key="",
+            secret_key="",
+            token="",
+            expiration=None,
+            custom_fields={"audience": self._audience, "token": self._token_supplier},
+        )
+
+    def refresh_credentials(self) -> None:
+        pass
 
 
 class GoogleStorageProvider(BaseStorageProvider):
@@ -85,9 +127,24 @@ class GoogleStorageProvider(BaseStorageProvider):
             client_options["api_endpoint"] = self._endpoint_url
 
         if self._credentials_provider:
-            access_token = self._credentials_provider.get_credentials().token
-            creds = GoogleCredentials(token=access_token)
-            return storage.Client(project=self._project_id, credentials=creds, client_options=client_options)
+            if isinstance(self._credentials_provider, GoogleIdentityPoolCredentialsProvider):
+                audience = self._credentials_provider.get_credentials().get_custom_field("audience")
+                token = self._credentials_provider.get_credentials().get_custom_field("token")
+
+                # Use Workload Identity Federation (WIF)
+                identity_pool_credentials = identity_pool.Credentials(
+                    audience=audience,
+                    subject_token_type="urn:ietf:params:oauth:token-type:id_token",
+                    subject_token_supplier=StringTokenSupplier(token),
+                )
+                return storage.Client(
+                    project=self._project_id, credentials=identity_pool_credentials, client_options=client_options
+                )
+            else:
+                # Use OAuth 2.0 token
+                token = self._credentials_provider.get_credentials().token
+                creds = OAuth2Credentials(token=token)
+                return storage.Client(project=self._project_id, credentials=creds, client_options=client_options)
         else:
             return storage.Client(project=self._project_id, client_options=client_options)
 

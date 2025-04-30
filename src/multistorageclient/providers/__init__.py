@@ -38,6 +38,7 @@ def __getattr__(name: str) -> Any:
         "StaticAzureCredentialsProvider": ".azure",
         # GCS
         "GoogleStorageProvider": ".gcs",
+        "GoogleIdentityPoolCredentialsProvider": ".gcs",
         # Oracle
         "OracleStorageProvider": ".oci",
         # S3
