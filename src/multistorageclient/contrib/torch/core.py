@@ -13,16 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+import os
+from typing import IO, Any, Union
 
 import torch as _torch
-from torch.serialization import FILE_LIKE
 
 from ...shortcuts import open as msc_open
 from ...types import MSC_PROTOCOL
 
 
-def load(f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
+def load(f: Union[str, os.PathLike[str], IO[bytes]], *args: Any, **kwargs: Any) -> Any:
     """
     Adapt ``torch.load``.
     """
@@ -33,7 +33,7 @@ def load(f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
         return _torch.load(f, *args, **kwargs)
 
 
-def save(obj: object, f: FILE_LIKE, *args: Any, **kwargs: Any) -> Any:
+def save(obj: object, f: Union[str, os.PathLike[str], IO[bytes]], *args: Any, **kwargs: Any) -> Any:
     """
     Adapt ``torch.save``.
     """
