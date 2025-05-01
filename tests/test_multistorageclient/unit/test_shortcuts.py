@@ -50,6 +50,7 @@ def test_resolve_storage_client(file_storage_config):
     sc2, _ = msc.resolve_storage_client("file:///usr/local/fake/bucket/testfile.bin")
     sc3, _ = msc.resolve_storage_client("msc://default/usr/local/fake/bucket/testfile.bin")
     assert sc1 == sc2 == sc3
+    assert sc1.profile == sc2.profile == sc3.profile == "default"
 
     # verify that path works with multiple slashes
     _, p1 = msc.resolve_storage_client("/etc/")
@@ -406,3 +407,110 @@ def test_download_and_sync_files(file_storage_config):
 
     # Test, by syncing again and verify the data hasn't changed?
     msc.sync(source_url=f"{MSC_PROTOCOL}default{tempdir}/", target_url=f"{MSC_PROTOCOL}default{sync_dest_tempdir}/")
+
+
+def test_explicit_path_translation(file_storage_config_with_path_mapping):
+    """Test path translations defined in the MSC configuration."""
+
+    # Test Case 1: Basic file path translation with direct match to profile
+    client, path = msc.resolve_storage_client("/lustrefs/a/b/file.txt")
+    assert client.profile == "file-a-b"
+    assert path == "/file.txt"
+
+    # Test Case 2: Path translation for parent directory
+    client, path = msc.resolve_storage_client("/lustrefs/a/file.txt")
+    assert client.profile == "file-a"
+    assert path == "/file.txt"
+
+    # Test Case 3: Nested path where longer prefix should take precedence
+    client, path = msc.resolve_storage_client("/lustrefs/a/b/c/nested/file.txt")
+    assert client.profile == "file-a-b"
+    assert path == "/c/nested/file.txt"
+
+    # Test Case 4: S3 path translation
+    client, path = msc.resolve_storage_client("s3://bucket1/prefix/file.txt")
+    assert client.profile == "s3-bucket1"
+    assert path == "prefix/file.txt"
+
+    # Test Case 5: S3 nested path where longer prefix should take precedence
+    client, path = msc.resolve_storage_client("s3://bucket1/a/b/prefix/file.txt")
+    assert client.profile == "s3-bucket1-a-b"
+    assert path == "prefix/file.txt"
+
+
+def test_implicit_profiles_without_msc_config():
+    """Test the implicit profiles feature for non-MSC URLs."""
+    # Setup environment variables for implicit profiles to create storage providers successfully
+    os.environ["AWS_ENDPOINT_URL"] = "http://localhost:9000"
+    os.environ["AIS_ENDPOINT"] = "http://localhost:12345"
+    os.environ["GOOGLE_CLOUD_PROJECT_ID"] = "GCS_PROJECT_ID_123"
+
+    try:
+        # Test S3 implicit profile
+        client, path = msc.resolve_storage_client("s3://test-bucket/path/to/object")
+        assert client.profile == "_s3-test-bucket"
+        assert path == "path/to/object"
+
+        # Verify the same client is returned for the same implicit profile
+        client2, _ = msc.resolve_storage_client("s3://test-bucket/another/path")
+        assert client is client2  # Same instance
+
+        # Test AIS implicit profile
+        client, path = msc.resolve_storage_client("ais://test-bucket/path/to/object")
+        assert client.profile == "_ais-test-bucket"
+        assert path == "path/to/object"
+
+        # Test file implicit profile
+        client, path = msc.resolve_storage_client("file:///path/to/file")
+        assert client.profile == "default"
+        assert path == "/path/to/file"
+
+        # Test posix implicit profile
+        client, path = msc.resolve_storage_client("/path/to/file")
+        assert client.profile == "default"
+        assert path == "/path/to/file"
+
+        # Comment out for now because GCS requires credentials json to be present locally
+        # client, path = msc.resolve_storage_client("gs://test-bucket/path/to/object")
+        # assert client.profile == "_gs-test-bucket"
+        # assert path == "path/to/object"
+
+        # Test error cases
+        with pytest.raises(ValueError):
+            msc.resolve_storage_client("s3:///missing-bucket/path")
+
+        with pytest.raises(ValueError):
+            msc.resolve_storage_client("unknown://test-bucket/path")
+    finally:
+        # Clean up environment variables
+        for env_var in ["AWS_ENDPOINT_URL", "AIS_ENDPOINT", "GOOGLE_CLOUD_PROJECT_ID"]:
+            if env_var in os.environ:
+                del os.environ[env_var]
+
+
+def test_implicit_profiles_with_msc_config(file_storage_config_with_path_mapping):
+    """Test the behavior of paths that don't match any translation in the MSC config.
+
+    This test ensures that:
+    1. File paths that don't match any translation use the default profile
+    2. Object storage URLs that don't match any translation use implicit profiles
+    """
+    # Clear the instance cache to ensure that the config is not reused from the previous test
+    msc.shortcuts._instance_cache.clear()
+
+    os.environ["AWS_ENDPOINT_URL"] = "http://localhost:9000"
+    try:
+        # Test Case 1: File Path that doesn't match any translation - should use default
+        client, path = msc.resolve_storage_client("/tmp/some/path/file.txt")
+        assert client.profile == "default"
+        assert path == "/tmp/some/path/file.txt"
+
+        # Test Case 2: s3 Path that doesn't match any translation - should use implicit profile
+        client, path = msc.resolve_storage_client("s3://bucket2/prefix/file.txt")
+        assert client.profile == "_s3-bucket2"
+        assert path == "prefix/file.txt"
+    finally:
+        # Clean up environment variables
+        for env_var in ["AWS_ENDPOINT_URL"]:
+            if env_var in os.environ:
+                del os.environ[env_var]

@@ -44,6 +44,40 @@ profiles:
 cache: {}
 """
 
+CONFIG_YAML_WITH_PATH_MAPPING = """
+profiles:
+  default:
+    storage_provider:
+      type: file
+      options:
+        base_path: /
+  file-a:
+    storage_provider:
+      type: file
+      options:
+        base_path: /lustrefs/a/
+  file-a-b:
+    storage_provider:
+      type: file
+      options:
+        base_path: /lustrefs/a/b/
+  s3-bucket1:
+    storage_provider:
+      type: s3
+      options:
+        base_path: bucket1
+  s3-bucket1-a-b:
+    storage_provider:
+      type: s3
+      options:
+        base_path: bucket1/a/b
+path_mapping:
+  /lustrefs/a/b/: msc://file-a-b/
+  /lustrefs/a/: msc://file-a/
+  s3://bucket1/: msc://s3-bucket1/
+  s3://bucket1/a/b/: msc://s3-bucket1-a-b/
+"""
+
 
 def setup_config_file(config_json):
     config_filename = os.path.join(CONFIG_DIR, f"msc_config-{uuid.uuid4().hex}.yaml")
@@ -72,13 +106,27 @@ def file_storage_config_with_cache():
     delete_config_file(config_filename)
 
 
+@pytest.fixture
+def file_storage_config_with_path_mapping():
+    config_filename = setup_config_file(CONFIG_YAML_WITH_PATH_MAPPING)
+    yield config_filename
+    delete_config_file(config_filename)
+
+
 @pytest.fixture(autouse=True, scope="function")
 def reset_globals():
     # Reset the instance cache before each test.
     from multistorageclient import shortcuts
+    from multistorageclient.config import StorageClientConfig
 
     with shortcuts._cache_lock:
         shortcuts._instance_cache.clear()
+
+    # Clear the caches from the config module
+    if hasattr(StorageClientConfig.read_msc_config, "cache_clear"):
+        StorageClientConfig.read_msc_config.cache_clear()
+    if hasattr(StorageClientConfig.read_path_mapping, "cache_clear"):
+        StorageClientConfig.read_path_mapping.cache_clear()
 
     # Reset the environment variables before each test.
     os.environ.clear()

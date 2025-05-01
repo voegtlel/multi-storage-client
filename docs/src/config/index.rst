@@ -10,11 +10,12 @@ providers like S3, Azure Blob Storage, Google Cloud Storage, and others.
 Top-Level
 *********
 
-The top-level configuration schema consists of three main sections:
+The top-level configuration schema consists of four main sections:
 
 - ``profiles``: Dictionary containing profile configurations. Each profile defines storage, metadata, and credentials providers.
 - ``cache``: Configuration for local caching of remote objects.
 - ``opentelemetry``: Configuration for OpenTelemetry metrics and tracing exporters.
+- ``path_mapping``: Configuration for mapping existing non-MSC URLs to existing MSC profiles.
 
 .. code-block:: yaml
 
@@ -29,6 +30,10 @@ The top-level configuration schema consists of three main sections:
     # Optional. OpenTelemetry configuration
     opentelemetry:
       <opentelemetry_config>
+    
+    # Optional. Path mapping configuration
+    path_mapping:
+      <path_mapping_config>
 
 *******
 Profile
@@ -72,6 +77,8 @@ Each profile in the configuration defines how to interact with storage services 
     * A fully-qualified class name for custom provider implementations
 
   * The ``options`` field contains provider-specific configuration that will be passed to the provider's constructor. The available options depend on the specific provider implementation being used.
+  
+  * Profile names must not start with an underscore (_) to prevent collision with :ref:`implicit profiles <implicit-profiles>`.
 
 =================
 Storage Providers
@@ -362,6 +369,69 @@ Alternative configuration using console exporters for development:
     traces:
       exporter:
         type: console
+
+***********
+Path Mapping
+***********
+
+The ``path_mapping`` section allows mapping non-MSC URLs to MSC URLs.
+This enables users to use their existing URLs with MSC without having to change their code/config.
+
+.. code-block:: yaml
+
+    path_mapping:
+       /lustrefs/a/b/: msc://profile-for-file-a-b/
+       /lustrefs/a/: msc://profile-for-file-a/
+       s3://bucket1/: msc://profile-for-s3-bucket1/
+       s3://bucket1/a/b/: msc://profile-for-s3-bucket1-a-b/
+       gs://bucket1/: msc://profile-for-gcs-bucket1/
+
+Each key-value pair maps a source path to a destination MSC URL. The client
+will automatically convert paths that match the source prefix to use the
+corresponding MSC URI when accessing files.
+
+.. note::
+   Path mapping must adhere to the following constraints:
+
+   **Source Path:**
+   
+   * Must end with "/" to prevent unintended partial name conflicts and ensure clear mapping of prefixes
+   * Must use protocols supported by MSC ("s3", "gs", "ais" currently) or "/" for file paths
+   * No duplicate protocol + bucket + prefix combinations are allowed
+   
+   **Destination Path:**
+   
+   * Must start with "msc://"
+   * Must end with "/"
+   * Must reference a profile that is defined in the MSC configuration
+
+   While processing non-MSC URLs, If multiple source paths match a given input path, the longest matching prefix takes precedence.
+
+*********************
+Implicit Profiles
+*********************
+
+.. _implicit-profiles:
+
+Implicit profiles are automatically created by MSC when users provide non-MSC URLs directly to MSC functions. Unlike explicitly defined profiles in the configuration file, implicit profiles are inferred dynamically from URL patterns.
+
+This feature enables users to:
+
+- Continue using existing URLs without modification
+- Use MSC without managing a separate MSC configuration file
+
+When a non-MSC URL is provided to functions like ``msc.open(url)`` or ``msc.resolve_storage_client(url)``, MSC will first check if there is an existing profile applicable through path mapping. If not, MSC will create an implicit profile:
+
+1. Infer the storage provider based on the URL scheme (s3, gs, etc.) and construct an implicit profile name with the convention ``_protocol-bucket`` (e.g., ``_s3-bucket1``, ``_gs-bucket1``) or ``_file`` for file system paths.
+2. Configure the storage provider and credential provider with default settings, i.e. credentials will the same as that native SDKs look for (aws credentials file, azure credentials file, etc.)
+3. If MSC config is present, inherit global settings like observability and file cache; otherwise, only default settings for file system based cache.
+
+Here are examples of non-MSC URLs that are automatically translated to MSC URIs:
+
+-  s3://bucket1/path/to/object -> msc://_s3-bucket1/path/to/object
+-  /path/to/another/file -> msc://_file/path/to/another/file
+
+Implicit profiles are identified by their leading underscore prefix, which is why user-defined profile names cannot start with an underscore.
 
 *********************
 Environment Variables

@@ -23,11 +23,6 @@ from dateutil.parser import parse as dateutil_parser
 MSC_PROTOCOL_NAME = "msc"
 MSC_PROTOCOL = MSC_PROTOCOL_NAME + "://"
 
-DEFAULT_POSIX_PROFILE_NAME = "default"
-DEFAULT_POSIX_PROFILE = {
-    "profiles": {DEFAULT_POSIX_PROFILE_NAME: {"storage_provider": {"type": "file", "options": {"base_path": "/"}}}}
-}
-
 DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_DELAY = 1.0
 

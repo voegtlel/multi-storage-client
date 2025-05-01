@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import configparser
+from functools import cache
 import os
 from pathlib import Path
 from typing import Dict, Optional, Any, Tuple
@@ -273,6 +274,7 @@ def _parse_from_config_parser(config: configparser.ConfigParser) -> Dict[str, An
     return {"profiles": config_entries}
 
 
+@cache
 def read_rclone_config() -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     High-level utility to locate an rclone.conf file, parse it, and return its representation.

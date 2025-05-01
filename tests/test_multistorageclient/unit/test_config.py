@@ -816,3 +816,43 @@ def test_mixed_cache_config():
     # with new format (eviction_policy, cache_backend)
     with pytest.raises(ValueError, match="Cannot mix old and new cache config formats"):
         StorageClientConfig.from_dict(config_dict, "test")
+
+
+def test_profile_name_with_underscore() -> None:
+    """Test that profile names cannot start with an underscore."""
+    with pytest.raises(RuntimeError) as e:
+        StorageClientConfig.from_yaml(
+            """
+            profiles:
+              _invalid_profile:
+                storage_provider:
+                  type: file
+                  options:
+                    base_path: /invalid_path
+            """
+        )
+
+    assert "Failed to validate the config file" in str(e.value)
+
+
+def test_path_mapping_section() -> None:
+    """Test loading path_mapping section correctly."""
+    config = StorageClientConfig.from_yaml(
+        """
+        profiles:
+          default:
+            storage_provider:
+              type: file
+              options:
+                base_path: /
+        path_mapping:
+          /data/datasets/: msc://default/
+          https://example.com/data/: msc://default/
+        """
+    )
+
+    assert config and config._config_dict
+    assert config._config_dict["path_mapping"] == {
+        "/data/datasets/": "msc://default/",
+        "https://example.com/data/": "msc://default/",
+    }

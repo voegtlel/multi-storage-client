@@ -90,7 +90,7 @@ class StaticAISCredentialProvider(CredentialsProvider):
 class AIStoreStorageProvider(BaseStorageProvider):
     def __init__(
         self,
-        endpoint: str,
+        endpoint: str = os.getenv("AIS_ENDPOINT", ""),
         provider: str = PROVIDER,
         skip_verify: bool = True,
         ca_cert: Optional[str] = None,

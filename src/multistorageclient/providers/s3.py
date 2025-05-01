@@ -171,7 +171,6 @@ class S3StorageProvider(BaseStorageProvider):
         :return: The configured S3 client.
         """
         options = {
-            "region_name": self._region_name,
             # https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
             "config": boto3.session.Config(  # pyright: ignore [reportAttributeAccessIssue]
                 max_pool_connections=max_pool_connections,
@@ -182,6 +181,9 @@ class S3StorageProvider(BaseStorageProvider):
                 response_checksum_validation=response_checksum_validation,
             ),
         }
+
+        if self._region_name:
+            options["region_name"] = self._region_name
 
         if self._endpoint_url:
             options["endpoint_url"] = self._endpoint_url

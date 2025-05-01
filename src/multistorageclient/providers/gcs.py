@@ -96,7 +96,7 @@ class GoogleStorageProvider(BaseStorageProvider):
 
     def __init__(
         self,
-        project_id: str,
+        project_id: str = os.getenv("GOOGLE_CLOUD_PROJECT_ID", ""),
         endpoint_url: str = "",
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,

@@ -149,6 +149,16 @@ PROFILE_SCHEMA = {
             },
         ],
     },
+    "propertyNames": {
+        "pattern": "^[^_].*$",  # Profile names must not start with an underscore to prevent collision with implicit profiles
+    },
+}
+
+# Schema for the path_mapping section
+PATH_MAPPING_SCHEMA = {
+    "type": "object",
+    "additionalProperties": {"type": "string", "pattern": "^msc://[^/]+/$"},
+    "propertyNames": {"pattern": "^(/|[a-z][a-z0-9+.-]*://)[^/].*/$"},
 }
 
 CONFIG_SCHEMA = {
@@ -157,6 +167,7 @@ CONFIG_SCHEMA = {
         "profiles": PROFILE_SCHEMA,
         "cache": CACHE_SCHEMA,
         "opentelemetry": OTEL_SCHEMA,
+        "path_mapping": PATH_MAPPING_SCHEMA,
         "additionalProperties": False,
     },
     "required": ["profiles"],
@@ -177,4 +188,4 @@ def validate_config(config_dict: Dict[str, Any]) -> None:
     try:
         validate(instance=config_dict, schema=CONFIG_SCHEMA)
     except Exception as e:
-        raise RuntimeError("Failed to validate the config file") from e
+        raise RuntimeError("Failed to validate the config file", e)

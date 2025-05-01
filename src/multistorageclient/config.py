@@ -17,7 +17,10 @@ import json
 import logging
 import os
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+from urllib.parse import urlparse
+from collections import defaultdict
+from functools import cache
 
 import yaml
 
@@ -27,8 +30,6 @@ from .instrumentation import setup_opentelemetry
 from .providers.manifest_metadata import ManifestMetadataProvider
 from .schema import validate_config
 from .types import (
-    DEFAULT_POSIX_PROFILE,
-    DEFAULT_POSIX_PROFILE_NAME,
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_DELAY,
     CredentialsProvider,
@@ -37,9 +38,40 @@ from .types import (
     RetryConfig,
     StorageProvider,
     StorageProviderConfig,
+    MSC_PROTOCOL,
 )
 from .utils import expand_env_vars, import_class, merge_dictionaries_no_overwrite
 from .rclone import read_rclone_config
+
+# Constants related to implicit profiles
+SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS = ("s3", "gs", "ais", "file")
+PROTOCOL_TO_PROVIDER_TYPE_MAPPING = {
+    "s3": "s3",
+    "gs": "gcs",
+    "ais": "ais",
+    "file": "file",
+}
+
+
+# Template for creating implicit profile configurations
+def create_implicit_profile_config(profile_name: str, protocol: str, base_path: str) -> dict:
+    """
+    Create a configuration dictionary for an implicit profile.
+
+    :param profile_name: The name of the profile (e.g., "_s3-bucket1")
+    :param protocol: The storage protocol (e.g., "s3", "gs", "ais")
+    :param base_path: The base path (e.g., bucket name) for the storage provider
+
+    :return: A configuration dictionary for the implicit profile
+    """
+    provider_type = PROTOCOL_TO_PROVIDER_TYPE_MAPPING[protocol]
+    return {
+        "profiles": {profile_name: {"storage_provider": {"type": provider_type, "options": {"base_path": base_path}}}}
+    }
+
+
+DEFAULT_POSIX_PROFILE_NAME = "default"
+DEFAULT_POSIX_PROFILE = create_implicit_profile_config(DEFAULT_POSIX_PROFILE_NAME, "file", "/")
 
 STORAGE_PROVIDER_MAPPING = {
     "file": "PosixFileStorageProvider",
@@ -423,6 +455,139 @@ class StorageClientConfigLoader:
         )
 
 
+class PathMapping:
+    """
+    Class to handle path mappings defined in the MSC configuration.
+
+    Path mappings create a nested structure of protocol -> bucket -> [(prefix, profile)]
+    where entries are sorted by prefix length (longest first) for optimal matching.
+    Longer paths take precedence when matching.
+    """
+
+    def __init__(self):
+        """Initialize an empty PathMapping."""
+        self._mapping = defaultdict(lambda: defaultdict(list))
+
+    @classmethod
+    def from_config(cls, config_dict: Optional[Dict[str, Any]] = None) -> "PathMapping":
+        """
+        Create a PathMapping instance from configuration dictionary.
+
+        :param config_dict: Configuration dictionary, if None the config will be loaded
+        :return: A PathMapping instance with processed mappings
+        """
+        if config_dict is None:
+            # Import locally to avoid circular imports
+            from multistorageclient.config import StorageClientConfig
+
+            config_dict = StorageClientConfig.read_msc_config()
+
+        if not config_dict:
+            return cls()
+
+        instance = cls()
+        instance._load_mapping(config_dict)
+        return instance
+
+    def _load_mapping(self, config_dict: Dict[str, Any]) -> None:
+        """
+        Load path mapping from a configuration dictionary.
+
+        :param config_dict: Configuration dictionary containing path mapping
+        """
+        # Get the path_mapping section
+        path_mapping = config_dict.get("path_mapping", {})
+        if path_mapping is None:
+            return
+
+        # Process each mapping
+        for source_path, dest_path in path_mapping.items():
+            # Validate format
+            if not source_path.endswith("/"):
+                continue
+            if not dest_path.startswith(MSC_PROTOCOL):
+                continue
+            if not dest_path.endswith("/"):
+                continue
+
+            # Extract the destination profile
+            pr_dest = urlparse(dest_path)
+            dest_profile = pr_dest.netloc
+
+            # Parse the source path
+            pr = urlparse(source_path)
+            protocol = pr.scheme.lower() if pr.scheme else "file"
+
+            if protocol == "file" or source_path.startswith("/"):
+                # For file or absolute paths, use the whole path as the prefix
+                # and leave bucket empty
+                bucket = ""
+                prefix = source_path if source_path.startswith("/") else pr.path
+            else:
+                # For object storage, extract bucket and prefix
+                bucket = pr.netloc
+                prefix = pr.path
+                if prefix.startswith("/"):
+                    prefix = prefix[1:]
+
+            # Add the mapping to the nested dict
+            self._mapping[protocol][bucket].append((prefix, dest_profile))
+
+        # Sort each bucket's prefixes by length (longest first) for optimal matching
+        for protocol, buckets in self._mapping.items():
+            for bucket, prefixes in buckets.items():
+                self._mapping[protocol][bucket] = sorted(prefixes, key=lambda x: len(x[0]), reverse=True)
+
+    def find_mapping(self, url: str) -> Optional[Tuple[str, str]]:
+        """
+        Find the best matching mapping for the given URL.
+
+        :param url: URL to find matching mapping for
+        :return: Tuple of (profile_name, translated_path) if a match is found, None otherwise
+        """
+        # Parse the URL
+        pr = urlparse(url)
+        protocol = pr.scheme.lower() if pr.scheme else "file"
+
+        # For file paths or absolute paths
+        if protocol == "file" or url.startswith("/"):
+            path = url if url.startswith("/") else pr.path
+            possible_mapping = self._mapping[protocol][""]
+
+            # Check each prefix (already sorted by length, longest first)
+            for prefix, profile in possible_mapping:
+                if path.startswith(prefix):
+                    # Calculate the relative path
+                    rel_path = path[len(prefix) :]
+                    if not rel_path.startswith("/"):
+                        rel_path = "/" + rel_path
+                    return profile, rel_path
+
+            return None
+
+        # For object storage
+        bucket = pr.netloc
+        path = pr.path
+        if path.startswith("/"):
+            path = path[1:]
+
+        # Check bucket-specific mapping
+        possible_mapping = self._mapping[protocol][bucket]
+
+        # Check each prefix (already sorted by length, longest first)
+        for prefix, profile in possible_mapping:
+            # matching prefix
+            if path.startswith(prefix):
+                rel_path = path[len(prefix) :]
+                # Remove leading slash if present
+                if rel_path.startswith("/"):
+                    rel_path = rel_path[1:]
+
+                return profile, rel_path
+
+        return None
+
+
 class StorageClientConfig:
     """
     Configuration class for the :py:class:`multistorageclient.StorageClient`.
@@ -467,9 +632,12 @@ class StorageClientConfig:
         return StorageClientConfig.from_dict(config_dict, profile)
 
     @staticmethod
-    def from_dict(config_dict: Dict[str, Any], profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":
+    def from_dict(
+        config_dict: Dict[str, Any], profile: str = DEFAULT_POSIX_PROFILE_NAME, skip_validation: bool = False
+    ) -> "StorageClientConfig":
         # Validate the config file with predefined JSON schema
-        validate_config(config_dict)
+        if not skip_validation:
+            validate_config(config_dict)
 
         # Load config
         loader = StorageClientConfigLoader(config_dict, profile)
@@ -489,23 +657,10 @@ class StorageClientConfig:
                     msc_config_file = filename
                     break
 
-        msc_config_dict = {}
-
-        # Parse MSC config file.
-        if msc_config_file:
-            with open(msc_config_file, "r", encoding="utf-8") as f:
-                content = f.read()
-                if msc_config_file.endswith(".json"):
-                    msc_config_dict = json.loads(content)
-                else:
-                    msc_config_dict = yaml.safe_load(content)
+        msc_config_dict = StorageClientConfig.read_msc_config()
 
         # Parse rclone config file.
         rclone_config_dict, rclone_config_file = read_rclone_config()
-
-        # If no config file is found, use a default profile.
-        if not msc_config_file and not rclone_config_file:
-            return StorageClientConfig.from_dict(DEFAULT_POSIX_PROFILE, profile=profile)
 
         # Merge config files.
         merged_config, conflicted_keys = merge_dictionaries_no_overwrite(msc_config_dict, rclone_config_dict)
@@ -513,8 +668,38 @@ class StorageClientConfig:
             raise ValueError(
                 f'Conflicting keys found in configuration files "{msc_config_file}" and "{rclone_config_file}: {conflicted_keys}'
             )
+        merged_profiles = merged_config.get("profiles", {})
 
-        return StorageClientConfig.from_dict(merged_config, profile)
+        # Check if profile is in merged_profiles
+        if profile in merged_profiles:
+            return StorageClientConfig.from_dict(merged_config, profile)
+        else:
+            # Check if profile is the default profile or an implicit profile
+            if profile == DEFAULT_POSIX_PROFILE_NAME:
+                implicit_profile_config = DEFAULT_POSIX_PROFILE
+            elif profile.startswith("_"):
+                # Handle implicit profiles
+                parts = profile[1:].split("-", 1)
+                if len(parts) == 2:
+                    protocol, bucket = parts
+                    # Verify it's a supported protocol
+                    if protocol not in SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS:
+                        raise ValueError(f'Unsupported protocol in implicit profile: "{protocol}"')
+                    implicit_profile_config = create_implicit_profile_config(
+                        profile_name=profile, protocol=protocol, base_path=bucket
+                    )
+                else:
+                    raise ValueError(f'Invalid implicit profile format: "{profile}"')
+            else:
+                raise ValueError(f'Invalid implicit profile format: "{profile}"')
+            # merge the implicit profile config into the merged config so the cache & observability config can be inherited
+            if "profiles" not in merged_config:
+                merged_config["profiles"] = implicit_profile_config["profiles"]
+            else:
+                merged_config["profiles"][profile] = implicit_profile_config["profiles"][profile]
+            return StorageClientConfig.from_dict(
+                merged_config, profile, skip_validation=True
+            )  # the config is already validated while reading, skip the validation for implicit profiles which start profile with "_"
 
     @staticmethod
     def from_provider_bundle(config_dict: Dict[str, Any], provider_bundle: ProviderBundle) -> "StorageClientConfig":
@@ -522,6 +707,72 @@ class StorageClientConfig:
         config = loader.build_config()
         config._config_dict = None  # Explicitly mark as None to avoid confusing pickling errors
         return config
+
+    @staticmethod
+    @cache
+    def read_msc_config() -> Optional[Dict[str, Any]]:
+        """Get the MSC configuration dictionary.
+
+        :return: The MSC configuration dictionary or empty dict if no config was found
+        """
+        config_dict = {}
+        config_found = False
+
+        # Check for environment variable first
+        msc_config = os.getenv("MSC_CONFIG", None)
+        if msc_config and os.path.exists(msc_config):
+            try:
+                with open(msc_config) as f:
+                    if msc_config.endswith(".yaml"):
+                        config_dict = yaml.safe_load(f)
+                        config_found = True
+                    elif msc_config.endswith(".json"):
+                        config_dict = json.load(f)
+                        config_found = True
+            except Exception as e:
+                raise ValueError(f"malformed msc config file: {msc_config}, exception: {e}")
+
+        # If not found through environment variable, try standard search paths
+        if not config_found:
+            for path in DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS:
+                if not os.path.exists(path):
+                    continue
+
+                try:
+                    with open(path) as f:
+                        if path.endswith(".yaml"):
+                            config_dict = yaml.safe_load(f)
+                            config_found = True
+                            break
+                        elif path.endswith(".json"):
+                            config_dict = json.load(f)
+                            config_found = True
+                            break
+                except Exception as e:
+                    raise ValueError(f"malformed msc config file: {msc_config}, exception: {e}")
+
+        if config_dict:
+            validate_config(config_dict)
+        return config_dict
+
+    @staticmethod
+    @cache
+    def read_path_mapping() -> PathMapping:
+        """
+        Get the path mapping defined in the MSC configuration.
+
+        Path mappings create a nested structure of protocol -> bucket -> [(prefix, profile)]
+        where entries are sorted by prefix length (longest first) for optimal matching.
+        Longer paths take precedence when matching.
+
+        :return: A PathMapping instance with translation mappings
+        """
+        try:
+            return PathMapping.from_config()
+        except Exception:
+            # Log the error but continue - this shouldn't stop the application from working
+            logger.error("Failed to load path_mapping from MSC config")
+            return PathMapping()
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()

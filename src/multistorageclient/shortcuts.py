@@ -19,9 +19,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlparse
 
 from .client import StorageClient
-from .config import StorageClientConfig
+from .config import StorageClientConfig, DEFAULT_POSIX_PROFILE_NAME, SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS
 from .file import ObjectFile, PosixFile
-from .types import DEFAULT_POSIX_PROFILE_NAME, MSC_PROTOCOL, ObjectMetadata
+from .types import MSC_PROTOCOL, ObjectMetadata
 
 _instance_cache: Dict[str, StorageClient] = {}
 _cache_lock = threading.Lock()
@@ -42,6 +42,68 @@ def _build_full_path(pr: ParseResult) -> str:
     return path
 
 
+def _resolve_non_msc_url(url: str) -> Tuple[str, str]:
+    """
+    Resolve a non-MSC URL to a profile name and path.
+
+    Resolution process:
+    1. First check if MSC config exists
+    2. If config exists, check for possible path mapping
+    3. If no mapping is found, fall back to default POSIX profile
+       for file paths or create an implicit profile based on URL
+
+    :param url: The non-MSC URL to resolve
+    :return: A tuple of (profile_name, path)
+    """
+    # 1. Check if we have a valid path mapping, if so check if there is a matching mapping
+    path_mapping = StorageClientConfig.read_path_mapping()
+    if path_mapping:
+        # Look for a matching mapping
+        possible_mapping = path_mapping.find_mapping(url)
+        if possible_mapping:
+            return possible_mapping  # return the profile name and path
+
+    # 2. For file paths, use the default POSIX profile
+    if url.startswith("file://"):
+        pr = urlparse(url)
+        return DEFAULT_POSIX_PROFILE_NAME, _build_full_path(pr)
+
+    elif url.startswith("/"):
+        url = os.path.normpath(url)
+        if os.path.isabs(url):
+            return DEFAULT_POSIX_PROFILE_NAME, url
+        else:
+            raise ValueError(f'Invalid POSIX path "{url}", only absolute path is allowed')
+
+    # 3. For other URL protocol, create an implicit profile name
+    pr = urlparse(url)
+    protocol = pr.scheme.lower()
+
+    if not protocol:
+        raise ValueError(f'Invalid URL "{url}", missing protocol')
+
+    # Validate the protocol is supported
+    if protocol not in SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS:
+        supported_protocols = ", ".join([f"{p}://" for p in SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS])
+        raise ValueError(
+            f'Unknown URL "{url}", expecting "{MSC_PROTOCOL}" or a supported protocol ({supported_protocols}) or a POSIX path'
+        )
+
+    # Build the implicit profile name using the format _protocol-bucket
+    bucket = pr.netloc
+    if not bucket:
+        raise ValueError(f'Invalid URL "{url}", bucket name is required for {protocol}:// URLs')
+
+    profile_name = f"_{protocol}-{bucket}"
+
+    # Return normalized path with leading slash removed
+    path = pr.path
+    if path.startswith("/"):
+        path = path[1:]
+
+    return profile_name, path
+
+
 def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     """
     Build and return a :py:class:`multistorageclient.StorageClient` instance based on the provided URL or path.
@@ -51,40 +113,39 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     system access. If the profile has already been instantiated, it returns the cached client. Otherwise,
     it creates a new :py:class:`StorageClient` and caches it.
 
+    The function also supports implicit profiles for non-MSC URLs. When a non-MSC URL is provided (like s3://,
+    gs://, ais://, file://), MSC will infer the storage provider based on the URL protocol and create an implicit
+    profile with the naming convention "_protocol-bucket" (e.g., "_s3-bucket1", "_gs-bucket1").
+
+    Path mapping defined in the MSC configuration are also applied before creating implicit profiles.
+    This allows for explicit mappings between source paths and destination MSC profiles.
+
     :param url: The storage location, which can be:
                 - A URL in the format ``msc://profile/path`` for object storage.
                 - A local file system path (absolute POSIX path) or a ``file://`` URL.
+                - A non-MSC URL with a supported protocol (s3://, gs://, ais://).
 
     :return: A tuple containing the :py:class:`multistorageclient.StorageClient` instance and the parsed path.
 
-    :raises ValueError: If the URL's protocol is neither ``msc`` nor a valid local file system path.
+    :raises ValueError: If the URL's protocol is neither ``msc`` nor a valid local file system path
+                        or a supported non-MSC protocol.
     """
+    # 1. Handle MSC URLs
     if url.startswith(MSC_PROTOCOL):
         pr = urlparse(url)
         profile = pr.netloc
         path = _build_full_path(pr)
         if path.startswith("/"):
             path = path[1:]
-    elif url.startswith("file://"):
-        pr = urlparse(url)
-        profile = DEFAULT_POSIX_PROFILE_NAME
-        path = _build_full_path(pr)
-    elif url.startswith("/"):
-        # POSIX paths (only absolute paths are supported)
-        url = os.path.normpath(url)
-        if os.path.isabs(url):
-            profile = DEFAULT_POSIX_PROFILE_NAME
-            path = url
-        else:
-            raise ValueError(f'Invalid POSIX path "{url}", only absolute path is allowed')
+    # 2. Handle non-MSC URLs
     else:
-        raise ValueError(f'Unknown URL "{url}", expecting "{MSC_PROTOCOL}" or a POSIX path')
+        profile, path = _resolve_non_msc_url(url)
 
-    # Check if the profile has already been instantiated
+    # 3. Check if the profile has already been instantiated
     if profile in _instance_cache:
         return _instance_cache[profile], path
 
-    # Create a new StorageClient instance and cache it
+    # 4. Create a new StorageClient instance and cache it
     with _cache_lock:
         if profile in _instance_cache:
             return _instance_cache[profile], path
