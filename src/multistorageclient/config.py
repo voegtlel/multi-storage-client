@@ -20,7 +20,6 @@ import tempfile
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 from collections import defaultdict
-from functools import cache
 
 import yaml
 
@@ -658,7 +657,6 @@ class StorageClientConfig:
                     break
 
         msc_config_dict = StorageClientConfig.read_msc_config()
-
         # Parse rclone config file.
         rclone_config_dict, rclone_config_file = read_rclone_config()
 
@@ -691,7 +689,9 @@ class StorageClientConfig:
                 else:
                     raise ValueError(f'Invalid implicit profile format: "{profile}"')
             else:
-                raise ValueError(f'Invalid implicit profile format: "{profile}"')
+                raise ValueError(
+                    f'Profile "{profile}" not found in configuration files "{msc_config_file}" or "{rclone_config_file}". Please check that the profile name is correct and defined in one of these files.'
+                )
             # merge the implicit profile config into the merged config so the cache & observability config can be inherited
             if "profiles" not in merged_config:
                 merged_config["profiles"] = implicit_profile_config["profiles"]
@@ -709,7 +709,6 @@ class StorageClientConfig:
         return config
 
     @staticmethod
-    @cache
     def read_msc_config() -> Optional[Dict[str, Any]]:
         """Get the MSC configuration dictionary.
 
@@ -723,11 +722,11 @@ class StorageClientConfig:
         if msc_config and os.path.exists(msc_config):
             try:
                 with open(msc_config) as f:
-                    if msc_config.endswith(".yaml"):
-                        config_dict = yaml.safe_load(f)
-                        config_found = True
-                    elif msc_config.endswith(".json"):
+                    if msc_config.endswith(".json"):
                         config_dict = json.load(f)
+                        config_found = True
+                    else:
+                        config_dict = yaml.safe_load(f)
                         config_found = True
             except Exception as e:
                 raise ValueError(f"malformed msc config file: {msc_config}, exception: {e}")
@@ -737,15 +736,14 @@ class StorageClientConfig:
             for path in DEFAULT_MSC_CONFIG_FILE_SEARCH_PATHS:
                 if not os.path.exists(path):
                     continue
-
                 try:
                     with open(path) as f:
-                        if path.endswith(".yaml"):
-                            config_dict = yaml.safe_load(f)
+                        if path.endswith(".json"):
+                            config_dict = json.load(f)
                             config_found = True
                             break
-                        elif path.endswith(".json"):
-                            config_dict = json.load(f)
+                        else:
+                            config_dict = yaml.safe_load(f)
                             config_found = True
                             break
                 except Exception as e:
@@ -756,7 +754,6 @@ class StorageClientConfig:
         return config_dict
 
     @staticmethod
-    @cache
     def read_path_mapping() -> PathMapping:
         """
         Get the path mapping defined in the MSC configuration.

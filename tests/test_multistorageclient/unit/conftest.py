@@ -117,16 +117,9 @@ def file_storage_config_with_path_mapping():
 def reset_globals():
     # Reset the instance cache before each test.
     from multistorageclient import shortcuts
-    from multistorageclient.config import StorageClientConfig
 
     with shortcuts._cache_lock:
         shortcuts._instance_cache.clear()
-
-    # Clear the caches from the config module
-    if hasattr(StorageClientConfig.read_msc_config, "cache_clear"):
-        StorageClientConfig.read_msc_config.cache_clear()
-    if hasattr(StorageClientConfig.read_path_mapping, "cache_clear"):
-        StorageClientConfig.read_path_mapping.cache_clear()
 
     # Reset the environment variables before each test.
     os.environ.clear()
