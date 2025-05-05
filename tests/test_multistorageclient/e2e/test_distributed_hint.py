@@ -22,6 +22,7 @@ from datetime import timedelta
 from . import common
 from test_multistorageclient.unit.caching.hint_utils import attempt_acquire_lock
 import threading
+import uuid
 
 
 def verify_hint_acquisition(storage_client: msc.StorageClient, hint_prefix: str) -> None:
@@ -228,89 +229,89 @@ def verify_process_death_takeover(storage_client: msc.StorageClient, hint_prefix
             hint2.release()
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", ["", ""])
 def test_hint_acquisition(profile_name, config_suffix):
     """Test hint acquisition."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     try:
         verify_hint_acquisition(client, hint_prefix)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", ["", ""])
 def test_consecutive_hint_acquisition(profile_name, config_suffix):
     """Test consecutive hint acquisition between two clients."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     try:
         verify_consecutive_acquisition(client, hint_prefix)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", ["", ""])
 def test_hint_release_and_acquire(profile_name, config_suffix):
     """Test that hint can be acquired after release."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     try:
         verify_hint_release_and_acquire(client, hint_prefix)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", ["", ""])
 def test_hint_expiration(profile_name, config_suffix):
     """Test that hint can be acquired after expiration."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     try:
         verify_hint_expiration(client, hint_prefix)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", [""])
 def test_multiple_threads_acquire_hint(profile_name, config_suffix):
     """Test that only one thread can acquire the hint at a time."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/   "
     try:
         verify_multiple_threads_acquisition(client._storage_provider, hint_prefix, 2.0, 1.0)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", [""])
 def test_multiple_processes_acquire_hint(profile_name, config_suffix):
     """Test that only one process acquires the hint."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     acquired_count = multiprocessing.Value("i", 0)  # Shared integer initialized to 0
 
     try:
@@ -331,19 +332,19 @@ def test_multiple_processes_acquire_hint(profile_name, config_suffix):
 
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
 
 
-@pytest.mark.skip(reason="Flaky. Needs debugging.")
 @pytest.mark.parametrize("profile_name", ["test-s3e"])
 @pytest.mark.parametrize("config_suffix", [""])
 def test_process_death_takeover(profile_name, config_suffix):
     """Test that hint can be acquired after the holding process dies."""
     profile = profile_name + config_suffix
     client, _ = msc.resolve_storage_client(f"msc://{profile}/")
-    hint_prefix = f"hint/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
+    test_uuid = str(uuid.uuid4())
+    hint_prefix = f"{test_uuid}/test-lock-{int(time.time())}/"  # Unique prefix for each test run, ending with delimiter
     try:
         verify_process_death_takeover(client, hint_prefix)
     finally:
         # Clean up any remaining hints
-        common.delete_files(client, "hint/")
+        common.delete_files(client, f"{test_uuid}/")
