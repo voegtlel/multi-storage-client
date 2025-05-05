@@ -370,9 +370,9 @@ Alternative configuration using console exporters for development:
       exporter:
         type: console
 
-***********
+************
 Path Mapping
-***********
+************
 
 The ``path_mapping`` section allows mapping non-MSC URLs to MSC URLs.
 This enables users to use their existing URLs with MSC without having to change their code/config.
@@ -407,9 +407,9 @@ corresponding MSC URI when accessing files.
 
    While processing non-MSC URLs, If multiple source paths match a given input path, the longest matching prefix takes precedence.
 
-*********************
+*****************
 Implicit Profiles
-*********************
+*****************
 
 .. _implicit-profiles:
 
