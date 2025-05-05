@@ -23,6 +23,8 @@ import time
 def test_diperiodic_exporting_metric_reader():
     collect_interval_millis = 1
     export_interval_millis = 1000
+    # 2 periods of each to avoid race conditions.
+    shutdown_timeout_millis = 2 * (collect_interval_millis + export_interval_millis)
 
     exporter = InMemoryMetricExporter()
     reader = DiperiodicExportingMetricReader(
@@ -48,7 +50,7 @@ def test_diperiodic_exporting_metric_reader():
 
     # Force flush.
     gauge.set(2)
-    reader.force_flush(timeout_millis=collect_interval_millis + export_interval_millis)
+    reader.force_flush(timeout_millis=shutdown_timeout_millis)
     metrics_data = exporter.metrics_data()
     assert metrics_data is not None
     assert len(metrics_data.resource_metrics) == 1
@@ -60,7 +62,7 @@ def test_diperiodic_exporting_metric_reader():
 
     # Shutdown.
     gauge.set(3)
-    reader.shutdown(timeout_millis=collect_interval_millis + export_interval_millis)
+    reader.shutdown(timeout_millis=shutdown_timeout_millis)
     metrics_data = exporter.metrics_data()
     assert metrics_data is not None
     assert len(metrics_data.resource_metrics) == 1
@@ -71,4 +73,4 @@ def test_diperiodic_exporting_metric_reader():
     assert metrics_data.resource_metrics[0].scope_metrics[0].metrics[0].data.data_points[0].value == 3
 
     # Shutdown is idempotent.
-    reader.shutdown(timeout_millis=collect_interval_millis + export_interval_millis)
+    reader.shutdown(timeout_millis=shutdown_timeout_millis)
