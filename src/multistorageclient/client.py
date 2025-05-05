@@ -30,7 +30,7 @@ from .instrumentation.utils import instrumented
 from .providers.posix_file import PosixFileStorageProvider
 from .retry import retry
 from .types import MSC_PROTOCOL, ObjectMetadata, Range
-from .utils import join_paths
+from .utils import join_paths, calculate_worker_processes_and_threads
 
 logger = logging.Logger(__name__)
 
@@ -438,10 +438,7 @@ class StorageClient:
             raise ValueError("Source and target paths cannot overlap on same StorageClient.")
 
         # Attempt to balance the number of worker processes and threads.
-        cpu_count = multiprocessing.cpu_count()
-        default_processes = "8" if cpu_count > 8 else str(cpu_count)
-        num_worker_processes = int(os.getenv("MSC_NUM_PROCESSES", default_processes))
-        num_worker_threads = int(os.getenv("MSC_NUM_THREADS_PER_PROCESS", max(cpu_count // num_worker_processes, 16)))
+        num_worker_processes, num_worker_threads = calculate_worker_processes_and_threads()
 
         if num_worker_processes == 1:
             file_queue = queue.Queue(maxsize=2000)

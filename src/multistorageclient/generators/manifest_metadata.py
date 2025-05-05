@@ -14,9 +14,11 @@
 # limitations under the License.
 
 import json
-from typing import List
+from typing import List, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from multistorageclient.types import ObjectMetadata
+from multistorageclient.utils import calculate_worker_processes_and_threads
 
 from .. import StorageClient
 from ..providers.manifest_metadata import ManifestMetadataProvider, DEFAULT_MANIFEST_BASE_DIR
@@ -41,6 +43,7 @@ class ManifestMetadataGenerator:
     def generate_and_write_manifest(
         data_storage_client: StorageClient,
         manifest_storage_client: StorageClient,
+        partition_keys: Optional[List[str]] = None,
     ) -> None:
         """
         Generates a file metadata manifest.
@@ -60,6 +63,7 @@ class ManifestMetadataGenerator:
 
         :param data_storage_client: Storage client for reading data objects.
         :param manifest_storage_client: Storage client for writing manifest objects.
+        :param partition_keys: Optional list of keys to partition the listing operation. If provided, objects will be listed concurrently using these keys as boundaries.
         """
         # Get respective StorageProviders. A StorageClient will always have a StorageProvider
         # TODO: Cleanup by exposing APIs from the client
@@ -72,9 +76,26 @@ class ManifestMetadataGenerator:
             storage_provider=manifest_storage_provider, manifest_path="", writable=True
         )
 
-        # For manifest generation we will always assume direct path for listing objects
-        for object_metadata in data_storage_provider.list_objects(prefix=""):
-            if DEFAULT_MANIFEST_BASE_DIR not in object_metadata.key.split("/"):  # Do not track manifest files
-                manifest_metadata_provider.add_file(path=object_metadata.key, metadata=object_metadata)
+        if partition_keys is not None:
+            _, num_worker_threads = calculate_worker_processes_and_threads()
+
+            boundaries = list(zip([""] + partition_keys, partition_keys + [None]))
+
+            def process_partition(boundary):
+                start_after, end_at = boundary
+                for object_metadata in data_storage_provider.list_objects(
+                    prefix="", start_after=start_after, end_at=end_at
+                ):
+                    if DEFAULT_MANIFEST_BASE_DIR not in object_metadata.key.split("/"):  # Do not track manifest files
+                        manifest_metadata_provider.add_file(path=object_metadata.key, metadata=object_metadata)
+
+            with ThreadPoolExecutor(max_workers=num_worker_threads) as executor:
+                futures = [executor.submit(process_partition, boundary) for boundary in boundaries]
+                for future in futures:
+                    future.result()
+        else:
+            for object_metadata in data_storage_provider.list_objects(prefix=""):
+                if DEFAULT_MANIFEST_BASE_DIR not in object_metadata.key.split("/"):  # Do not track manifest files
+                    manifest_metadata_provider.add_file(path=object_metadata.key, metadata=object_metadata)
 
         manifest_metadata_provider.commit_updates()

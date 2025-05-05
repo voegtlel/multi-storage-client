@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -24,6 +25,7 @@ from multistorageclient.utils import (
     glob,
     join_paths,
     merge_dictionaries_no_overwrite,
+    calculate_worker_processes_and_threads,
 )
 
 
@@ -206,3 +208,60 @@ def test_merge_dictionaries_no_overwrite_with_conflict():
 
 def test_version():
     assert msc.__version__ != "0.1.0"
+
+
+@patch("multiprocessing.cpu_count")
+def test_calculate_worker_processes_and_threads_low_cpu(mock_cpu_count, monkeypatch):
+    # Test with 4 CPUs (should use all CPUs for processes)
+    mock_cpu_count.return_value = 4
+    monkeypatch.delenv("MSC_NUM_PROCESSES", raising=False)
+    monkeypatch.delenv("MSC_NUM_THREADS_PER_PROCESS", raising=False)
+
+    processes, threads = calculate_worker_processes_and_threads()
+    assert processes == 4  # Default processes should equal CPU count
+    assert threads == 16  # Default minimum threads is 16
+
+
+@patch("multiprocessing.cpu_count")
+def test_calculate_worker_processes_and_threads_high_cpu(mock_cpu_count, monkeypatch):
+    # Test with 16 CPUs (should cap at 8 processes)
+    mock_cpu_count.return_value = 16
+    monkeypatch.delenv("MSC_NUM_PROCESSES", raising=False)
+    monkeypatch.delenv("MSC_NUM_THREADS_PER_PROCESS", raising=False)
+
+    processes, threads = calculate_worker_processes_and_threads()
+    assert processes == 8  # Default processes should cap at 8
+    assert threads == 16  # Default threads should be 16 for 8 processes on 16 CPUs
+
+
+@patch("multiprocessing.cpu_count")
+def test_calculate_worker_processes_and_threads_custom_processes(mock_cpu_count, monkeypatch):
+    mock_cpu_count.return_value = 8
+    monkeypatch.setenv("MSC_NUM_PROCESSES", "4")
+    monkeypatch.delenv("MSC_NUM_THREADS_PER_PROCESS", raising=False)
+
+    processes, threads = calculate_worker_processes_and_threads()
+    assert processes == 4  # Should use environment variable
+    assert threads == 16  # Should calculate based on CPU and processes
+
+
+@patch("multiprocessing.cpu_count")
+def test_calculate_worker_processes_and_threads_custom_threads(mock_cpu_count, monkeypatch):
+    mock_cpu_count.return_value = 8
+    monkeypatch.delenv("MSC_NUM_PROCESSES", raising=False)
+    monkeypatch.setenv("MSC_NUM_THREADS_PER_PROCESS", "10")
+
+    processes, threads = calculate_worker_processes_and_threads()
+    assert processes == 8  # Should use default
+    assert threads == 10  # Should use environment variable
+
+
+@patch("multiprocessing.cpu_count")
+def test_calculate_worker_processes_and_threads_both_custom(mock_cpu_count, monkeypatch):
+    mock_cpu_count.return_value = 16
+    monkeypatch.setenv("MSC_NUM_PROCESSES", "2")
+    monkeypatch.setenv("MSC_NUM_THREADS_PER_PROCESS", "8")
+
+    processes, threads = calculate_worker_processes_and_threads()
+    assert processes == 2  # Should use environment variable
+    assert threads == 8  # Should use environment variable

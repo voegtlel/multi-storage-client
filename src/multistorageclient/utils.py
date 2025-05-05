@@ -16,6 +16,7 @@
 import fnmatch
 import hashlib
 import importlib
+import multiprocessing
 import os
 import re
 import shutil
@@ -213,3 +214,17 @@ def find_executable_path(executable_name: str) -> Optional[Path]:
     if executable_path:
         return Path(executable_path)
     return None
+
+
+def calculate_worker_processes_and_threads():
+    """
+    Calculate the number of worker processes and threads based on CPU count and environment variables.
+
+    :return: Tuple of (num_worker_processes, num_worker_threads)
+    """
+    cpu_count = multiprocessing.cpu_count()
+    default_processes = "8" if cpu_count > 8 else str(cpu_count)
+    num_worker_processes = int(os.getenv("MSC_NUM_PROCESSES", default_processes))
+    num_worker_threads = int(os.getenv("MSC_NUM_THREADS_PER_PROCESS", max(cpu_count // num_worker_processes, 16)))
+
+    return num_worker_processes, num_worker_threads
