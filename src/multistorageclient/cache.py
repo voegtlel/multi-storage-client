@@ -19,7 +19,6 @@ from typing import Optional
 from .caching.cache_config import CacheConfig
 from .caching.cache_backend import CacheBackend, FileSystemBackend, StorageProviderBackend
 from .types import StorageProvider
-from .providers.s3 import S3StorageProvider
 
 DEFAULT_CACHE_SIZE_MB = "10G"  # 10 GB
 DEFAULT_CACHE_REFRESH_INTERVAL = 300  # 5 minutes
@@ -42,7 +41,7 @@ class CacheBackendFactory:
             if storage_provider is None:
                 raise ValueError("Storage provider backend requires a storage provider")
 
-            if not isinstance(storage_provider, S3StorageProvider):
+            if str(storage_provider) not in ("s3", "s8k"):
                 raise ValueError(
                     "The storage_provider_profile must reference a profile that uses a storage provider of type s3 or s8k"
                 )

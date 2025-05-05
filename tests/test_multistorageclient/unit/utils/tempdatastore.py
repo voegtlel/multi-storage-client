@@ -22,10 +22,6 @@ from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Any, Dict, Optional
 
-import azure.storage.blob
-import boto3
-import google.auth.credentials
-import google.cloud.storage
 
 # Python's `tempfile` but for data stores.
 #
@@ -102,6 +98,8 @@ class TemporaryAWSS3Bucket(TemporaryDataStore):
     _client: Any
 
     def __init__(self):
+        import boto3
+
         self._bucket_name = str(uuid.uuid4())
 
         # Backed by MinIO.
@@ -151,9 +149,11 @@ class TemporaryAzureBlobStorageContainer(TemporaryDataStore):
     #: Container name.
     _container_name: str
     #: Blob service client.
-    _client: azure.storage.blob.BlobServiceClient
+    _client: Any  # azure.storage.blob.BlobServiceClient
 
     def __init__(self):
+        import azure.storage.blob
+
         self._container_name = str(uuid.uuid4())
 
         # Backed by Azurite.
@@ -205,9 +205,12 @@ class TemporaryGoogleCloudStorageBucket(TemporaryDataStore):
     #: Bucket name.
     _bucket_name: str
     #: Google Cloud Storage client.
-    _client: google.cloud.storage.Client
+    _client: Any  # google.cloud.storage.Client
 
     def __init__(self):
+        import google.auth.credentials
+        import google.cloud.storage
+
         self._bucket_name = str(uuid.uuid4())
 
         # Backed by fake-gcs-server.

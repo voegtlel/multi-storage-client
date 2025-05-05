@@ -14,10 +14,6 @@
 # limitations under the License.
 
 # Standard library imports
-from abc import ABC, abstractmethod
-from collections import OrderedDict
-from datetime import datetime
-from io import BytesIO, StringIO
 import hashlib
 import logging
 import os
@@ -25,6 +21,10 @@ import stat
 import tempfile
 import threading
 import time
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from datetime import datetime
+from io import BytesIO, StringIO
 from typing import Any, List, Optional, Tuple, Union
 
 # Third-party imports
@@ -36,7 +36,7 @@ from ..types import StorageProvider
 from .cache_config import CacheConfig
 from .cache_item import CacheItem
 from .distributed_hint import DistributedHint
-from .eviction_policy import EvictionPolicyFactory, FIFO, LRU, RANDOM
+from .eviction_policy import FIFO, LRU, RANDOM, EvictionPolicyFactory
 
 
 class _DummyLock:

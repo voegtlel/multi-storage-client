@@ -139,3 +139,8 @@ run-e2e-tests: prepare-virtual-environment
     rm -rf .reports/e2e
     # E2E test.
     uv run pytest --junit-xml .reports/e2e/pytest.xml tests/test_multistorageclient/e2e --durations 0 --durations-min 60 --numprocesses 4
+
+# Run minimal verification without any optional dependencies.
+run-minimal-verification:
+    uv sync --python {{python-binary}}
+    uv run pytest tests/test_multistorageclient/unit/test_minimal.py
