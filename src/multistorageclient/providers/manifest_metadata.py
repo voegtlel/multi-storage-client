@@ -293,6 +293,9 @@ class ManifestMetadataProvider(MetadataProvider):
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
+        if prefix and not prefix.endswith("/"):
+            prefix = prefix + "/"
+
         # Note that this is a generator, not a tuple (there's no tuple comprehension).
         keys = (
             key
@@ -305,7 +308,8 @@ class ManifestMetadataProvider(MetadataProvider):
         pending_directory: Optional[ObjectMetadata] = None
         for key in sorted(keys):
             if include_directories:
-                subdirectory = key.split("/", 1)[0] if "/" in key else None
+                relative = key[len(prefix) :].lstrip("/")
+                subdirectory = relative.split("/", 1)[0] if "/" in relative else None
 
                 if subdirectory:
                     directory_name = f"{prefix}{subdirectory}/"
@@ -385,5 +389,4 @@ class ManifestMetadataProvider(MetadataProvider):
             ObjectMetadata(key=file_path, content_length=metadata.content_length, last_modified=metadata.last_modified)
             for file_path, metadata in self._files.items()
         ]
-
         self._write_manifest_files(self._storage_provider, object_metadata)

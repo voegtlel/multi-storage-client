@@ -378,9 +378,13 @@ class StorageClient:
         """
         if self._metadata_provider:
             if prefix:
-                for obj in self._storage_provider.list_objects(prefix=prefix):
-                    fullpath = os.path.join(prefix, obj.key)
-                    self._metadata_provider.add_file(fullpath, obj)
+                # The virtual path for each item will be the physical path with
+                # the base physical path removed from the beginning.
+                physical_base, _ = self._metadata_provider.realpath("")
+                physical_prefix, _ = self._metadata_provider.realpath(prefix)
+                for obj in self._storage_provider.list_objects(prefix=physical_prefix):
+                    virtual_path = obj.key[len(physical_base) :].lstrip("/")
+                    self._metadata_provider.add_file(virtual_path, obj)
             self._metadata_provider.commit_updates()
 
     def is_empty(self, path: str) -> bool:

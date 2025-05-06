@@ -26,30 +26,39 @@ from typing import Type
 
 
 @pytest.mark.parametrize(
-    argnames=["temp_data_store_type"],
+    argnames=["temp_data_store_type", "replace_base_path"],
     argvalues=[
-        [tempdatastore.TemporaryPOSIXDirectory],
-        [tempdatastore.TemporaryAWSS3Bucket],
-        [tempdatastore.TemporaryAzureBlobStorageContainer],
-        [tempdatastore.TemporaryGoogleCloudStorageBucket],
-        [tempdatastore.TemporarySwiftStackBucket],
+        [tempdatastore.TemporaryPOSIXDirectory, False],
+        [tempdatastore.TemporaryAWSS3Bucket, False],
+        [tempdatastore.TemporaryAzureBlobStorageContainer, False],
+        [tempdatastore.TemporaryGoogleCloudStorageBucket, False],
+        [tempdatastore.TemporarySwiftStackBucket, False],
+        [tempdatastore.TemporaryPOSIXDirectory, True],
+        [tempdatastore.TemporaryAWSS3Bucket, True],
     ],
 )
-def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore], replace_base_path: bool):
     with temp_data_store_type() as temp_data_store:
         data_profile = "data"
         data_with_manifest_profile = "data_with_manifest"
 
         data_profile_config_dict = temp_data_store.profile_config_dict()
+
+        base_path = ""
+        if replace_base_path:
+            base_path = data_profile_config_dict["storage_provider"]["options"]["base_path"].removeprefix("/")
+
         data_with_manifest_profile_config_dict = copy.deepcopy(data_profile_config_dict) | {
             "metadata_provider": {
                 "type": "manifest",
                 "options": {
-                    "manifest_path": DEFAULT_MANIFEST_BASE_DIR,
+                    "manifest_path": os.path.join(base_path, DEFAULT_MANIFEST_BASE_DIR),
                     "writable": True,
                 },
             }
         }
+        if replace_base_path:
+            data_with_manifest_profile_config_dict["storage_provider"]["options"]["base_path"] = "/"
 
         storage_client_config_dict = {
             "profiles": {
@@ -58,7 +67,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             }
         }
 
-        file_path = "dir/file.txt"
+        file_path = os.path.join(base_path, "dir/file.txt")
         file_content_length = 1
         file_body_bytes = b"\x00" * file_content_length
 
@@ -95,7 +104,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
             )
         )
         assert len(data_with_manifest_storage_client.glob(pattern=file_path)) == 1
-        assert not data_with_manifest_storage_client.is_empty(path="dir")
+        assert not data_with_manifest_storage_client.is_empty(path=os.path.join(base_path, "dir"))
 
         # Check the file metadata.
         file_info = data_with_manifest_storage_client.info(path=file_path)
@@ -105,7 +114,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert file_info.type == "file"
         assert file_info.last_modified is not None
 
-        file_info_list = list(data_with_manifest_storage_client.list(prefix=""))
+        file_info_list = list(data_with_manifest_storage_client.list(prefix=base_path))
         assert len(file_info_list) == 1
         listed_file_info = file_info_list[0]
         assert listed_file_info is not None
@@ -116,9 +125,9 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
 
         # Check that info() detects directories too.
         for dir_path in ["dir", "dir/"]:
-            dir_info = data_with_manifest_storage_client.info(path=dir_path, strict=False)
+            dir_info = data_with_manifest_storage_client.info(path=os.path.join(base_path, dir_path), strict=False)
             assert dir_info.type == "directory"
-            assert dir_info.key == "dir/"
+            assert dir_info.key == os.path.join(base_path, "dir/")
             assert dir_info.content_length == 0
 
         # But "di" is not a valid directory, even though it is a valid prefix.
@@ -148,7 +157,7 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         assert file_info.type == "file"
 
         # Copy the file.
-        file_copy_path = f"copy-{file_path}"
+        file_copy_path = os.path.join(base_path, "copy-" + file_path)
         data_with_manifest_storage_client.copy(src_path=file_path, dest_path=file_copy_path)
         assert len(data_with_manifest_storage_client.glob(pattern=file_copy_path)) == 0
         data_with_manifest_storage_client.commit_metadata()
@@ -167,16 +176,17 @@ def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDat
         data_with_manifest_storage_client.commit_metadata()
 
         # Write files.
-        file_directory = "directory"
+        file_directory = os.path.join(base_path, "directory")
         file_count = 10
         for i in range(file_count):
-            data_storage_client.write(path=os.path.join(file_directory, f"{i}.txt"), body=file_body_bytes)
-        assert len(list(data_with_manifest_storage_client.list(prefix=f"{file_directory}/"))) == 0
+            data_storage_client.write(path=os.path.join("directory", f"{i}.txt"), body=file_body_bytes)
+        assert len(list(data_with_manifest_storage_client.list(prefix=file_directory + "/"))) == 0
+
         data_with_manifest_storage_client.commit_metadata(prefix=f"{file_directory}/")
-        assert len(list(data_with_manifest_storage_client.list(prefix=f"{file_directory}/"))) == file_count
+        assert len(list(data_with_manifest_storage_client.list(prefix=file_directory + "/"))) == file_count
 
         # Test listing with directories
-        with_dirs = list(data_with_manifest_storage_client.list(prefix="", include_directories=True))
+        with_dirs = list(data_with_manifest_storage_client.list(prefix=base_path, include_directories=True))
         assert len(with_dirs) == 1
         assert with_dirs[0].key == file_directory + "/"
 
