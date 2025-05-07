@@ -569,7 +569,7 @@ class PosixFile(IO):
             realpath = path
 
         # Required to get the absolute POSIX path.
-        self._real_path = storage_client._storage_provider._realpath(realpath)
+        self._real_path = storage_client._storage_provider._prepend_base_path(realpath)
 
         self._path = path
         self._mode = mode

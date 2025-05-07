@@ -275,7 +275,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
 
     def glob(self, pattern: str) -> List[str]:
-        pattern = self._realpath(pattern)
+        pattern = self._prepend_base_path(pattern)
         keys = list(glob.glob(pattern, recursive=True))
         if self._base_path == "/":
             return keys
@@ -285,5 +285,5 @@ class PosixFileStorageProvider(BaseStorageProvider):
             return [key.replace(self._base_path, "", 1).lstrip("/") for key in keys]
 
     def is_file(self, path: str) -> bool:
-        path = self._realpath(path)
+        path = self._prepend_base_path(path)
         return os.path.isfile(path)

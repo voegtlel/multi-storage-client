@@ -46,7 +46,7 @@ class BaseStorageProvider(StorageProvider):
             s += delimiter
         return s
 
-    def _realpath(self, path: str) -> str:
+    def _prepend_base_path(self, path: str) -> str:
         return os.path.join(self._base_path, path.lstrip("/"))
 
     def put_object(
@@ -57,16 +57,16 @@ class BaseStorageProvider(StorageProvider):
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> None:
-        path = self._realpath(path)
+        path = self._prepend_base_path(path)
         return self._put_object(path, body, metadata, if_match, if_none_match)
 
     def get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
-        path = self._realpath(path)
+        path = self._prepend_base_path(path)
         return self._get_object(path, byte_range)
 
     def copy_object(self, src_path: str, dest_path: str) -> None:
-        src_path = self._realpath(src_path)
-        dest_path = self._realpath(dest_path)
+        src_path = self._prepend_base_path(src_path)
+        dest_path = self._prepend_base_path(dest_path)
         return self._copy_object(src_path, dest_path)
 
     def delete_object(self, path: str, if_match: Optional[str] = None) -> None:
@@ -79,11 +79,11 @@ class BaseStorageProvider(StorageProvider):
         :raises RuntimeError: If deletion fails.
         :raises PreconditionFailedError: If the if_match condition is not met.
         """
-        path = self._realpath(path)
+        path = self._prepend_base_path(path)
         return self._delete_object(path, if_match)
 
     def get_object_metadata(self, path: str, strict: bool = True) -> ObjectMetadata:
-        path = self._realpath(path)
+        path = self._prepend_base_path(path)
         metadata = self._get_object_metadata(path, strict=strict)
         # Remove base_path from key
         metadata.key = metadata.key.removeprefix(self._base_path).lstrip("/")
@@ -99,7 +99,7 @@ class BaseStorageProvider(StorageProvider):
         if (start_after is not None) and (end_at is not None) and not (start_after < end_at):
             raise ValueError(f"start_after ({start_after}) must be before end_at ({end_at})!")
 
-        prefix = self._realpath(prefix)
+        prefix = self._prepend_base_path(prefix)
         if self._base_path:
             for object in self._list_objects(prefix, start_after, end_at, include_directories):
                 object.key = object.key.removeprefix(self._base_path).lstrip("/")
@@ -108,11 +108,11 @@ class BaseStorageProvider(StorageProvider):
             yield from self._list_objects(prefix, start_after, end_at, include_directories)
 
     def upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
-        remote_path = self._realpath(remote_path)
+        remote_path = self._prepend_base_path(remote_path)
         return self._upload_file(remote_path, f)
 
     def download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
-        remote_path = self._realpath(remote_path)
+        remote_path = self._prepend_base_path(remote_path)
         return self._download_file(remote_path, f, metadata)
 
     def glob(self, pattern: str) -> List[str]:
