@@ -56,43 +56,47 @@ Key:
 
 .
 │   # GitHub templates and pipelines.
-├── .github/
+├── .github
 │   └── ...
 │
 │   # GitLab templates and pipelines.
-├── .gitlab/
+├── .gitlab
 │   └── ...
 │
 │   # Release notes.
-├── .release_notes/
+├── .release_notes
 │   └── ...
 │
-│   # Python package build outputs.
-├── dist/ 🤖
+│   # Python package build artifacts.
+├── dist 🤖
 │   └── ...
 │
 │   # Python documentation configuration.
-├── docs/
-│   │   # Python documentation build outputs.
-│   ├── dist/ 🤖
+├── docs
+│   │   # Python documentation build artifacts.
+│   ├── dist 🤖
 │   │   └── ...
 │   │
 │   │   # Python documentation source.
-│   ├── src/
+│   ├── src
 │   │   └── ...
 │   │
 │   │   # Python documentation configuration.
 │   └── conf.py
 │
 │   # Python package source.
-├── src/
+├── src
 │   └── ...
 │
 │   # Python package test source.
-├── tests/
-│   └── test_multistorageclient/
+├── tests
+│   └── test_multistorageclient
 │       │   # Unit tests.
 │       ├── unit
+│       │   └── ...
+│       │
+│       │   # Load tests.
+│       ├── load
 │       │   └── ...
 │       │
 │       │   # End-to-end (E2E) tests.
@@ -126,10 +130,11 @@ The best way to install Nix is with the [Determinate Nix Installer](https://gith
 
 Once installed, running `nix develop` in a directory with a `flake.nix` will create a nested Bash shell defined by the flake.
 
-> If you're on a network with lots of GitHub traffic, you may get a rate limiting error. To work around this, you can either switch networks (e.g. turn off VPN) or add a GitHub personal access token (classic) to your `/etc/nix/nix.conf` (system) or `~/.config/nix/nix.conf` (user).
+> 🔖
+>
+> If you're on a network with lots of GitHub traffic, you may get a rate limiting error. To work around this, you can either switch networks (e.g. turn off VPN) or add a GitHub personal access token (classic) to your [Nix configuration](https://nixos.org/manual/nix/stable/command-ref/conf-file).
 >
 > ```text
-> # https://nixos.org/manual/nix/stable/command-ref/conf-file
 > access-tokens = github.com=ghp_{rest of token}
 > ```
 

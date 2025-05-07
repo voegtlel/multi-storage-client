@@ -82,7 +82,7 @@ start-telemetry-systems: stop-telemetry-systems
     #
     # Grafana expects some included data files to be present.
     mkdir --parents .grafana/sandbox/{data,logs,plugins}
-    ln -s $(dirname $(dirname $(command -v grafana)))/share/grafana/{conf,public} .grafana/sandbox
+    ln --symbolic $(dirname $(dirname $(command -v grafana)))/share/grafana/{conf,public} .grafana/sandbox
     # Set up Tempo sandbox directory.
     mkdir --parents .tempo/sandbox/{trace,wal}
 
@@ -103,9 +103,9 @@ start-telemetry-systems: stop-telemetry-systems
     # An error log about `stat /proc` failing is expected.
     timeout 10s bash -c "until curl --fail --output /dev/null --silent http://localhost:3000/api/health; do sleep 1; done"
     # Wait for Mimir.
-    timeout 30s bash -c "until curl --fail --output /dev/null --silent http://localhost:8080/ready; do sleep 1; done"
+    timeout 60s bash -c "until curl --fail --output /dev/null --silent http://localhost:8080/ready; do sleep 1; done"
     # Wait for Tempo.
-    timeout 30s bash -c "until curl --fail --output /dev/null --silent http://localhost:8081/ready; do sleep 1; done"
+    timeout 60s bash -c "until curl --fail --output /dev/null --silent http://localhost:8081/ready; do sleep 1; done"
 
 # Run unit tests.
 run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
@@ -113,8 +113,13 @@ run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storag
     rm -rf .reports/unit
     # Unit test.
     #
-    # The CI/CD runner setup only allows 4 cores per job, so using 1 parent + 3 child processes.
-    uv run pytest --junit-xml .reports/unit/pytest.xml --cov --cov-report term --cov-report html --cov-report xml --durations 0 --durations-min 10 --numprocesses 2
+    # The CI/CD runner setup only allows 4 cores per job. Storage systems use a few processes.
+    uv run pytest --cov --cov-report term --cov-report html --cov-report xml --durations 0 --durations-min 10 --junit-xml .reports/unit/pytest.xml --numprocesses 2
+
+# Run load tests. For dummy load generation when experimenting with telemetry.
+run-load-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
+    # Load test.
+    uv run pytest --minutes 30 tests/test_multistorageclient/load/local.py
 
 # Create package archives.
 package: prepare-virtual-environment
@@ -138,7 +143,9 @@ run-e2e-tests: prepare-virtual-environment
     # Remove test artifacts.
     rm -rf .reports/e2e
     # E2E test.
-    uv run pytest --junit-xml .reports/e2e/pytest.xml tests/test_multistorageclient/e2e --durations 0 --durations-min 60 --numprocesses 4
+    #
+    # The CI/CD runner setup only allows 4 cores per job.
+    uv run pytest --durations 0 --durations-min 60 --junit-xml .reports/e2e/pytest.xml --numprocesses 4 tests/test_multistorageclient/e2e
 
 # Run minimal verification without any optional dependencies.
 run-minimal-verification:

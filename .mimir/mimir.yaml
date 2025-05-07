@@ -3,6 +3,11 @@
 #
 # https://grafana.com/docs/mimir/latest/configure/configuration-parameters
 #
+ingester:
+  ring:
+    replication_factor: 1
+limits:
+  max_global_series_per_user: 0
 multitenancy_enabled: false
 server:
   log_level: error

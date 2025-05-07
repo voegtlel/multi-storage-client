@@ -13,12 +13,12 @@
 # The pipeline files are laid out like this:
 #
 # .
-# ├── .github/
-# │   └── workflows/
+# ├── .github
+# │   └── workflows
 # │       ├── .{child pipeline}.yml
 # │       └── {pipeline}.yml
-# ├── .gitlab/
-# │   └── pipelines/
+# ├── .gitlab
+# │   └── pipelines
 # │       ├── .{child pipeline}.yml
 # │       └── {pipeline}.yml
 # └── .gitlab-ci.yml
