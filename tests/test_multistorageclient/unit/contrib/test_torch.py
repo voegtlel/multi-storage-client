@@ -113,3 +113,64 @@ def test_filesystem_reader_writer(temp_data_store_type: Type[tempdatastore.Tempo
             assert torch.equal(original_state_dict[param_name], loaded_state_dict_params[param_name]), (
                 f"Parameter {param_name} does not match"
             )
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[
+        [tempdatastore.TemporaryPOSIXDirectory],
+    ],
+)
+def test_filesystem_basic_operations(temp_data_store_type):
+    with temp_data_store_type() as temp_data_store:
+        config.setup_msc_config(
+            config_dict={
+                "profiles": {
+                    "test": temp_data_store.profile_config_dict(),
+                }
+            }
+        )
+
+        fs = msc.torch.MultiStorageFileSystem()
+
+        # Test concat_path
+        path = "msc://test/path"
+        suffix = "file.txt"
+        concat_path = fs.concat_path(path, suffix)
+        assert str(concat_path) == "msc://test/path/file.txt"
+
+        # Test init_path
+        init_path = fs.init_path(path)
+        assert str(init_path) == path
+
+        # Test create_stream for writing
+        test_file = "msc://test/new_directory/test.txt"
+        with fs.create_stream(test_file, "wb") as stream:
+            stream.write(b"test content")
+
+        # Test exists for file
+        assert fs.exists(test_file)
+
+        # Test exists for directory
+        test_dir = "msc://test/new_directory"
+        assert fs.exists(test_dir)
+
+        # Test create_stream for reading
+        with fs.create_stream(test_file, "rb") as stream:
+            content = stream.read()
+            assert content == b"test content"
+
+        # Test ls
+        listing = fs.ls("msc://test/new_directory")
+        assert len(listing) == 1
+        assert listing[0].endswith("test.txt")
+
+        # Test rename
+        new_file_path = "msc://test/new_directory/renamed.txt"
+        fs.rename(test_file, new_file_path)
+        assert not fs.exists(test_file)
+        assert fs.exists(new_file_path)
+
+        # Test rm_file
+        fs.rm_file(new_file_path)
+        assert not fs.exists(new_file_path)

@@ -67,6 +67,9 @@ class MultiStorageFileSystem(FileSystemBase):
     def rm_file(self, path: Union[str, os.PathLike]) -> None:
         MultiStoragePath(path).unlink()
 
+    def ls(self, path: Union[str, os.PathLike]) -> list[str]:
+        return [str(p) for p in MultiStoragePath(path).iterdir()]
+
 
 def _prefetch_objects(fs: MultiStorageFileSystem, urls: List[MultiStoragePath], thread_count: int) -> None:
     """

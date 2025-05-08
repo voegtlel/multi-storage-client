@@ -143,6 +143,11 @@ def test_shutil_rmtree(file_storage_config):
         assert not path.exists()
 
 
+def test_relative_path():
+    path = msc.Path("./workspace/datasets/file.txt")
+    assert path.as_posix() == os.path.realpath("./workspace/datasets/file.txt")
+
+
 def create_file(path: msc.Path):
     with path.open("w") as f:
         f.write("1.1.1.1")
@@ -203,6 +208,7 @@ def verify_pathlib(profile: str, prefix: str):
 @pytest.mark.parametrize(
     argnames=["temp_data_store_type"],
     argvalues=[
+        [tempdatastore.TemporaryPOSIXDirectory],
         [tempdatastore.TemporaryAWSS3Bucket],
     ],
 )

@@ -14,6 +14,6 @@
 # limitations under the License.
 
 from .core import load, save
-from .filesystem import MultiStorageFileSystemReader, MultiStorageFileSystemWriter
+from .filesystem import MultiStorageFileSystem, MultiStorageFileSystemReader, MultiStorageFileSystemWriter
 
-__all__ = ["load", "save", "MultiStorageFileSystemReader", "MultiStorageFileSystemWriter"]
+__all__ = ["load", "save", "MultiStorageFileSystem", "MultiStorageFileSystemReader", "MultiStorageFileSystemWriter"]

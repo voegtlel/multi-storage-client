@@ -134,10 +134,6 @@ def test_sync_function(
         verify_sync_and_contents(target_url=target_msc_url, expected_files=expected_files)
 
         with pytest.raises(ValueError):
-            msc.sync(source_url="", target_url=target_msc_url)
-        with pytest.raises(ValueError):
-            msc.sync(source_url=source_msc_url, target_url="")
-        with pytest.raises(ValueError):
             msc.sync(source_url=source_msc_url, target_url=source_msc_url)
         with pytest.raises(ValueError):
             msc.sync(source_url=target_msc_url, target_url=target_msc_url)

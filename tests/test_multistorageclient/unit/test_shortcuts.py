@@ -42,9 +42,6 @@ def test_resolve_storage_client(file_storage_config):
     with pytest.raises(ValueError):
         storage_client, _ = msc.resolve_storage_client("http://fake/bucket/testfile.bin")
 
-    with pytest.raises(ValueError):
-        storage_client, _ = msc.resolve_storage_client("relative/to/current/path")
-
     # Verify the three ways to access local filesystem are the same
     sc1, _ = msc.resolve_storage_client("/usr/local/fake/bucket/testfile.bin")
     sc2, _ = msc.resolve_storage_client("file:///usr/local/fake/bucket/testfile.bin")
@@ -65,6 +62,12 @@ def test_resolve_storage_client(file_storage_config):
 
     _, p5 = msc.resolve_storage_client("file:///tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin")
     assert p5 == "/tmp/data-#!-_.*'()&$@=;/:+,?\\{{}}%`]<>~|#.bin"
+
+    _, p6 = msc.resolve_storage_client("msc:/default/etc/resolv.conf")
+    assert p6 == "etc/resolv.conf"
+
+    _, p7 = msc.resolve_storage_client("./workspace/datasets")
+    assert p7 == os.path.realpath("workspace/datasets")
 
     # Multithreading test to verify the storage_client instance is the same
     def storage_client_thread(number: int) -> Tuple[StorageClient, str]:
