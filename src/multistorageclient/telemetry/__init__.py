@@ -43,6 +43,8 @@ from .. import utils
 _METRICS_EXPORTER_MAPPING = {
     "console": "opentelemetry.sdk.metrics.export.ConsoleMetricExporter",
     "otlp": "opentelemetry.exporter.otlp.proto.http.metric_exporter.OTLPMetricExporter",
+    # "Private" until it's decided whether this will be official.
+    "_otlp_msal": "multistorageclient.telemetry.metrics.exporters.otlp_msal._OTLPMSALMetricExporter",
 }
 
 _TRACE_EXPORTER_MAPPING = {
@@ -159,7 +161,6 @@ class Telemetry:
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)
                         exporter_options = config["exporter"].get("options", {})
-                        # TODO: Auth options.
                         exporter: sdk_metrics_export.MetricExporter = cls(**exporter_options)
 
                         reader_options = config.get("reader", {}).get("options", {})
@@ -265,7 +266,6 @@ class Telemetry:
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)
                         exporter_options = config["exporter"].get("options", {})
-                        # TODO: Auth options.
                         exporter: sdk_trace_export.SpanExporter = cls(**exporter_options)
 
                         processor: sdk_trace.SpanProcessor = sdk_trace.SynchronousMultiSpanProcessor()
