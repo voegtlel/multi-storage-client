@@ -14,7 +14,7 @@ help:
 # Prepare the virtual environment.
 prepare-virtual-environment:
     # Prepare the virtual environment.
-    uv sync --python {{python-binary}} --all-extras
+    if [[ -z "${CI:-}" ]]; then uv sync --all-extras --python {{python-binary}}; else uv sync --all-extras --locked --python {{python-binary}}; fi
     # Create the dependency license summary.
     uv run pip-licenses
 
