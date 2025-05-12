@@ -19,15 +19,18 @@ from typing import IO, Any, Union
 import torch as _torch
 
 from ...shortcuts import open as msc_open
-from ...types import MSC_PROTOCOL
+from ...pathlib import MultiStoragePath
 
 
 def load(f: Union[str, os.PathLike[str], IO[bytes]], *args: Any, **kwargs: Any) -> Any:
     """
     Adapt ``torch.load``.
     """
-    if isinstance(f, str) and f.startswith(MSC_PROTOCOL):
+    if isinstance(f, str):
         with msc_open(f, "rb") as fp:
+            return _torch.load(fp, *args, **kwargs)
+    elif isinstance(f, MultiStoragePath):
+        with f.open("rb") as fp:
             return _torch.load(fp, *args, **kwargs)
     else:
         return _torch.load(f, *args, **kwargs)
@@ -37,8 +40,11 @@ def save(obj: object, f: Union[str, os.PathLike[str], IO[bytes]], *args: Any, **
     """
     Adapt ``torch.save``.
     """
-    if isinstance(f, str) and f.startswith(MSC_PROTOCOL):
+    if isinstance(f, str):
         with msc_open(f, "wb") as fp:
+            return _torch.save(obj, fp, *args, **kwargs)
+    elif isinstance(f, MultiStoragePath):
+        with f.open("wb") as fp:
             return _torch.save(obj, fp, *args, **kwargs)
     else:
         return _torch.save(obj, f, *args, **kwargs)

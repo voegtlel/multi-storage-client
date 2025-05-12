@@ -35,17 +35,32 @@ def sample_data(tmp_path):
     return filepath, tensor
 
 
-def test_torch_load_with_filepath(file_storage_config, sample_data):
+def test_torch_load_with_filepath(sample_data):
     filepath, expected_tensor = sample_data
 
     result = msc.torch.load(str(filepath))
     assert torch.equal(result, expected_tensor)
 
 
-def test_torch_load_with_msc_prefix(file_storage_config, sample_data):
+def test_torch_load_with_msc_prefix(sample_data):
     filepath, expected_tensor = sample_data
 
     result = msc.torch.load(f"{MSC_PROTOCOL}default{filepath}")
+    assert torch.equal(result, expected_tensor)
+
+
+def test_torch_save_with_msc_path(sample_data):
+    filepath, expected_tensor = sample_data
+
+    msc.torch.save(expected_tensor, msc.Path(filepath))
+    result = torch.load(filepath)
+    assert torch.equal(result, expected_tensor)
+
+
+def test_torch_load_with_msc_path(sample_data):
+    filepath, expected_tensor = sample_data
+
+    result = msc.torch.load(msc.Path(filepath))
     assert torch.equal(result, expected_tensor)
 
 

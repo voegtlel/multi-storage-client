@@ -40,6 +40,10 @@ def test_numpy_memmap(file_storage_config_with_cache, sample_data):
         result = msc.numpy.memmap(f"{MSC_PROTOCOL}default{temp.name}", dtype=np.int32, mode="r", shape=(5,))
         assert np.array_equal(result, sample_data)
 
+        # test MultiStoragePath
+        result = msc.numpy.memmap(msc.Path(temp.name), dtype=np.int32, mode="r", shape=(5,))
+        assert np.array_equal(result, sample_data)
+
         # test file object
         with open(temp.name) as fp:
             result = msc.numpy.memmap(fp, dtype=np.int32, mode="r", shape=(5,))
@@ -73,6 +77,10 @@ def test_numpy_load(file_storage_config_with_cache, sample_data):
         result = msc.numpy.load(f"{MSC_PROTOCOL}default{temp.name}", allow_pickle=True, mmap_mode="r")
         assert np.array_equal(result, sample_data)
 
+        # test MultiStoragePath
+        result = msc.numpy.load(msc.Path(temp.name), allow_pickle=True, mmap_mode="r")
+        assert np.array_equal(result, sample_data)
+
         # test file object
         with open(temp.name, "rb") as fp:
             with pytest.raises(ValueError):
@@ -95,6 +103,12 @@ def test_numpy_save(file_storage_config_with_cache, sample_data):
         # Test msc-prefixed path
         msc_path = f"{MSC_PROTOCOL}default{temp.name}"
         msc.numpy.save(msc_path, sample_data)
+
+        result = np.load(temp.name)
+        assert np.array_equal(result, sample_data)
+
+        # Test MultiStoragePath
+        msc.numpy.save(msc.Path(temp.name), sample_data)
 
         result = np.load(temp.name)
         assert np.array_equal(result, sample_data)

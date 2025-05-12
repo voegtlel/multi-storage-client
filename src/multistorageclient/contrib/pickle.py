@@ -14,14 +14,15 @@
 # limitations under the License.
 
 import pickle as _pickle
+import os
 from typing import IO, Any, Callable, Iterable, Optional, Union
 
 from ..shortcuts import open as msc_open
-from ..types import MSC_PROTOCOL
+from ..pathlib import MultiStoragePath
 
 
 def load(
-    file: Union[str, IO[bytes]],
+    file: Union[str, os.PathLike[str], IO[bytes]],
     *,
     fix_imports: bool = True,
     encoding: str = "ASCII",
@@ -51,12 +52,11 @@ def load(
     """
 
     if isinstance(file, str):
-        if file.startswith(MSC_PROTOCOL):
-            with msc_open(file) as fp:
-                return _pickle.load(fp, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)
-        else:
-            with open(file, "rb") as fp:
-                return _pickle.load(fp, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)
+        with msc_open(file) as fp:
+            return _pickle.load(fp, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)
+    elif isinstance(file, MultiStoragePath):
+        with file.open("rb") as fp:
+            return _pickle.load(fp, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)
     else:
         # assume a file-like object
         return _pickle.load(file, fix_imports=fix_imports, encoding=encoding, errors=errors, buffers=buffers)  # type: ignore
@@ -64,7 +64,7 @@ def load(
 
 def dump(
     obj: Any,
-    file_path: str,
+    file_path: Union[str, os.PathLike[str]],
     protocol: Optional[int] = None,
     *,
     fix_imports: bool = True,
@@ -89,11 +89,10 @@ def dump(
            pickle.dump(data, fp, ....)
     """
     if isinstance(file_path, str):
-        if file_path.startswith(MSC_PROTOCOL):
-            with msc_open(file_path, mode="wb") as fp:
-                _pickle.dump(obj, fp, protocol=protocol, fix_imports=fix_imports, buffer_callback=buffer_callback)
-        else:
-            with open(file_path, "wb") as fp:
-                _pickle.dump(obj, fp, protocol=protocol, fix_imports=fix_imports, buffer_callback=buffer_callback)
+        with msc_open(file_path, mode="wb") as fp:
+            _pickle.dump(obj, fp, protocol=protocol, fix_imports=fix_imports, buffer_callback=buffer_callback)
+    elif isinstance(file_path, MultiStoragePath):
+        with file_path.open("wb") as fp:
+            _pickle.dump(obj, fp, protocol=protocol, fix_imports=fix_imports, buffer_callback=buffer_callback)
     else:
         raise NotImplementedError("file object is not supported.")

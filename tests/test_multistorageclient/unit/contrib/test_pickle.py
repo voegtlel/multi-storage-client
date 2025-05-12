@@ -35,7 +35,7 @@ def pickle_file_path(sample_data):
     os.unlink(temp.name)
 
 
-def test_pickle_load(file_storage_config, pickle_file_path, sample_data):
+def test_pickle_load(pickle_file_path, sample_data):
     # test load with file path
     result = msc.pickle.load(pickle_file_path)
     assert result == sample_data
@@ -45,13 +45,17 @@ def test_pickle_load(file_storage_config, pickle_file_path, sample_data):
     result = msc.pickle.load(msc_path)
     assert result == sample_data
 
+    # test load with MultiStoragePath
+    result = msc.pickle.load(msc.Path(pickle_file_path))
+    assert result == sample_data
+
     # test load with file object
     with open(pickle_file_path, "rb") as f:
         result = msc.pickle.load(f)
     assert result == sample_data
 
 
-def test_pickle_dump(file_storage_config, sample_data):
+def test_pickle_dump(sample_data):
     with tempfile.NamedTemporaryFile(delete=True) as temp:
         msc_path = f"{MSC_PROTOCOL}default{temp.name}"
 
@@ -63,6 +67,11 @@ def test_pickle_dump(file_storage_config, sample_data):
         # Test dump with normal file path
         msc.pickle.dump(sample_data, temp.name)
         result = msc.pickle.load(temp.name)
+        assert result == sample_data
+
+        # test dump with MultiStoragePath
+        msc.pickle.dump(sample_data, msc.Path(temp.name))
+        result = msc.pickle.load(msc.Path(temp.name))
         assert result == sample_data
 
         # Test dump with msc.open (file-like object)
