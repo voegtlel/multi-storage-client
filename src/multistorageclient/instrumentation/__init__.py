@@ -210,7 +210,11 @@ def setup_opentelemetry(config: Dict[str, Any]) -> None:
     When dependencies are not available, this becomes a no-op function.
     """
     if not HAS_OBSERVABILITY_DEPS:
-        logger.warning("Instrumentation dependencies not available. Skipping OpenTelemetry setup.")
+        logger.warning(
+            "Instrumentation dependencies not available. Skipping OpenTelemetry setup. "
+            "To enable OpenTelemetry features, install the optional dependency: "
+            "pip install multi-storage-client[observability-otel]"
+        )
         return
 
     _setup_opentelemetry_impl(config)
