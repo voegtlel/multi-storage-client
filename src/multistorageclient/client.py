@@ -179,12 +179,13 @@ class StorageClient:
             self._storage_provider.download_file(remote_path, local_path)
 
     @retry
-    def upload_file(self, remote_path: str, local_path: str) -> None:
+    def upload_file(self, remote_path: str, local_path: str, tags: Optional[Dict[str, Any]] = None) -> None:
         """
         Uploads a file from the local file system to the storage provider.
 
         :param remote_path: The path where the file should be stored in the storage provider.
         :param local_path: The local path of the file to upload.
+        :param tags: Optional dictionary of tags to associate with the uploaded file.
         """
         virtual_path = remote_path
         if self._metadata_provider:
@@ -200,12 +201,13 @@ class StorageClient:
             self._metadata_provider.add_file(virtual_path, metadata)
 
     @retry
-    def write(self, path: str, body: bytes) -> None:
+    def write(self, path: str, body: bytes, tags: Optional[Dict[str, Any]] = None) -> None:
         """
         Writes an object to the storage provider at the specified path.
 
         :param path: The path where the object should be written.
         :param body: The content to write to the object.
+        :param tags: Optional dictionary of tags to associate with the file.
         """
         virtual_path = path
         if self._metadata_provider:
@@ -325,6 +327,7 @@ class StorageClient:
         disable_read_cache: bool = False,
         memory_load_limit: int = MEMORY_LOAD_LIMIT,
         atomic: bool = True,
+        tags: Optional[Dict[str, Any]] = None,
     ) -> Union[PosixFile, ObjectFile]:
         """
         Returns a file-like object from the storage provider at the specified path.
@@ -339,6 +342,7 @@ class StorageClient:
             This parameter is only applicable to ObjectFile when the mode is "r" or "rb".
         :param atomic: When set to True, the file will be written atomically (rename upon close).
             This parameter is only applicable to PosixFile in write mode.
+        :param tags: Optional dictionary of tags to associate with the file when writing.
 
         :return: A file-like object (PosixFile or ObjectFile) for the specified path.
         """
@@ -590,3 +594,30 @@ def _sync_worker_process(
         futures = [executor.submit(_sync_consumer) for _ in range(num_worker_threads)]
         for future in futures:
             future.result()  # Ensure all threads complete
+
+    def replace_tags(self, path: str, tags: Dict[str, Any]) -> None:
+        """
+        Replaces all existing tags for a file with the provided tags.
+
+        This method serves multiple purposes:
+        - To update tags: provide a dictionary with the tags to update/add
+        - To delete all tags: provide an empty dictionary
+
+        :param path: The path of the file to replace tags for.
+        :param tags: Dictionary of tags to set, replacing any existing tags.
+                     An empty dictionary will remove all tags.
+        """
+        raise NotImplementedError("Method replace_tags is not implemented yet")
+
+    def filter_files_by_tags(self, prefix: str, exprs: List[List[Any]]) -> List[ObjectMetadata]:
+        """
+        Returns a filtered list of files based on a prefix and tag expressions.
+
+        :param prefix: The prefix to filter files under.
+        :param exprs: List of tag expressions to filter files by. Each expression is a list
+                    in the format [tag_name, operator, value]. Supported operators:
+                    =, !=, >, >=, <, <=. Multiple expressions are combined with logical AND.
+
+        :return: List of ObjectMetadata for files that match the filter criteria.
+        """
+        raise NotImplementedError("Method filter_files_by_tags is not implemented yet")
