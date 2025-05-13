@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from .base import AttributesProvider
+from collections.abc import Mapping
 import os
 import opentelemetry.util.types as api_types
-from typing import Mapping
 
 
 class EnvironmentVariablesAttributesProvider(AttributesProvider):

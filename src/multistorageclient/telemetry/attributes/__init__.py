@@ -12,21 +12,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from .base import AttributesProvider
-from .environment_variables import EnvironmentVariablesAttributesProvider
-from .host import HostAttributesProvider
-from .msc_config import MSCConfigAttributesProvider
-from .process import ProcessAttributesProvider
-from .static import StaticAttributesProvider
-from .thread import ThreadAttributesProvider
-
-__all__ = [
-    "AttributesProvider",
-    "EnvironmentVariablesAttributesProvider",
-    "HostAttributesProvider",
-    "MSCConfigAttributesProvider",
-    "ProcessAttributesProvider",
-    "StaticAttributesProvider",
-    "ThreadAttributesProvider",
-]

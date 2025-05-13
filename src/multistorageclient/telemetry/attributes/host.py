@@ -14,9 +14,9 @@
 # limitations under the License.
 
 from .base import AttributesProvider
+from collections.abc import Mapping
 import opentelemetry.util.types as api_types
 import socket
-from typing import Mapping
 
 
 class HostAttributesProvider(AttributesProvider):

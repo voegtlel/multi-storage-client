@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 import opentelemetry.util.types as api_types
 
 
@@ -25,3 +26,21 @@ class AttributesProvider(ABC):
     @abstractmethod
     def attributes(self) -> api_types.Attributes:
         pass
+
+
+def collect_attributes(attributes_providers: Sequence[AttributesProvider]) -> api_types.Attributes:
+    """
+    Collect and merge attributes from a sequence of attribute providers.
+
+    If multiple attributes providers return an attribute with the same key, the value from the latest attribute provider is kept.
+
+    :param attributes_providers: Attributes providers to collect attributes from.
+    :return: Merged attributes.
+    """
+    merged_attributes: api_types.Attributes = {}
+
+    for attributes in [attributes_provider.attributes() for attributes_provider in attributes_providers]:
+        if attributes is not None:
+            merged_attributes.update(attributes)
+
+    return merged_attributes

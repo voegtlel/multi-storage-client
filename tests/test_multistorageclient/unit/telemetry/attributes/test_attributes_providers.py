@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
 import hashlib
-from multistorageclient.telemetry.attributes import (
-    EnvironmentVariablesAttributesProvider,
-    HostAttributesProvider,
-    MSCConfigAttributesProvider,
-    ProcessAttributesProvider,
-    StaticAttributesProvider,
-    ThreadAttributesProvider,
-)
+from multistorageclient.telemetry.attributes.base import AttributesProvider, collect_attributes
+from multistorageclient.telemetry.attributes.environment_variables import EnvironmentVariablesAttributesProvider
+from multistorageclient.telemetry.attributes.host import HostAttributesProvider
+from multistorageclient.telemetry.attributes.msc_config import MSCConfigAttributesProvider
+from multistorageclient.telemetry.attributes.process import ProcessAttributesProvider
+from multistorageclient.telemetry.attributes.static import StaticAttributesProvider
+from multistorageclient.telemetry.attributes.thread import ThreadAttributesProvider
 import os
 import pytest
 
@@ -90,11 +90,11 @@ def test_process_attributes_provider():
 
 def test_static_attributes_provider():
     attribute_key = "attribute"
-    client_credential_value = True
-    attributes = StaticAttributesProvider(attributes={attribute_key: client_credential_value}).attributes()
+    attribute_value = True
+    attributes = StaticAttributesProvider(attributes={attribute_key: attribute_value}).attributes()
     assert attributes is not None
     assert attribute_key in attributes
-    assert attributes[attribute_key] == client_credential_value
+    assert attributes[attribute_key] == attribute_value
 
 
 def test_thread_attributes_provider():
@@ -106,3 +106,21 @@ def test_thread_attributes_provider():
 
     with pytest.raises(ValueError):
         ThreadAttributesProvider(attributes={"unsupported": "unsupported"})
+
+
+def test_collect_attributes():
+    attribute_key_x = "x"
+    attribute_key_y = "y"
+    attribute_value_x = 1
+    attribute_value_y = 1
+    attribute_value_y_overlay = 2
+    attributes_providers: Sequence[AttributesProvider] = (
+        StaticAttributesProvider(attributes={attribute_key_x: attribute_value_x, attribute_key_y: attribute_value_y}),
+        StaticAttributesProvider(attributes={attribute_key_y: attribute_value_y_overlay}),
+    )
+    attributes = collect_attributes(attributes_providers=attributes_providers)
+    assert attributes is not None
+    assert attribute_key_x in attributes
+    assert attributes[attribute_key_x] == attribute_value_x
+    assert attribute_key_y in attributes
+    assert attributes[attribute_key_y] == attribute_value_y_overlay

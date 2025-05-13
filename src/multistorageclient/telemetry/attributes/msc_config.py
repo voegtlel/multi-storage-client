@@ -14,12 +14,13 @@
 # limitations under the License.
 
 from .base import AttributesProvider
+from collections.abc import Mapping
 import copy
 import hashlib
 import jmespath
 import jmespath.functions as jmespath_functions
 import opentelemetry.util.types as api_types
-from typing import Any, Mapping
+from typing import Any
 
 
 class MSCConfigJMESPathFunctions(jmespath_functions.Functions):
