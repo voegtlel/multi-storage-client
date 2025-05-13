@@ -21,10 +21,37 @@ from urllib.parse import ParseResult, urlparse
 from .client import StorageClient
 from .config import DEFAULT_POSIX_PROFILE_NAME, SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS, StorageClientConfig
 from .file import ObjectFile, PosixFile
+from .telemetry import Telemetry
 from .types import MSC_PROTOCOL, ObjectMetadata
 
-_instance_cache: Dict[str, StorageClient] = {}
-_cache_lock = threading.Lock()
+_TELEMETRY: Optional[Telemetry] = None
+_TELEMETRY_LOCK = threading.Lock()
+_STORAGE_CLIENT_CACHE: Dict[str, StorageClient] = {}
+_STORAGE_CLIENT_CACHE_LOCK = threading.Lock()
+
+
+def get_telemetry() -> Optional[Telemetry]:
+    """
+    Get the :py:class:``Telemetry`` instance to use for storage clients created by shortcuts.
+
+    :return: A telemetry instance.
+    """
+    global _TELEMETRY
+
+    return _TELEMETRY
+
+
+def set_telemetry(telemetry: Optional[Telemetry]) -> None:
+    """
+    Set the :py:class:``Telemetry`` instance to use for storage clients created by shortcuts.
+
+    :param telemetry: A telemetry instance.
+    """
+    global _TELEMETRY
+    global _TELEMETRY_LOCK
+
+    with _TELEMETRY_LOCK:
+        _TELEMETRY = telemetry
 
 
 def _build_full_path(pr: ParseResult) -> str:
@@ -142,6 +169,9 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     :raises ValueError: If the URL's protocol is neither ``msc`` nor a valid local file system path
                         or a supported non-MSC protocol.
     """
+    global _STORAGE_CLIENT_CACHE
+    global _STORAGE_CLIENT_CACHE_LOCK
+
     # Normalize the path for msc:/ prefix due to pathlib.Path('msc://')
     if url.startswith("msc:/") and not url.startswith("msc://"):
         url = url.replace("msc:/", "msc://")
@@ -150,16 +180,16 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
     profile, path = _resolve_msc_url(url) if url.startswith(MSC_PROTOCOL) else _resolve_non_msc_url(url)
 
     # Check if the profile has already been instantiated
-    if profile in _instance_cache:
-        return _instance_cache[profile], path
+    if profile in _STORAGE_CLIENT_CACHE:
+        return _STORAGE_CLIENT_CACHE[profile], path
 
     # Create a new StorageClient instance and cache it
-    with _cache_lock:
-        if profile in _instance_cache:
-            return _instance_cache[profile], path
+    with _STORAGE_CLIENT_CACHE_LOCK:
+        if profile in _STORAGE_CLIENT_CACHE:
+            return _STORAGE_CLIENT_CACHE[profile], path
         else:
             client = StorageClient(config=StorageClientConfig.from_file(profile=profile))
-            _instance_cache[profile] = client
+            _STORAGE_CLIENT_CACHE[profile] = client
 
     return client, path
 

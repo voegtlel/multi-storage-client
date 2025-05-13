@@ -118,8 +118,8 @@ def reset_globals():
     # Reset the instance cache before each test.
     from multistorageclient import shortcuts
 
-    with shortcuts._cache_lock:
-        shortcuts._instance_cache.clear()
+    with shortcuts._STORAGE_CLIENT_CACHE_LOCK:
+        shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     # Reset the environment variables before each test.
     os.environ.clear()

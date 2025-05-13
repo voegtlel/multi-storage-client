@@ -214,7 +214,7 @@ def verify_pathlib(profile: str, prefix: str):
 )
 def test_pathlib_with_s3(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     with temp_data_store_type() as temp_data_store:
         config.setup_msc_config(config_dict={"profiles": {"test": temp_data_store.profile_config_dict()}})

@@ -267,7 +267,7 @@ def verify_shortcuts(profile: str, prefix: str):
 )
 def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     with temp_data_store_type() as temp_data_store:
         config.setup_msc_config(
@@ -294,7 +294,7 @@ def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.Temporar
 )
 def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     with temp_data_store_type() as temp_data_store:
         data_with_manifest_profile_config_dict = copy.deepcopy(temp_data_store.profile_config_dict()) | {
@@ -330,7 +330,7 @@ def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore
 )
 def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     with temp_data_store_type() as temp_data_store:
         profile_dict = temp_data_store.profile_config_dict()
@@ -355,7 +355,7 @@ def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: Type[tempdatas
 )
 def test_glob_include_prefix(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     with temp_data_store_type() as temp_data_store:
         profile_name = "test_glob_include_prefix"
@@ -499,7 +499,7 @@ def test_implicit_profiles_with_msc_config(file_storage_config_with_path_mapping
     2. Object storage URLs that don't match any translation use implicit profiles
     """
     # Clear the instance cache to ensure that the config is not reused from the previous test
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     os.environ["AWS_ENDPOINT_URL"] = "http://localhost:9000"
     try:

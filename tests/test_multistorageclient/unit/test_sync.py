@@ -49,7 +49,7 @@ def test_sync_function(
     temp_data_store_type: Type[tempdatastore.TemporaryDataStore],
     sync_kwargs: dict,
 ):
-    msc.shortcuts._instance_cache.clear()
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
     # set environment variables to control multiprocessing
     os.environ["MSC_NUM_PROCESSES"] = str(sync_kwargs.get("max_workers", 1))
