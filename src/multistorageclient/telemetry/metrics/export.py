@@ -24,8 +24,8 @@ import time
 from typing import Optional
 import weakref
 
-# Not OTel spec. Use 1 millisecond to match Prometheus' temporal resolution.
-DEFAULT_COLLECT_INTERVAL_MILLIS: float = 1
+# Not OTel spec. Use 1 second to keep the data volume per export interval reasonably small.
+DEFAULT_COLLECT_INTERVAL_MILLIS: float = 1000
 # Not OTel spec. Use the default on :py:meth:``sdk_metrics_export.MetricReader.collect``.
 DEFAULT_COLLECT_TIMEOUT_MILLIS: float = 10000
 # OTel spec.
@@ -183,16 +183,10 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
     def _export_iteration(self, timeout_millis: Optional[float] = None) -> None:
         with self._export_metrics_data_lock:
             with self._collect_metrics_data_lock:
-                if self._collect_metrics_data is not None:
-                    # Merge the collect buffer into the export buffer.
-                    self._export_metrics_data = sdk_metrics_export.MetricsData(
-                        resource_metrics=(
-                            *(() if self._export_metrics_data is None else self._export_metrics_data.resource_metrics),
-                            *self._collect_metrics_data.resource_metrics,
-                        )
-                    )
-                    # Empty the collect buffer.
-                    self._collect_metrics_data = None
+                # Rotate the collect + export buffers.
+                #
+                # We don't merge the collect buffer into the export buffer to prevent infinite accumulation.
+                self._collect_metrics_data, self._export_metrics_data = None, self._collect_metrics_data
 
             if self._export_metrics_data is not None:
                 try:
@@ -201,12 +195,13 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
                         metrics_data=self._export_metrics_data,
                         timeout_millis=timeout_millis or self._export_timeout_millis,
                     )
-                    # Empty the export buffer.
-                    self._export_metrics_data = None
                 except sdk_metrics.MetricsTimeoutError:
                     logger.warning("Metrics export timed out.", exc_info=True)
                 except Exception:
                     logger.exception("Exception while exporting metrics.")
+                finally:
+                    # Immediately empty the export buffer for garbage collection.
+                    self._export_metrics_data = None
 
     def force_flush(
         self, timeout_millis: float = DEFAULT_COLLECT_TIMEOUT_MILLIS + DEFAULT_EXPORT_TIMEOUT_MILLIS
