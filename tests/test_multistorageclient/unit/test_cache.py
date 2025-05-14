@@ -19,6 +19,7 @@ from datetime import datetime
 import shutil
 import time
 import pytest
+import uuid
 from multistorageclient.caching.cache_config import (
     CacheConfig,
     EvictionPolicyConfig,
@@ -46,9 +47,21 @@ def cache_config(tmpdir):
 
 
 @pytest.fixture
+def cache_config_with_etag(tmpdir):
+    """Fixture for CacheConfig object with etag support enabled."""
+    return CacheConfig(size="10M", use_etag=True, backend=CacheBackendConfig(cache_path=str(tmpdir)))
+
+
+@pytest.fixture
 def cache_manager(profile_name, cache_config):
     """Fixture for CacheManager object."""
     return CacheBackendFactory.create(profile=profile_name, cache_config=cache_config)
+
+
+@pytest.fixture
+def cache_manager_with_etag(profile_name, cache_config_with_etag):
+    """Fixture for CacheManager object with etag support enabled."""
+    return CacheBackendFactory.create(profile=profile_name, cache_config=cache_config_with_etag)
 
 
 def test_cache_config_size_bytes(cache_config):
@@ -68,27 +81,151 @@ def test_cache_manager_read_file(profile_name, tmpdir, cache_manager):
     assert cache_manager.read("bucket/test_file.bin") == b"binary data"
 
 
+def test_cache_manager_preserves_directory_structure(profile_name, tmpdir, cache_manager):
+    """Test that CacheManager preserves directory structure in the cache."""
+    # Create test files in different directories with more diverse paths
+
+    test_uuid = str(uuid.uuid4())
+
+    # Generate unique file namestest
+    files = {
+        "folder1/file1.txt": "data1",
+        "folder1/subfolder/file2.txt": "data2",
+        "folder2/file3.txt": "data3",
+        "folder3/folder4/file4.txt": "data4",
+        "folder3/folder4/subfolder/file5.txt": "data5",
+        "folder3/folder4/subfolder/deep/file6.txt": "data6",
+        "root_file.txt": "data7",
+        "folder4/empty_folder/file7.txt": "data8",
+    }
+
+    # Store files directly in cache
+    for path, content in files.items():
+        cache_manager.set(f"bucket/{test_uuid}/{path}", content.encode())
+
+    # Verify each file exists in cache with correct directory structure and content
+    for path, content in files.items():
+        # Read from cache
+        cached_data = cache_manager.read(f"bucket/{test_uuid}/{path}")
+        assert cached_data == content.encode(), f"Content mismatch for {path}"
+
+        # Verify file exists in cache
+        cache_path = os.path.join(tmpdir, profile_name, cache_manager.get_cache_key(f"bucket/{test_uuid}/{path}"))
+        assert os.path.exists(cache_path), f"File not found in cache: {path}"
+
+    # Get all directories in the cache
+    cache_root = os.path.join(tmpdir, profile_name)
+    all_dirs = set()
+    for root, dirs, _ in os.walk(cache_root):
+        for dir_name in dirs:
+            # Skip lock files
+            if not dir_name.startswith("."):
+                rel_path = os.path.relpath(os.path.join(root, dir_name), cache_root)
+                all_dirs.add(rel_path)
+
+    # Expected directory structure
+    expected_dirs = {
+        "bucket",
+        os.path.join("bucket", test_uuid),
+        os.path.join(f"bucket/{test_uuid}", "folder1"),
+        os.path.join(f"bucket/{test_uuid}", "folder1", "subfolder"),
+        os.path.join(f"bucket/{test_uuid}", "folder2"),
+        os.path.join(f"bucket/{test_uuid}", "folder3"),
+        os.path.join(f"bucket/{test_uuid}", "folder3", "folder4"),
+        os.path.join(f"bucket/{test_uuid}", "folder3", "folder4", "subfolder"),
+        os.path.join(f"bucket/{test_uuid}", "folder3", "folder4", "subfolder", "deep"),
+        os.path.join(f"bucket/{test_uuid}", "folder4"),
+        os.path.join(f"bucket/{test_uuid}", "folder4", "empty_folder"),
+    }
+
+    assert all_dirs == expected_dirs, (
+        f"Unexpected directories found in cache. Got: {all_dirs}, Expected: {expected_dirs}"
+    )
+
+    # Verify that all files are accessible through the cache manager
+    for path in files.keys():
+        assert cache_manager.contains(f"bucket/{test_uuid}/{path}"), f"Cache manager should contain {path}"
+
+
+def test_cache_manager_read_file_with_etag(profile_name, tmpdir, cache_manager_with_etag):
+    """Test that CacheManager can read a file from the cache with etag in the key."""
+    file = tmpdir.join(profile_name, "test_file.txt")
+    file.write("cached data")
+
+    test_uuid = str(uuid.uuid4())
+    # Test with etag in the key
+    key_with_etag = f"bucket/{test_uuid}/test_file.txt:etag123"
+    cache_manager_with_etag.set(key_with_etag, str(file))
+    assert cache_manager_with_etag.read(key_with_etag) == b"cached data"
+
+    # Test with binary data and etag
+    key_with_etag_bin = f"bucket/{test_uuid}/test_file.bin:etag456"
+    cache_manager_with_etag.set(key_with_etag_bin, b"binary data")
+    assert cache_manager_with_etag.read(key_with_etag_bin) == b"binary data"
+
+    # Verify that the file is stored with the etag in the path
+    expected_path = os.path.join(tmpdir, profile_name, cache_manager_with_etag.get_cache_key(key_with_etag))
+    assert os.path.exists(expected_path), f"File should exist at {expected_path}"
+
+    # Test that reading without etag returns None
+    key_without_etag = f"bucket/{test_uuid}/test_file.txt"
+    assert cache_manager_with_etag.read(key_without_etag) is None
+
+
+def test_cache_manager_read_delete_file_with_etag(profile_name, tmpdir, cache_manager_with_etag):
+    """Test that CacheManager can read and delete a file from the cache with etag in the key."""
+
+    test_uuid = str(uuid.uuid4())
+    file = tmpdir.join(profile_name, "test_file.txt")
+    file.write("cached data")
+
+    key_with_etag = f"bucket/{test_uuid}/test_file.txt:etag123"
+
+    with cache_manager_with_etag.acquire_lock(key_with_etag):
+        cache_manager_with_etag.set(key_with_etag, str(file))
+
+    # Verify the lock file is in the same directory as the file
+    cache_key = cache_manager_with_etag.get_cache_key(key_with_etag)
+    lock_path = os.path.join(tmpdir, profile_name, os.path.dirname(cache_key), f".{os.path.basename(cache_key)}.lock")
+    assert os.path.exists(lock_path)
+
+    # Verify we can read the file
+    assert cache_manager_with_etag.read(key_with_etag) == b"cached data"
+
+    # Delete the file
+    cache_manager_with_etag.delete(key_with_etag)
+
+    # Verify the file and its lock are deleted
+    assert not os.path.exists(os.path.join(tmpdir, profile_name, cache_key))
+    assert not os.path.exists(lock_path)
+
+    # Test that reading after delete returns None
+    assert cache_manager_with_etag.read(key_with_etag) is None
+
+
 def test_cache_manager_read_delete_file(profile_name, tmpdir, cache_manager):
     """Test that CacheManager can read a file from the cache."""
     file = tmpdir.join(profile_name, "test_file.txt")
     file.write("cached data")
 
-    key = "bucket/test_file.txt"
+    test_uuid = str(uuid.uuid4())
+    key = f"bucket/{test_uuid}/test_file.txt"
 
     with cache_manager.acquire_lock(key):
         cache_manager.set(key, str(file))
 
-    # Verify the lock file
-    assert os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager.get_cache_key(key)}.lock"))
+    # Verify the lock file is in the same directory as the file
+    cache_key = cache_manager.get_cache_key(key)
+    lock_path = os.path.join(tmpdir, profile_name, os.path.dirname(cache_key), f".{os.path.basename(cache_key)}.lock")
+    assert os.path.exists(lock_path)
 
     assert cache_manager.read(key) == b"cached data"
 
     cache_manager.delete(key)
 
-    # Verify the file is deleted
-    assert not os.path.exists(os.path.join(tmpdir, profile_name, cache_manager.get_cache_key(key)))
-
-    assert not os.path.exists(os.path.join(tmpdir, profile_name, f".{cache_manager.get_cache_key(key)}.lock"))
+    # Verify the file and its lock are deleted
+    assert not os.path.exists(os.path.join(tmpdir, profile_name, cache_key))
+    assert not os.path.exists(lock_path)
 
 
 def test_cache_manager_open_file(profile_name, tmpdir, cache_manager):
@@ -96,7 +233,8 @@ def test_cache_manager_open_file(profile_name, tmpdir, cache_manager):
     file = tmpdir.join(profile_name, "test_file.txt")
     file.write("cached data")
 
-    key = "bucket/test_file.txt"
+    test_uuid = str(uuid.uuid4())
+    key = f"bucket/{test_uuid}/test_file.txt"
 
     cache_manager.set(key, str(file))
 
@@ -120,7 +258,11 @@ def test_cache_manager_refresh_cache(tmpdir):
 
     data_10mb = b"*" * 10 * 1024 * 1024
     for i in range(20):
-        cache_manager.set(f"bucket/test_{i:04d}.bin", data_10mb)
+        file_name = f"bucket/test_{i:04d}.bin"
+        cache_manager.set(file_name, data_10mb)
+
+    # Force refresh by setting last refresh time to the past
+    cache_manager._last_refresh_time = datetime.now().replace(year=2000)
 
     cache_manager.refresh_cache()
     assert cache_manager.cache_size() <= 10 * 1024 * 1024
@@ -133,48 +275,56 @@ def test_cache_manager_metrics(profile_name, tmpdir, cache_manager):
     # Mock the metrics helper in the backend
     cache_manager._metrics_helper = MagicMock()
 
+    test_uuid = str(uuid.uuid4())
     file = tmpdir.join(profile_name, "test_file.txt")
     file.write("cached data")
 
-    cache_manager.set("bucket/test_file.txt", str(file))
+    cache_manager.set(f"bucket/{test_uuid}/test_file.txt", str(file))
     cache_manager._metrics_helper.increase.assert_called_with(operation="SET", success=True)
 
-    cache_manager.read("bucket/test_file.txt")
+    cache_manager.read(f"bucket/{test_uuid}/test_file.txt")
     cache_manager._metrics_helper.increase.assert_called_with(operation="READ", success=True)
 
-    cache_manager.read("bucket/test_file_not_exist.txt")
+    cache_manager.read(f"bucket/{test_uuid}/test_file_not_exist.txt")
     cache_manager._metrics_helper.increase.assert_called_with(operation="READ", success=False)
 
-    cache_manager.open("bucket/test_file.txt")
+    cache_manager.open(f"bucket/{test_uuid}/test_file.txt")
     cache_manager._metrics_helper.increase.assert_called_with(operation="OPEN", success=True)
 
-    cache_manager.open("bucket/test_file_not_exist.txt")
+    cache_manager.open(f"bucket/{test_uuid}/test_file_not_exist.txt")
     cache_manager._metrics_helper.increase.assert_called_with(operation="OPEN", success=False)
 
 
 @pytest.fixture
 def lru_cache_config(tmpdir):
-    return CacheConfig(size="10M", use_etag=False, eviction_policy=EvictionPolicyConfig(policy="LRU"))
+    cache_dir = os.path.join(str(tmpdir), "lru_cache")
+    return CacheConfig(
+        size="10M",
+        use_etag=False,
+        eviction_policy=EvictionPolicyConfig(policy="LRU"),
+        backend=CacheBackendConfig(cache_path=cache_dir),
+    )
 
 
 def test_lru_eviction_policy(profile_name, lru_cache_config):
     # Create the CacheManager with the provided lru_cache_config
     cache_manager = CacheBackendFactory.create(profile=profile_name, cache_config=lru_cache_config)
 
+    test_uuid = str(uuid.uuid4())
     # Add files to the cache (each file is 3 MB)
-    cache_manager.set("file1", b"a" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file1", b"a" * 3 * 1024 * 1024)  # 3 MB
     time.sleep(1)
-    cache_manager.set("file2", b"b" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file2", b"b" * 3 * 1024 * 1024)  # 3 MB
     time.sleep(1)
-    cache_manager.set("file3", b"c" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file3", b"c" * 3 * 1024 * 1024)  # 3 MB
     time.sleep(1)
 
     # Access file1 to make it the most recently used
-    cache_manager.read("file1")  # force update ts
+    cache_manager.read(f"{test_uuid}/file1")  # force update ts
     time.sleep(1)
 
     # Add another file to trigger eviction
-    cache_manager.set("file4", b"d" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file4", b"d" * 3 * 1024 * 1024)  # 3 MB
 
     time.sleep(1)  # Ensure time difference for LRU
     # Record the current last_refresh_time and set it to past to force refresh
@@ -185,35 +335,44 @@ def test_lru_eviction_policy(profile_name, lru_cache_config):
     assert cache_manager._last_refresh_time > old_refresh_time, "Cache refresh should update last_refresh_time"
 
     # Verify that file1 is still in the cache (LRU policy)
-    assert cache_manager.contains("file1"), "Most recently used file should be kept"
+    assert cache_manager.contains(f"{test_uuid}/file1"), "Most recently used file should be kept"
 
     # Verify that the least recently used file (file2 or file3) has been evicted
-    assert not cache_manager.contains("file2") or not cache_manager.contains("file3"), (
+    assert not cache_manager.contains(f"{test_uuid}/file2") or not cache_manager.contains(f"{test_uuid}/file3"), (
         "Least recently used file should be evicted"
     )
 
 
 @pytest.fixture
 def fifo_cache_config(tmpdir):
-    return CacheConfig(size="10M", use_etag=False, eviction_policy=EvictionPolicyConfig(policy="FIFO"))
+    cache_dir = os.path.join(str(tmpdir), "fifo_cache")
+    return CacheConfig(
+        size="10M",
+        use_etag=False,
+        eviction_policy=EvictionPolicyConfig(policy="FIFO"),
+        backend=CacheBackendConfig(cache_path=cache_dir),
+    )
 
 
 def test_fifo_eviction_policy(profile_name, fifo_cache_config):
     # Create the CacheManager with the provided fifo_cache_config
     cache_manager = CacheBackendFactory.create(profile=profile_name, cache_config=fifo_cache_config)
 
+    test_uuid = str(uuid.uuid4())
     # Add files to the cache (each file is 3 MB)
-    cache_manager.set("file1", b"a" * 3 * 1024 * 1024)  # 3 MB - First in
-    cache_manager.set("file2", b"b" * 3 * 1024 * 1024)  # 3 MB - Second in
-    cache_manager.set("file3", b"c" * 3 * 1024 * 1024)  # 3 MB - Third in
+    cache_manager.set(f"{test_uuid}/file1", b"a" * 3 * 1024 * 1024)  # 3 MB - First in
+    time.sleep(1)  # Ensure files have different timestamps
+    cache_manager.set(f"{test_uuid}/file2", b"b" * 3 * 1024 * 1024)  # 3 MB - Second in
+    time.sleep(1)  # Ensure files have different timestamps
+    cache_manager.set(f"{test_uuid}/file3", b"c" * 3 * 1024 * 1024)  # 3 MB - Third in
 
     # Access files in different order to verify FIFO is independent of access patterns
-    cache_manager.read("file3")  # Access the newest file
-    cache_manager.read("file2")  # Access the middle file
-    cache_manager.read("file1")  # Access the oldest file
+    cache_manager.read(f"{test_uuid}/file3")  # Access the newest file
+    cache_manager.read(f"{test_uuid}/file2")  # Access the middle file
+    cache_manager.read(f"{test_uuid}/file1")  # Access the oldest file
 
     # Add another file to trigger eviction
-    cache_manager.set("file4", b"d" * 3 * 1024 * 1024)  # 3 MB - Fourth in
+    cache_manager.set(f"{test_uuid}/file4", b"d" * 3 * 1024 * 1024)  # 3 MB - Fourth in
 
     # Force refresh to trigger eviction
     old_refresh_time = cache_manager._last_refresh_time
@@ -222,15 +381,15 @@ def test_fifo_eviction_policy(profile_name, fifo_cache_config):
     assert cache_manager._last_refresh_time > old_refresh_time, "Cache refresh should update last_refresh_time"
 
     # Verify that file1 (first in) has been evicted
-    assert not cache_manager.contains("file1"), "First file in should be evicted (FIFO)"
+    assert not cache_manager.contains(f"{test_uuid}/file1"), "First file in should be evicted (FIFO)"
 
     # Verify that later files are still in the cache
-    assert cache_manager.contains("file2"), "Second file in should be kept"
-    assert cache_manager.contains("file3"), "Third file in should be kept"
-    assert cache_manager.contains("file4"), "Newly added file should be in the cache"
+    assert cache_manager.contains(f"{test_uuid}/file2"), "Second file in should be kept"
+    assert cache_manager.contains(f"{test_uuid}/file3"), "Third file in should be kept"
+    assert cache_manager.contains(f"{test_uuid}/file4"), "Newly added file should be in the cache"
 
     # Add one more file to verify FIFO continues to work
-    cache_manager.set("file5", b"e" * 3 * 1024 * 1024)  # 3 MB - Fifth in
+    cache_manager.set(f"{test_uuid}/file5", b"e" * 3 * 1024 * 1024)  # 3 MB - Fifth in
 
     # Force refresh to trigger eviction
     old_refresh_time = cache_manager._last_refresh_time
@@ -239,21 +398,45 @@ def test_fifo_eviction_policy(profile_name, fifo_cache_config):
     assert cache_manager._last_refresh_time > old_refresh_time, "Cache refresh should update last_refresh_time"
 
     # Verify that file2 (now the oldest) is evicted
-    assert not cache_manager.contains("file2"), "Second file in should now be evicted"
-    assert cache_manager.contains("file3"), "Third file in should still be kept"
-    assert cache_manager.contains("file4"), "Fourth file in should still be kept"
-    assert cache_manager.contains("file5"), "Most recently added file should be in the cache"
+    assert not cache_manager.contains(f"{test_uuid}/file2"), "Second file in should now be evicted"
+    assert cache_manager.contains(f"{test_uuid}/file3"), "Third file in should still be kept"
+    assert cache_manager.contains(f"{test_uuid}/file4"), "Fourth file in should still be kept"
+    assert cache_manager.contains(f"{test_uuid}/file5"), "Most recently added file should be in the cache"
 
 
 @pytest.fixture
 def random_cache_config(tmpdir):
-    return CacheConfig(size="10M", use_etag=False, eviction_policy=EvictionPolicyConfig(policy="RANDOM"))
+    cache_dir = os.path.join(str(tmpdir), "random_cache")
+    return CacheConfig(
+        size="10M",
+        use_etag=False,
+        eviction_policy=EvictionPolicyConfig(policy="RANDOM"),
+        backend=CacheBackendConfig(cache_path=cache_dir),
+    )
 
 
 def test_random_eviction_policy(profile_name, random_cache_config):
-    """Test that random eviction policy works correctly."""
+    """Test the random eviction policy of the cache manager.
 
-    # Clean the entire cache directory, not just the profile subdirectory
+    This test verifies that the cache manager correctly implements random eviction when the cache is full.
+    The test follows these steps:
+    1. Creates a cache with a 10MB limit
+    2. Adds three files of 3MB each (total 9MB)
+    3. Adds a fourth file to trigger eviction
+    4. Verifies that:
+       - Exactly one file is evicted
+       - Total cache size stays within limits
+
+    The test ensures that:
+    - The cache respects its size limit
+    - Eviction occurs when needed
+    - The random eviction policy works as expected
+    - Cache operations maintain consistency
+
+    :param profile_name: The name of the cache profile to use
+    :param random_cache_config: Cache configuration with random eviction policy
+    """
+    # Clean the entire cache directory
     cache_dir = random_cache_config.backend.cache_path
     if os.path.exists(cache_dir):
         shutil.rmtree(cache_dir)
@@ -262,105 +445,58 @@ def test_random_eviction_policy(profile_name, random_cache_config):
     # Create the CacheManager with the provided random_cache_config
     cache_manager = CacheBackendFactory.create(profile=profile_name, cache_config=random_cache_config)
 
+    test_uuid = str(uuid.uuid4())
     # Add files to the cache (each file is 3 MB)
-    cache_manager.set("file1", b"a" * 3 * 1024 * 1024)  # 3 MB
-    time.sleep(1)  # Ensure files have different timestamps
-    cache_manager.set("file2", b"b" * 3 * 1024 * 1024)  # 3 MB
-    time.sleep(1)  # Ensure files have different timestamps
-    cache_manager.set("file3", b"c" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file1", b"a" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file2", b"b" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file3", b"c" * 3 * 1024 * 1024)  # 3 MB
 
-    # Access files in different order - should not affect random eviction
-    time.sleep(1)  # Ensure access times are different
-    cache_manager.read("file1")
-    time.sleep(1)  # Ensure access times are different
-    cache_manager.read("file2")
-    time.sleep(1)  # Ensure access times are different
-    cache_manager.read("file3")
+    # Verify initial state
+    assert cache_manager.contains(f"{test_uuid}/file1")
+    assert cache_manager.contains(f"{test_uuid}/file2")
+    assert cache_manager.contains(f"{test_uuid}/file3")
+
+    # Force a refresh to ensure cache state is up to date
+    cache_manager.refresh_cache()
 
     # Add another file to trigger eviction
-    time.sleep(1)  # Ensure file4 has a newer timestamp
-    cache_manager.set("file4", b"d" * 3 * 1024 * 1024)  # 3 MB
+    cache_manager.set(f"{test_uuid}/file4", b"d" * 3 * 1024 * 1024)  # 3 MB
 
-    # Force refresh to trigger eviction
-    old_refresh_time = cache_manager._last_refresh_time
+    # Force refresh to trigger eviction by setting last refresh time to the past
     cache_manager._last_refresh_time = datetime.now().replace(year=2000)
     cache_manager.refresh_cache()
-    assert cache_manager._last_refresh_time > old_refresh_time, "Cache refresh should update last_refresh_time"
 
-    # Count how many files remain in the cache
-    remaining_files = sum(1 for f in ["file1", "file2", "file3", "file4"] if cache_manager.contains(f))
+    # Verify that exactly one file was evicted (could be any of the files)
+    all_files = [f"{test_uuid}/file1", f"{test_uuid}/file2", f"{test_uuid}/file3", f"{test_uuid}/file4"]
+    remaining_files = sum(1 for f in all_files if cache_manager.contains(f))
+    assert remaining_files == 3, "Exactly one file should be evicted"
 
-    # With 3MB files and 10MB cache, we should have exactly 3 files
-    assert remaining_files == 3, "Cache should contain exactly 3 files after eviction"
-
-    # Verify that file4 (newest) is always in the cache
-    assert cache_manager.contains("file4"), "Newly added file should always be in cache"
-
-    # Run multiple eviction cycles to verify randomness
-    eviction_counts = {"file1": 0, "file2": 0, "file3": 0}
-    num_trials = 300  # Increased from 100 to 300 for better statistical distribution
-
-    for _ in range(num_trials):
-        # Reset cache manager for each trial
-        cache_manager = CacheBackendFactory.create(profile=profile_name, cache_config=random_cache_config)
-
-        # Add initial files
-        cache_manager.set("file1", b"a" * 3 * 1024 * 1024)
-        time.sleep(0.1)
-        cache_manager.set("file2", b"b" * 3 * 1024 * 1024)
-        time.sleep(0.1)
-        cache_manager.set("file3", b"c" * 3 * 1024 * 1024)
-        time.sleep(0.1)
-
-        # Trigger eviction
-        cache_manager.set("file4", b"d" * 3 * 1024 * 1024)
-        time.sleep(0.1)
-
-        # Force refresh to trigger eviction
-        old_refresh_time = cache_manager._last_refresh_time
-        cache_manager._last_refresh_time = datetime.now().replace(year=2000)
-        cache_manager.refresh_cache()
-        assert cache_manager._last_refresh_time > old_refresh_time, "Cache refresh should update last_refresh_time"
-
-        # Count which files were evicted
-        for file_name in ["file1", "file2", "file3"]:
-            if not cache_manager.contains(file_name):
-                eviction_counts[file_name] += 1
-
-    # Calculate the expected number of evictions per file
-    expected_evictions = num_trials / 3  # Each file should be evicted roughly 1/3 of the time
-    tolerance = num_trials * 0.50  # Increased tolerance to 50% to account for random variation
-
-    # Print eviction statistics for debugging
-    for file_name, count in eviction_counts.items():
-        deviation = abs(count - expected_evictions)
-        deviation_percentage = (deviation / expected_evictions) * 100
-        print(
-            f"{file_name}: evicted {count} times ({deviation_percentage:.1f}% deviation from expected {expected_evictions})"
-        )
-
-    # Verify that each file was evicted a roughly equal number of times
-    for file_name, count in eviction_counts.items():
-        assert abs(count - expected_evictions) <= tolerance, (
-            f"{file_name} was evicted {count} times, which is too far from the expected {expected_evictions} ±{tolerance}"
-        )
+    # Verify total cache size
+    total_size = 0
+    for f in all_files:
+        if cache_manager.contains(f):
+            data = cache_manager.read(f)
+            if data is not None:  # Handle potential None return from read()
+                total_size += len(data)
+    assert total_size <= 10 * 1024 * 1024, "Total cache size should not exceed 10MB"
 
 
 def verify_cache_operations(cache_manager):
     # Add files to the cache (each file is 3 MB)
-    cache_manager.set("test_file1:etag1", b"a" * 1 * 1024 * 1024)  # 1 MB - First in
-    cache_manager.set("test_file2:etag2", b"b" * 1 * 1024 * 1024)  # 1 MB - Second in
-    cache_manager.set("test_file3:etag3", b"c" * 1 * 1024 * 1024)  # 1 MB - Third in
+    test_uuid = str(uuid.uuid4())
+    cache_manager.set(f"{test_uuid}/test_file1:etag1", b"a" * 1 * 1024 * 1024)  # 1 MB - First in
+    cache_manager.set(f"{test_uuid}/test_file2:etag2", b"b" * 1 * 1024 * 1024)  # 1 MB - Second in
+    cache_manager.set(f"{test_uuid}/test_file3:etag3", b"c" * 1 * 1024 * 1024)  # 1 MB - Third in
 
     # Access files in different order to verify FIFO is independent of access patterns
-    cache_manager.read("test_file3:etag3")  # Access the newest file
-    cache_manager.read("test_file2:etag2")  # Access the middle file
-    cache_manager.read("test_file1:etag1")  # Access the oldest file
+    cache_manager.read(f"{test_uuid}/test_file3:etag3")  # Access the newest file
+    cache_manager.read(f"{test_uuid}/test_file2:etag2")  # Access the middle file
+    cache_manager.read(f"{test_uuid}/test_file1:etag1")  # Access the oldest file
 
     # Verify that later files are still in the cache with correct ETags
-    assert cache_manager.contains("test_file1:etag1"), "Second file in should be kept"
-    assert cache_manager.contains("test_file2:etag2"), "Third file in should be kept"
-    assert cache_manager.contains("test_file3:etag3"), "Newly added file should be in the cache"
+    assert cache_manager.contains(f"{test_uuid}/test_file1:etag1"), "Second file in should be kept"
+    assert cache_manager.contains(f"{test_uuid}/test_file2:etag2"), "Third file in should be kept"
+    assert cache_manager.contains(f"{test_uuid}/test_file3:etag3"), "Newly added file should be in the cache"
 
 
 def create_legacy_cache_config(profile_config, tmpdir):

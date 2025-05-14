@@ -14,18 +14,18 @@
 # limitations under the License.
 
 # Standard library imports
-import hashlib
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from datetime import datetime
+from io import BytesIO, StringIO
 import logging
 import os
 import stat
 import tempfile
 import threading
 import time
-from abc import ABC, abstractmethod
-from collections import OrderedDict
-from datetime import datetime
-from io import BytesIO, StringIO
 from typing import Any, List, Optional, Tuple, Union
+import xattr
 
 # Third-party imports
 from filelock import BaseFileLock, FileLock, Timeout
@@ -141,6 +141,26 @@ class CacheBackend(ABC):
         """Check if the eviction policy is valid for this backend."""
         pass
 
+    def _split_key(self, key: str) -> Tuple[str, Optional[str]]:
+        """Split the key into path and etag.
+
+        :param key: The key to split.
+        :return: A tuple containing the path and etag.
+        """
+        if ":" in key:
+            path, etag = key.split(":", 1)
+        else:
+            path, etag = key, None
+        return path, etag
+
+    def get_cache_key(self, file_name: str) -> str:
+        """Get the cache key for the given file name. Split the key into path and etag if it contains a colon.
+
+        :param file_name: The file name to get the cache key for.
+        :return: The cache key for the given file name.
+        """
+        return self._split_key(file_name)[0]
+
 
 class FileSystemBackend(CacheBackend):
     """
@@ -163,7 +183,7 @@ class FileSystemBackend(CacheBackend):
         :param storage_provider: Optional storage provider (not used in filesystem backend).
         """
         super().__init__(profile, cache_config, storage_provider)
-        self._cache_dir = os.path.abspath(cache_config.backend.cache_path)
+
         self._max_cache_size = cache_config.size_bytes()
         self._last_refresh_time = datetime.now()
         self._metrics_helper = CacheManagerMetricsHelper()
@@ -205,28 +225,23 @@ class FileSystemBackend(CacheBackend):
         except OSError:
             return None
 
-    def delete_file(self, file_name: str) -> None:
+    def delete_file(self, file_path: str) -> None:
         """Delete a file from the cache directory.
 
         Args:
-            file_name: Name of the file to delete
+            file_path: Path to the file relative to cache directory
         """
         try:
-            os.unlink(os.path.join(self._cache_dir, self._profile, file_name))
-            os.unlink(os.path.join(self._cache_dir, self._profile, f".{file_name}.lock"))
+            # Construct absolute path using cache directory as base
+            abs_path = os.path.join(self._get_cache_dir(), file_path)
+            os.unlink(abs_path)
+
+            # Handle lock file - keep it in same directory as the file
+            lock_name = f".{os.path.basename(file_path)}.lock"
+            lock_path = os.path.join(os.path.dirname(abs_path), lock_name)
+            os.unlink(lock_path)
         except OSError:
             pass
-
-    def get_cache_key(self, file_name: str) -> str:
-        """Hash the file name using MD5.
-
-        Args:
-            file_name: Name of the file to hash
-
-        Returns:
-            str: MD5 hash of the file name
-        """
-        return hashlib.md5(file_name.encode()).hexdigest()
 
     def _should_refresh_cache(self) -> bool:
         """Check if enough time has passed since the last refresh.
@@ -253,26 +268,31 @@ class FileSystemBackend(CacheBackend):
                     continue
                 try:
                     if os.path.isfile(file_path):
-                        cache_item = CacheItem.from_path(file_path, file_name)
+                        # Get the relative path from the cache directory
+                        rel_path = os.path.relpath(file_path, self._cache_path)
+                        cache_item = CacheItem.from_path(file_path, rel_path)
                         if cache_item and cache_item.file_size:
-                            logging.debug(f"Found file: {file_name}, size: {cache_item.file_size}")
+                            logging.debug(f"Found file: {rel_path}, size: {cache_item.file_size}")
                             cache_items.append(cache_item)
                 except OSError:
                     # Ignore if file has already been evicted
                     pass
 
         logging.debug(f"\nFound {len(cache_items)} files before sorting")
+
         # Sort items according to eviction policy
         cache_items = self._eviction_policy.sort_items(cache_items)
         logging.debug("\nFiles after sorting by policy:")
         for item in cache_items:
-            logging.debug(f"File: {os.path.basename(item.file_path)}")
+            logging.debug(f"File: {item.file_path}")
 
         # Rebuild the cache
         cache = OrderedDict()
         cache_size = 0
         for item in cache_items:
-            cache[item.file_path] = item.file_size
+            # Use the relative path from cache directory
+            rel_path = os.path.relpath(item.file_path, self._cache_path)
+            cache[rel_path] = item.file_size
             cache_size += item.file_size
         logging.debug(f"Total cache size: {cache_size}, Max allowed: {self._max_cache_size}")
 
@@ -281,12 +301,12 @@ class FileSystemBackend(CacheBackend):
             # Pop the first item in the OrderedDict (according to policy's sorting)
             oldest_file, file_size = cache.popitem(last=False)
             cache_size -= file_size
-            logging.debug(f"Evicting file: {os.path.basename(oldest_file)}, size: {file_size}")
-            self.delete_file(os.path.basename(oldest_file))
+            logging.debug(f"Evicting file: {oldest_file}, size: {file_size}")
+            self.delete_file(oldest_file)
 
         logging.debug("\nFinal cache contents:")
         for file_path in cache.keys():
-            logging.debug(f"Remaining file: {os.path.basename(file_path)}")
+            logging.debug(f"Remaining file: {file_path}")
 
     def use_etag(self) -> bool:
         """Check if etag is used in the cache config."""
@@ -302,8 +322,8 @@ class FileSystemBackend(CacheBackend):
 
     def _get_cache_file_path(self, key: str) -> str:
         """Return the path to the local cache file for the given key."""
-        hashed_name = self.get_cache_key(key)
-        return os.path.join(self._cache_dir, self._profile, hashed_name)
+        cache_key = self.get_cache_key(key)
+        return os.path.join(self._cache_dir, self._profile, cache_key)
 
     def read(self, key: str) -> Optional[bytes]:
         """Read the contents of a file from the cache if it exists."""
@@ -311,6 +331,8 @@ class FileSystemBackend(CacheBackend):
         try:
             try:
                 if self.contains(key):
+                    # Handle both key formats: with and without colon
+                    key, _ = self._split_key(key)
                     file_path = self._get_cache_file_path(key)
                     with open(file_path, "rb") as fp:
                         data = fp.read()
@@ -332,6 +354,8 @@ class FileSystemBackend(CacheBackend):
         try:
             try:
                 if self.contains(key):
+                    # Handle both key formats: with and without colon
+                    key, _ = self._split_key(key)
                     file_path = self._get_cache_file_path(key)
                     # Update access time based on eviction policy
                     self._update_access_time(file_path)
@@ -349,8 +373,11 @@ class FileSystemBackend(CacheBackend):
         """Store a file in the cache."""
         success = True
         try:
-            hashed_name = self.get_cache_key(key)
-            file_path = os.path.join(self._cache_dir, self._profile, hashed_name)
+            path, etag = self._split_key(key)
+
+            file_path = self._get_cache_file_path(key)
+            # Ensure the directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             if isinstance(source, str):
                 # Move the file to the cache directory
@@ -368,6 +395,13 @@ class FileSystemBackend(CacheBackend):
                 # Only allow the owner to read and write the file
                 os.chmod(file_path, mode=stat.S_IRUSR | stat.S_IWUSR)
 
+            # Set extended attribute (e.g., ETag)
+            if etag:
+                try:
+                    xattr.setxattr(file_path, "user.etag", etag.encode("utf-8"))
+                except OSError as e:
+                    logging.warning(f"Failed to set xattr on {file_path}: {e}")
+
             # update access time if applicable
             self._update_access_time(file_path)
 
@@ -384,15 +418,39 @@ class FileSystemBackend(CacheBackend):
 
     def contains(self, key: str) -> bool:
         """Check if the cache contains a file corresponding to the given key."""
-        hashed_name = self.get_cache_key(key)
-        file_path = os.path.join(self._cache_dir, self._profile, hashed_name)
-        return os.path.exists(file_path)
+        try:
+            # Parse key and etag
+            path, source_etag = self._split_key(key)
+
+            # Get cache path
+            file_path = self._get_cache_file_path(key)
+
+            # If file doesn't exist, return False
+            if not os.path.exists(file_path):
+                return False
+
+            # If etag checking is disabled, return True if file exists
+            if not self.use_etag():
+                return True
+
+            # Verify etag matches if checking is enabled
+            try:
+                xattr_value = xattr.getxattr(file_path, "user.etag")
+                stored_etag = xattr_value.decode("utf-8")
+                return stored_etag is not None and stored_etag == source_etag
+            except OSError:
+                # If xattr fails, assume etag doesn't match
+                return False
+
+        except Exception as e:
+            logging.error(f"Error checking cache: {e}")
+            return False
 
     def delete(self, key: str) -> None:
         """Delete a file from the cache."""
         try:
-            hashed_name = self.get_cache_key(key)
-            self.delete_file(hashed_name)
+            key, _ = self._split_key(key)
+            self.delete_file(key)
         finally:
             self._metrics_helper.increase(operation="DELETE", success=True)
 
@@ -427,8 +485,13 @@ class FileSystemBackend(CacheBackend):
 
     def acquire_lock(self, key: str) -> BaseFileLock:
         """Create a FileLock object for a given key."""
-        hashed_name = self.get_cache_key(key)
-        lock_file = os.path.join(self._cache_dir, self._profile, f".{hashed_name}.lock")
+        key, _ = self._split_key(key)
+
+        file_dir = os.path.dirname(os.path.join(self._get_cache_dir(), key))
+
+        # Create lock file in the same directory as the file
+        lock_name = f".{os.path.basename(key)}.lock"
+        lock_file = os.path.join(file_dir, lock_name)
         return FileLock(lock_file, timeout=self.DEFAULT_FILE_LOCK_TIMEOUT)
 
     def _update_access_time(self, file_path: str) -> None:
@@ -504,17 +567,6 @@ class StorageProviderBackend(CacheBackend):
         """Set the last refresh time."""
         self._last_refresh_time = value
 
-    def get_cache_key(self, key: str) -> str:
-        """Hash the key using MD5.
-
-        Args:
-            key: Key to hash
-
-        Returns:
-            str: MD5 hash of the key
-        """
-        return key
-
     def use_etag(self) -> bool:
         """Check if etag is used in the cache config."""
         return self._cache_config.use_etag
@@ -530,8 +582,8 @@ class StorageProviderBackend(CacheBackend):
 
     def _get_cache_file_path(self, key: str) -> str:
         """Return the path to the cache file for the given key."""
-        hashed_name = self.get_cache_key(key)
-        return f"{self._get_cache_dir()}/{hashed_name}"
+        cache_key = self.get_cache_key(key)
+        return f"{self._get_cache_dir()}/{cache_key}"
 
     def read(self, key: str) -> Optional[bytes]:
         """Read the contents of a file from the cache if it exists."""
@@ -581,14 +633,6 @@ class StorageProviderBackend(CacheBackend):
         """Check if enough time has passed since the last refresh."""
         now = datetime.now()
         return (now - self._last_refresh_time).seconds > self._cache_refresh_interval
-
-    def _split_key(self, key: str) -> Tuple[str, Optional[str]]:
-        """Split the key into path and etag."""
-        if ":" in key:
-            path, etag = key.split(":", 1)
-        else:
-            path, etag = key, None
-        return path, etag
 
     def set(self, key: str, source: Union[str, bytes]) -> None:
         """Store a file in the cache."""
