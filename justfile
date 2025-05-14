@@ -142,5 +142,7 @@ run-e2e-tests: prepare-virtual-environment
 
 # Run minimal verification without any optional dependencies.
 run-minimal-verification:
-    uv sync --python {{python-binary}}
+    # Prepare the virtual environment without optional dependencies.
+    if [[ -z "${CI:-}" ]]; then uv sync --python {{python-binary}}; else uv sync --locked --python {{python-binary}}; fi
+    # Minimal verification.
     uv run pytest tests/test_multistorageclient/unit/test_minimal.py

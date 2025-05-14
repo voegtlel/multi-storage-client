@@ -44,8 +44,8 @@ Build:
   script:
     - |
       nix develop --command bash -c "
-        just python-binary=${PYTHON_BINARY} run-minimal-verification &&
-        just python-binary=${PYTHON_BINARY} build
+        just python-binary=${PYTHON_BINARY} build &&
+        just python-binary=${PYTHON_BINARY} run-minimal-verification
       "
   artifacts:
     paths:
