@@ -690,7 +690,9 @@ class StorageClientConfig:
                     raise ValueError(f'Invalid implicit profile format: "{profile}"')
             else:
                 raise ValueError(
-                    f'Profile "{profile}" not found in configuration files "{msc_config_file}" or "{rclone_config_file}". Please check that the profile name is correct and defined in one of these files.'
+                    f'Profile "{profile}" not found in configuration files. Configuration was checked in '
+                    f"{msc_config_file or 'MSC config (not found)'} and {rclone_config_file or 'Rclone config (not found)'}. "
+                    f"Please verify that the profile exists and that configuration files are correctly located."
                 )
             # merge the implicit profile config into the merged config so the cache & observability config can be inherited
             if "profiles" not in merged_config:

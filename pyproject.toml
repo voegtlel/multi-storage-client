@@ -94,6 +94,7 @@ dev = [
 
 [project.scripts]
 msc-benchmark = "multistorageclient.commands.msc_benchmark:main"
+msc = "multistorageclient.commands.cli.main:main"
 
 [project.entry-points."fsspec.specs"]
 msc = "multistorageclient.contrib.async_fs.MultiAsyncFileSystem"
