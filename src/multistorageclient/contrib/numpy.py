@@ -34,12 +34,12 @@ def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
         if "mode" not in kwargs:
             kwargs["mode"] = "r"
         with msc_open(file, mode=str(kwargs.get("mode"))) as fp:
-            args = (fp.get_local_path(),) + args[1:]
+            args = (fp.resolve_filesystem_path(),) + args[1:]
     elif isinstance(file, MultiStoragePath):
         if "mode" not in kwargs:
             kwargs["mode"] = "r"
         with file.open(mode=str(kwargs.get("mode"))) as fp:
-            args = (fp.get_local_path(),) + args[1:]
+            args = (fp.resolve_filesystem_path(),) + args[1:]
 
     return _np.memmap(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]
 
@@ -51,15 +51,11 @@ def load(*args: Any, **kwargs: Any) -> Union[_np.ndarray, Dict[str, _np.ndarray]
 
     file = args[0] if args else kwargs.get("file")
 
-    def get_local_path(file: Union[str, MultiStoragePath]) -> Union[str, None]:
+    def resolve_filesystem_path(file: Union[str, MultiStoragePath]) -> Union[str, None]:
         """Helper function to get the local path from a filepath or MultiStoragePath."""
-        if isinstance(file, MultiStoragePath):
-            with file.open() as fp:
-                return fp.get_local_path()
-        elif isinstance(file, str):
-            with msc_open(file) as fp:
-                return fp.get_local_path()
-        return ""
+        if isinstance(file, str):
+            file = MultiStoragePath(file)
+        return file.as_posix()
 
     if isinstance(file, str) or isinstance(file, MultiStoragePath):
         # For .npy with memmap mode != none, _np.load() will call format.open_memmap() underneath,
@@ -72,7 +68,7 @@ def load(*args: Any, **kwargs: Any) -> Union[_np.ndarray, Dict[str, _np.ndarray]
         # to file-like object.
 
         # block until download is completed to ensure local path is available for the open() call within _np.load()
-        local_path = get_local_path(file)
+        local_path = resolve_filesystem_path(file)
         if not local_path:
             raise ValueError(f"local_path={local_path} for the downloaded file[{file}] is not valid")
         if args:

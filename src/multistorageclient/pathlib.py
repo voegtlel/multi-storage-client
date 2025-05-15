@@ -36,6 +36,12 @@ class MultiStoragePath:
 
     This implementation is based on Python 3.9's pathlib.Path interface, providing compatible behavior
     for local filesystem operations while extending support to remote storage systems.
+
+    Examples:
+        >>> import multistorageclient as msc
+        >>> msc.Path("/local/path/file.txt")
+        >>> msc.Path("msc://my-profile/data/file.txt")
+        >>> msc.Path(pathlib.Path("relative/path"))
     """
 
     _internal_path: PurePosixPath
@@ -43,13 +49,17 @@ class MultiStoragePath:
     _path: str
 
     def __init__(self, path: Union[str, os.PathLike]):
+        """
+        Initialize path object supporting multiple storage backends.
+
+        :param path: String, Path, or MultiStoragePath. Relative paths are automatically converted to absolute.
+        """
         self._path = str(path)
         self._storage_client, relative_path = resolve_storage_client(self._path)
         self._internal_path = PurePosixPath(relative_path)
 
         if self._storage_client.is_default_profile():
-            if not Path(self._internal_path).is_absolute():
-                raise ValueError(f"Path '{self._internal_path}' must be absolute. Relative paths are not supported.")
+            self._internal_path = PurePosixPath("/") / self._internal_path
 
     def __str__(self) -> str:
         if self._storage_client.is_default_profile():
@@ -129,7 +139,10 @@ class MultiStoragePath:
     def as_posix(self) -> str:
         if self._storage_client.is_default_profile():
             return self._internal_path.as_posix()
-        raise NotImplementedError("MultiStoragePath.as_posix() is unsupported for remote storage paths")
+
+        # Return the local path of the file
+        with self._storage_client.open(str(self._internal_path), mode="rb") as fp:
+            return fp.resolve_filesystem_path()
 
     def is_absolute(self) -> bool:
         # Paths are always absolute

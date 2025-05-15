@@ -360,6 +360,8 @@ class ObjectFile(IO):
 
     @property
     def closed(self) -> bool:
+        if self.readable():
+            self._download_complete.wait()
         return self._file.closed
 
     @file_tracer
@@ -405,7 +407,8 @@ class ObjectFile(IO):
         yield from self.readlines()
 
     def __next__(self) -> Any:
-        self._download_complete.wait()
+        if self.readable():
+            self._download_complete.wait()
         return next(self._file)
 
     def __enter__(self) -> "ObjectFile":
@@ -512,16 +515,31 @@ class ObjectFile(IO):
             self._storage_client.upload_file(self._remote_path, temp_file_path)
             os.unlink(temp_file_path)
 
-    def get_local_path(self) -> Optional[str]:
+    def resolve_filesystem_path(self) -> Optional[str]:
         """
-        Get local path for the ObjectFile.
-        If in read mode, then we should block until the file is fully downloaded to prevent
-        caller uses this path for partial data.
+        Get filesystem path for the file content. Only available in read modes.
+
+        With cache manager: Returns path to cached file after download completes.
+        Without cache manager: Creates and returns path to temporary file with copied content.
+
+        :return: Path to local file in read mode, None in write mode
         """
-        if self._cache_manager:
-            if self._mode in ("r", "rb"):
-                self._download_complete.wait()
-            return self._file.name
+        if self.readable():
+            self._download_complete.wait()
+            if self._cache_manager:
+                # Get the cached path of the file
+                return self._file.name
+            else:
+                logger.warning(
+                    f"Creating temporary file for {self._remote_path}. For better performance, please enable cache in the MSC config file."
+                )
+                # Create a temporary file and write the content to it
+                mode = "w" if self._mode == "r" else "wb"
+                temp_file = tempfile.NamedTemporaryFile(mode=mode, prefix=".msc_", delete=False)
+                self._file.seek(0)
+                temp_file.write(self._file.read())
+                self._open_files.append(temp_file)
+                return temp_file.name
 
         return None
 
@@ -683,7 +701,7 @@ class PosixFile(IO):
             # Rename the temporary file to the target file
             os.rename(self._temp_path, self._real_path)
 
-    def get_local_path(self) -> Optional[str]:
+    def resolve_filesystem_path(self) -> Optional[str]:
         return self._file.name
 
     def fsync(self) -> None:

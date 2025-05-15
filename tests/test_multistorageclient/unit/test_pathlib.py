@@ -87,6 +87,9 @@ def test_path_basic():
         assert not path1.exists()
         assert path7.exists()
 
+        path8 = msc.Path(f"{temp_dir}/dir1/testfile-3.txt")
+        assert path8.as_posix() == f"{temp_dir}/dir1/testfile-3.txt"
+
 
 def test_path_hierarchy(file_storage_config):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -203,6 +206,11 @@ def verify_pathlib(profile: str, prefix: str):
     assert path6 == msc.Path(f"msc://{profile}/{prefix}/data-3.bin")
     with path6.open("rb") as fp:
         assert fp.read() == body
+
+    # filesystem path
+    path7 = msc.Path(f"msc://{profile}/{prefix}/data-4.bin")
+    path7.as_posix().startswith(tempfile.gettempdir())
+    assert Path(path7.as_posix()).exists()
 
 
 @pytest.mark.parametrize(
