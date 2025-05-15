@@ -35,7 +35,11 @@ def test_telemetry_local_objects():
     # Make sure caching works.
     telemetry_resources_str: Optional[str] = None
     meter_provider_str: Optional[str] = None
+    meter_str: Optional[str] = None
+    gauge_str: Optional[str] = None
+    counter_str: Optional[str] = None
     tracer_provider_str: Optional[str] = None
+    tracer_str: Optional[str] = None
 
     for _ in range(2):
         telemetry_resources: telemetry.Telemetry = telemetry.init(mode=telemetry.TelemetryMode.LOCAL)
@@ -46,7 +50,9 @@ def test_telemetry_local_objects():
         else:
             assert telemetry_resources_str == str(telemetry_resources)
 
-        meter_provider: Optional[MeterProvider] = telemetry_resources.meter_provider(opentelemetry_config["metrics"])
+        meter_provider: Optional[MeterProvider] = telemetry_resources.meter_provider(
+            config=opentelemetry_config["metrics"]
+        )
         assert meter_provider is not None
         assert not isinstance(meter_provider, BaseProxy)
 
@@ -55,18 +61,40 @@ def test_telemetry_local_objects():
         else:
             assert meter_provider_str == str(meter_provider)
 
-        meter: Meter = meter_provider.get_meter("meter")
+        meter: Optional[Meter] = telemetry_resources.meter(config=opentelemetry_config["metrics"])
+        assert meter is not None
         assert not isinstance(meter, BaseProxy)
 
-        counter: Counter = meter.create_counter("counter")
-        assert not isinstance(counter, BaseProxy)
+        if meter_str is None:
+            meter_str = str(meter)
+        else:
+            assert meter_str == str(meter)
 
-        counter.add(1)
-
-        gauge: Gauge = meter.create_gauge("gauge")
+        gauge: Optional[Gauge] = telemetry_resources.gauge(
+            opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
+        )
+        assert gauge is not None
         assert not isinstance(gauge, BaseProxy)
 
+        if gauge_str is None:
+            gauge_str = str(gauge)
+        else:
+            assert gauge_str == str(gauge)
+
         gauge.set(1)
+
+        counter: Optional[Counter] = telemetry_resources.counter(
+            config=opentelemetry_config["metrics"], name=telemetry.Telemetry.CounterName.DATA_SIZE_SUM
+        )
+        assert counter is not None
+        assert not isinstance(counter, BaseProxy)
+
+        if counter_str is None:
+            counter_str = str(counter)
+        else:
+            assert counter_str == str(counter)
+
+        counter.add(1)
 
         tracer_provider: Optional[TracerProvider] = telemetry_resources.tracer_provider(opentelemetry_config["traces"])
         assert tracer_provider is not None
@@ -77,8 +105,14 @@ def test_telemetry_local_objects():
         else:
             assert tracer_provider_str == str(tracer_provider)
 
-        tracer: Tracer = tracer_provider.get_tracer("tracer")
+        tracer: Optional[Tracer] = telemetry_resources.tracer(opentelemetry_config["traces"])
+        assert tracer is not None
         assert not isinstance(tracer, BaseProxy)
+
+        if tracer_str is None:
+            tracer_str = str(tracer)
+        else:
+            assert tracer_str == str(tracer)
 
         span: Span = tracer.start_span("span", context=get_current())
         assert not isinstance(span, BaseProxy)
@@ -101,8 +135,16 @@ def _test_telemetry_proxy_objects_client(
     telemetry_resources_proxy_repr: str,
     meter_provider_referent_str: str,
     meter_provider_proxy_repr: str,
+    meter_referent_str: str,
+    meter_proxy_repr: str,
+    gauge_referent_str: str,
+    gauge_proxy_repr: str,
+    counter_referent_str: str,
+    counter_proxy_repr: str,
     tracer_provider_referent_str: str,
     tracer_provider_proxy_repr: str,
+    tracer_referent_str: str,
+    tracer_proxy_repr: str,
 ):
     telemetry_resources: telemetry.Telemetry = telemetry.init(
         mode=telemetry.TelemetryMode.CLIENT, address=manager_address
@@ -119,18 +161,34 @@ def _test_telemetry_proxy_objects_client(
     assert meter_provider_referent_str == str(meter_provider)
     assert meter_provider_proxy_repr != repr(meter_provider)
 
-    meter: Meter = meter_provider.get_meter("meter")
+    meter: Optional[Meter] = telemetry_resources.meter(config=opentelemetry_config["metrics"])
+    assert meter is not None
     assert isinstance(meter, BaseProxy)
 
-    counter: Counter = meter.create_counter("counter")
-    assert isinstance(counter, BaseProxy)
+    assert meter_referent_str == str(meter)
+    assert meter_proxy_repr != repr(meter)
 
-    counter.add(1)
-
-    gauge: Gauge = meter.create_gauge("gauge")
+    gauge: Optional[Gauge] = telemetry_resources.gauge(
+        opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
+    )
+    assert gauge is not None
     assert isinstance(gauge, BaseProxy)
 
+    assert gauge_referent_str == str(gauge)
+    assert gauge_proxy_repr != repr(gauge)
+
     gauge.set(1)
+
+    counter: Optional[Counter] = telemetry_resources.counter(
+        config=opentelemetry_config["metrics"], name=telemetry.Telemetry.CounterName.DATA_SIZE_SUM
+    )
+    assert counter is not None
+    assert isinstance(counter, BaseProxy)
+
+    assert counter_referent_str == str(counter)
+    assert counter_proxy_repr != repr(counter)
+
+    counter.add(1)
 
     tracer_provider: Optional[TracerProvider] = telemetry_resources.tracer_provider(opentelemetry_config["traces"])
     assert tracer_provider is not None
@@ -139,8 +197,12 @@ def _test_telemetry_proxy_objects_client(
     assert tracer_provider_referent_str == str(tracer_provider)
     assert tracer_provider_proxy_repr != repr(tracer_provider)
 
-    tracer: Tracer = tracer_provider.get_tracer("tracer")
+    tracer: Optional[Tracer] = telemetry_resources.tracer(opentelemetry_config["traces"])
+    assert tracer is not None
     assert isinstance(tracer, BaseProxy)
+
+    assert tracer_referent_str == str(tracer)
+    assert tracer_proxy_repr != repr(tracer)
 
     # Passes the current process' span context to the remote constructor.
     span: Span = tracer.start_span("span", context=get_current())
@@ -176,24 +238,32 @@ def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
     assert meter_provider is not None
     assert isinstance(meter_provider, BaseProxy)
 
-    meter: Meter = meter_provider.get_meter("meter")
+    meter: Optional[Meter] = telemetry_resources.meter(config=opentelemetry_config["metrics"])
+    assert meter is not None
     assert isinstance(meter, BaseProxy)
 
-    counter: Counter = meter.create_counter("counter")
-    assert isinstance(counter, BaseProxy)
-
-    counter.add(1)
-
-    gauge: Gauge = meter.create_gauge("gauge")
+    gauge: Optional[Gauge] = telemetry_resources.gauge(
+        opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
+    )
+    assert gauge is not None
     assert isinstance(gauge, BaseProxy)
 
     gauge.set(1)
+
+    counter: Optional[Counter] = telemetry_resources.counter(
+        config=opentelemetry_config["metrics"], name=telemetry.Telemetry.CounterName.DATA_SIZE_SUM
+    )
+    assert counter is not None
+    assert isinstance(counter, BaseProxy)
+
+    counter.add(1)
 
     tracer_provider: Optional[TracerProvider] = telemetry_resources.tracer_provider(opentelemetry_config["traces"])
     assert tracer_provider is not None
     assert isinstance(tracer_provider, BaseProxy)
 
-    tracer: Tracer = tracer_provider.get_tracer("tracer")
+    tracer: Optional[Tracer] = telemetry_resources.tracer(opentelemetry_config["traces"])
+    assert tracer is not None
     assert isinstance(tracer, BaseProxy)
 
     # Passes the current process' span context to the remote constructor.
@@ -220,7 +290,15 @@ def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
             "telemetry_resources_proxy_repr": repr(telemetry_resources),
             "meter_provider_referent_str": str(meter_provider),
             "meter_provider_proxy_repr": repr(meter_provider),
+            "meter_referent_str": str(meter),
+            "meter_proxy_repr": repr(meter),
+            "gauge_referent_str": str(gauge),
+            "gauge_proxy_repr": repr(gauge),
+            "counter_referent_str": str(counter),
+            "counter_proxy_repr": repr(counter),
             "tracer_provider_referent_str": str(tracer_provider),
             "tracer_provider_proxy_repr": repr(tracer_provider),
+            "tracer_referent_str": str(tracer),
+            "tracer_proxy_repr": repr(tracer),
         },
     )

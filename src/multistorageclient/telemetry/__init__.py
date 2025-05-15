@@ -24,7 +24,7 @@ import opentelemetry.metrics as api_metrics
 import opentelemetry.trace as api_trace
 import os
 import threading
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional, Union
 from .. import utils
 
 # MSC telemetry prefers publishing raw samples when possible to support arbitrary post-hoc aggregations.
@@ -53,27 +53,90 @@ _TRACE_EXPORTER_MAPPING = {
 
 class Telemetry:
     """
-    Telemetry resource provider.
+    Provides telemetry resources.
 
     Instances shouldn't be copied between processes. Not fork-safe or pickleable.
 
     Instances can be shared between processes by registering with a :py:class:``multiprocessing.Manager`` and using proxy objects.
     """
 
-    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to provider.
-    _meter_provider_cache: Dict[str, api_metrics.MeterProvider]
+    # Metrics are named `multistorageclient.{property}(.{aggregation})?`.
+    #
+    # For example:
+    #
+    # - multistorageclient.data_size
+    #   - Gauge for data size per individual operation.
+    #   - For distributions (e.g. post-hoc histograms + heatmaps).
+    # - multistorageclient.data_size.sum
+    #   - Counter (sum) for data size across all operations.
+    #   - For aggregates (e.g. post-hoc data rate calculations).
+
+    # https://opentelemetry.io/docs/specs/semconv/general/naming#metrics
+    class GaugeName(enum.Enum):
+        LATENCY = "multistorageclient.latency"
+        DATA_SIZE = "multistorageclient.data_size"
+        DATA_RATE = "multistorageclient.data_rate"
+
+    # https://opentelemetry.io/docs/specs/semconv/general/metrics#units
+    _GAUGE_UNIT_MAPPING: dict[GaugeName, str] = {
+        # Seconds.
+        GaugeName.LATENCY: "s",
+        # Bytes.
+        GaugeName.DATA_SIZE: "By",
+        # Bytes/second.
+        GaugeName.DATA_RATE: "By/s",
+    }
+
+    # https://opentelemetry.io/docs/specs/semconv/general/naming#metrics
+    class CounterName(enum.Enum):
+        REQUEST_SUM = "multistorageclient.request.sum"
+        RESPONSE_SUM = "multistorageclient.response.sum"
+        DATA_SIZE_SUM = "multistorageclient.data_size.sum"
+
+    # https://opentelemetry.io/docs/specs/semconv/general/metrics#units
+    _COUNTER_UNIT_MAPPING: dict[CounterName, str] = {
+        # Unitless.
+        CounterName.REQUEST_SUM: "{request}",
+        # Unitless.
+        CounterName.RESPONSE_SUM: "{response}",
+        # Bytes.
+        CounterName.DATA_SIZE_SUM: "By",
+    }
+
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to meter provider.
+    _meter_provider_cache: dict[str, api_metrics.MeterProvider]
     _meter_provider_cache_lock: threading.Lock
-    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to provider.
-    _tracer_provider_cache: Dict[str, api_trace.TracerProvider]
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to meter.
+    _meter_cache: dict[str, api_metrics.Meter]
+    _meter_cache_lock: threading.Lock
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to gauge name to gauge.
+    _gauge_cache: dict[str, dict[GaugeName, api_metrics._Gauge]]
+    _gauge_cache_lock: threading.Lock
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to counter name to counter.
+    _counter_cache: dict[str, dict[CounterName, api_metrics.Counter]]
+    _counter_cache_lock: threading.Lock
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to tracer provider.
+    _tracer_provider_cache: dict[str, api_trace.TracerProvider]
     _tracer_provider_cache_lock: threading.Lock
+    # Map of config as a sorted JSON string (since dictionaries can't be hashed) to tracer.
+    _tracer_cache: dict[str, api_trace.Tracer]
+    _tracer_cache_lock: threading.Lock
 
     def __init__(self):
         self._meter_provider_cache = {}
         self._meter_provider_cache_lock = threading.Lock()
+        self._meter_cache = {}
+        self._meter_cache_lock = threading.Lock()
+        self._gauge_cache = {}
+        self._gauge_cache_lock = threading.Lock()
+        self._counter_cache = {}
+        self._counter_cache_lock = threading.Lock()
         self._tracer_provider_cache = {}
         self._tracer_provider_cache_lock = threading.Lock()
+        self._tracer_cache = {}
+        self._tracer_cache_lock = threading.Lock()
 
-    def meter_provider(self, config: Dict[str, Any]) -> Optional[api_metrics.MeterProvider]:
+    def meter_provider(self, config: dict[str, Any]) -> Optional[api_metrics.MeterProvider]:
         """
         Create or return an existing :py:class:``api_metrics.MeterProvider`` for a config.
 
@@ -99,8 +162,10 @@ class Telemetry:
                         # TODO: Auth options.
                         exporter: sdk_metrics_export.MetricExporter = cls(**exporter_options)
 
-                        # TODO: Make collect + export intervals + timeouts configurable from MSC configs?
-                        reader: sdk_metrics_export.MetricReader = DiperiodicExportingMetricReader(exporter=exporter)
+                        reader_options = config.get("reader", {}).get("options", {})
+                        reader: sdk_metrics_export.MetricReader = DiperiodicExportingMetricReader(
+                            exporter=exporter, **reader_options
+                        )
 
                         return self._meter_provider_cache.setdefault(
                             config_json, sdk_metrics.MeterProvider(metric_readers=[reader])
@@ -115,7 +180,69 @@ class Telemetry:
                     logging.error("No exporter configured! Disabling metrics.")
                     return None
 
-    def tracer_provider(self, config: Dict[str, Any]) -> Optional[api_trace.TracerProvider]:
+    def meter(self, config: dict[str, Any]) -> Optional[api_metrics.Meter]:
+        """
+        Create or return an existing :py:class:``api_metrics.Meter`` for a config.
+
+        :param config: ``.opentelemetry.metrics`` config dict.
+        :return: A :py:class:``api_metrics.Meter`` or ``None`` if no valid exporter is configured.
+        """
+        config_json = json.dumps(config, sort_keys=True)
+        with self._meter_cache_lock:
+            if config_json in self._meter_cache:
+                return self._meter_cache[config_json]
+            else:
+                meter_provider = self.meter_provider(config=config)
+                if meter_provider is None:
+                    return None
+                else:
+                    return self._meter_cache.setdefault(
+                        config_json, meter_provider.get_meter(name="multistorageclient")
+                    )
+
+    def gauge(self, config: dict[str, Any], name: GaugeName) -> Optional[api_metrics._Gauge]:
+        """
+        Create or return an existing :py:class:``api_metrics.Gauge`` for a config and gauge name.
+
+        :param config: ``.opentelemetry.metrics`` config dict.
+        :return: A :py:class:``api_metrics.Gauge`` or ``None`` if no valid exporter is configured.
+        """
+        config_json = json.dumps(config, sort_keys=True)
+        with self._gauge_cache_lock:
+            if config_json in self._gauge_cache and name in self._gauge_cache[config_json]:
+                return self._gauge_cache[config_json][name]
+            else:
+                meter = self.meter(config=config)
+                if meter is None:
+                    return None
+                else:
+                    return self._gauge_cache.setdefault(config_json, {}).setdefault(
+                        name,
+                        meter.create_gauge(name=name.value, unit=Telemetry._GAUGE_UNIT_MAPPING.get(name, "")),
+                    )
+
+    def counter(self, config: dict[str, Any], name: CounterName) -> Optional[api_metrics.Counter]:
+        """
+        Create or return an existing :py:class:``api_metrics.Counter`` for a config and counter name.
+
+        :param config: ``.opentelemetry.metrics`` config dict.
+        :return: A :py:class:``api_metrics.Counter`` or ``None`` if no valid exporter is configured.
+        """
+        config_json = json.dumps(config, sort_keys=True)
+        with self._counter_cache_lock:
+            if config_json in self._counter_cache and name in self._counter_cache[config_json]:
+                return self._counter_cache[config_json][name]
+            else:
+                meter = self.meter(config=config)
+                if meter is None:
+                    return None
+                else:
+                    return self._counter_cache.setdefault(config_json, {}).setdefault(
+                        name,
+                        meter.create_counter(name=name.value, unit=Telemetry._COUNTER_UNIT_MAPPING.get(name, "")),
+                    )
+
+    def tracer_provider(self, config: dict[str, Any]) -> Optional[api_trace.TracerProvider]:
         """
         Create or return an existing :py:class:``api_trace.TracerProvider`` for a config.
 
@@ -160,22 +287,42 @@ class Telemetry:
                     logging.error("No exporter configured! Disabling traces.")
                     return None
 
+    def tracer(self, config: dict[str, Any]) -> Optional[api_trace.Tracer]:
+        """
+        Create or return an existing :py:class:``api_trace.Tracer`` for a config.
+
+        :param config: ``.opentelemetry.traces`` config dict.
+        :return: A :py:class:``api_trace.Tracer`` or ``None`` if no valid exporter is configured.
+        """
+        config_json = json.dumps(config, sort_keys=True)
+        with self._tracer_cache_lock:
+            if config_json in self._tracer_cache:
+                return self._tracer_cache[config_json]
+            else:
+                tracer_provider = self.tracer_provider(config=config)
+                if tracer_provider is None:
+                    return None
+                else:
+                    return self._tracer_cache.setdefault(
+                        config_json, tracer_provider.get_tracer(instrumenting_module_name="multistorageclient")
+                    )
+
 
 # To share a single :py:class:``Telemetry`` within a process (e.g. local, manager).
 #
 # A manager's server processes shouldn't be forked, so this should be safe.
-_TELEMETRY_LOCK = threading.Lock()
 _TELEMETRY: Optional[Telemetry] = None
+_TELEMETRY_LOCK = threading.Lock()
 
 
 def _init() -> Telemetry:
     """
     Create or return an existing :py:class:``Telemetry``.
 
-    :return: A telemetry resource provider.
+    :return: A telemetry instance.
     """
-    global _TELEMETRY_LOCK
     global _TELEMETRY
+    global _TELEMETRY_LOCK
 
     with _TELEMETRY_LOCK:
         if _TELEMETRY is None:
@@ -254,13 +401,13 @@ def _fully_qualified_name(c: type[Any]) -> str:
 
 
 # Metrics proxy object setup.
-TelemetryManager.register(typeid=_fully_qualified_name(api_metrics.Counter))
 TelemetryManager.register(typeid=_fully_qualified_name(api_metrics._Gauge))
+TelemetryManager.register(typeid=_fully_qualified_name(api_metrics.Counter))
 TelemetryManager.register(
     typeid=_fully_qualified_name(api_metrics.Meter),
     method_to_typeid={
-        api_metrics.Meter.create_counter.__name__: _fully_qualified_name(api_metrics.Counter),
         api_metrics.Meter.create_gauge.__name__: _fully_qualified_name(api_metrics._Gauge),
+        api_metrics.Meter.create_counter.__name__: _fully_qualified_name(api_metrics.Counter),
     },
 )
 TelemetryManager.register(
@@ -294,7 +441,6 @@ TelemetryManager.register(
     method_to_typeid={api_trace.TracerProvider.get_tracer.__name__: _fully_qualified_name(api_trace.Tracer)},
 )
 
-
 # Telemetry proxy object setup.
 #
 # This should be the only registered type with a ``callable``.
@@ -304,17 +450,21 @@ TelemetryManager.register(
     callable=_init,
     method_to_typeid={
         Telemetry.meter_provider.__name__: _fully_qualified_name(api_metrics.MeterProvider),
+        Telemetry.meter.__name__: _fully_qualified_name(api_metrics.Meter),
+        Telemetry.gauge.__name__: _fully_qualified_name(api_metrics._Gauge),
+        Telemetry.counter.__name__: _fully_qualified_name(api_metrics.Counter),
         Telemetry.tracer_provider.__name__: _fully_qualified_name(api_trace.TracerProvider),
+        Telemetry.tracer.__name__: _fully_qualified_name(api_trace.Tracer),
     },
 )
 
 
+# Map of init options as a sorted JSON string (since dictionaries can't be hashed) to telemetry proxy.
+_TELEMETRY_PROXIES: dict[str, Telemetry] = {}
 # To share :py:class:``Telemetry`` proxy objects within a process (e.g. client, server).
 #
 # Forking isn't expected to happen while this is held (may lead to a deadlock).
 _TELEMETRY_PROXIES_LOCK = threading.Lock()
-# Map of init options as a sorted JSON string (since dictionaries can't be hashed) to telemetry resources.
-_TELEMETRY_PROXIES: Dict[str, Telemetry] = {}
 
 
 class TelemetryMode(enum.Enum):
@@ -340,21 +490,21 @@ def init(
     #
     # https://opentelemetry.io/docs/specs/otlp#otlpgrpc-default-port
     # https://opentelemetry.io/docs/specs/otlp#otlphttp-default-port
-    address: Optional[Union[str, Tuple[str, int]]] = os.environ.get("MSC_TELEMETRY_ADDRESS", ("127.0.0.1", 4315)),
+    address: Optional[Union[str, tuple[str, int]]] = os.environ.get("MSC_TELEMETRY_ADDRESS", ("127.0.0.1", 4315)),
 ) -> Telemetry:
     """
     Create or return an existing :py:class:``Telemetry`` or :py:class:``Telemetry`` proxy object.
 
     :param mode: How to create a :py:class:``Telemetry`` object.
     :param address: Telemetry IPC server address. Ignored if the mode is local.
-    :return: A telemetry resource provider.
+    :return: A telemetry instance.
     """
 
     if mode == TelemetryMode.LOCAL:
         return _init()
     elif mode == TelemetryMode.SERVER or mode == TelemetryMode.CLIENT:
-        global _TELEMETRY_PROXIES_LOCK
         global _TELEMETRY_PROXIES
+        global _TELEMETRY_PROXIES_LOCK
 
         init_options = {"mode": mode.value, "address": address}
         init_options_json = json.dumps(init_options, sort_keys=True)
@@ -365,7 +515,7 @@ def init(
             else:
                 telemetry_manager = TelemetryManager(
                     address=address,
-                    authkey=str.encode("multistorageclient-telemetry"),
+                    authkey="multistorageclient-telemetry".encode(),
                     # Use spawn instead of the platform-specific default (may be fork) to avoid aforementioned issues with fork.
                     ctx=multiprocessing.get_context(method="spawn"),
                 )
