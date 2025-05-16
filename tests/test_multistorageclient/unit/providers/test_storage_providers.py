@@ -14,17 +14,17 @@
 # limitations under the License.
 
 import functools
+from multistorageclient import StorageClient, StorageClientConfig
+from multistorageclient.constants import MEMORY_LOAD_LIMIT
+import multistorageclient.telemetry as telemetry
+from multistorageclient.types import PreconditionFailedError
 import os
 import pytest
 import tempfile
-import uuid
-
-from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.constants import MEMORY_LOAD_LIMIT
-from typing import Type
-
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
-from multistorageclient.types import PreconditionFailedError
+from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
+from typing import Type
+import uuid
 
 
 @pytest.mark.parametrize(
@@ -39,19 +39,41 @@ from multistorageclient.types import PreconditionFailedError
 )
 @pytest.mark.parametrize(argnames=["with_cache"], argvalues=[[True], [False]])
 def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDataStore], with_cache: bool):
+    telemetry_resources: telemetry.Telemetry = telemetry.init(mode=telemetry.TelemetryMode.LOCAL)
+
     with temp_data_store_type() as temp_data_store:
         profile = "data"
-        config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
+        config_dict = {
+            "profiles": {profile: temp_data_store.profile_config_dict()},
+            "opentelemetry": {
+                "metrics": {
+                    "attributes": [
+                        {"type": "static", "options": {"attributes": {"cluster": "local"}}},
+                        {"type": "host", "options": {"attributes": {"node": "name"}}},
+                        {"type": "process", "options": {"attributes": {"process": "pid"}}},
+                    ],
+                    "exporter": {"type": telemetry._fully_qualified_name(InMemoryMetricExporter)},
+                },
+            },
+        }
         if with_cache:
             config_dict["cache"] = {"size": "10M", "use_etag": True, "eviction_policy": {"policy": "random"}}
-        storage_client = StorageClient(config=StorageClientConfig.from_dict(config_dict=config_dict, profile=profile))
+        storage_client = StorageClient(
+            config=StorageClientConfig.from_dict(
+                config_dict=config_dict, profile=profile, telemetry=telemetry_resources
+            )
+        )
 
         file_extension = ".txt"
-        # add a random string to the file path below so concurrent tests don't conflict
-        file_path_fragments = [f"{uuid.uuid4().hex}-prefix", "infix", f"suffix{file_extension}"]
+        # Add a random string to the file path below so concurrent tests don't conflict.
+        file_path_fragments = [f"{uuid.uuid4()}-prefix", "infix", f"suffix{file_extension}"]
         file_path = os.path.join(*file_path_fragments)
         file_body_bytes = b"\x00"
         file_body_string = file_body_bytes.decode()
+
+        # Check the file doesn't exist.
+        with pytest.raises(Exception):
+            storage_client.read(path=file_path)
 
         # Write a file.
         storage_client.write(path=file_path, body=file_body_bytes)

@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
 
 from azure.core.exceptions import HttpResponseError, AzureError
 from azure.storage.blob import BlobPrefix, BlobServiceClient
@@ -33,6 +34,8 @@ from ..types import (
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
+
+_T = TypeVar("_T")
 
 PROVIDER = "azure"
 
@@ -127,13 +130,13 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         container: str,
         blob: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around Azure operations such as PUT, GET, DELETE, etc.
 
@@ -161,7 +164,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except HttpResponseError as error:
@@ -210,7 +213,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         """
         Uploads an object to Azure Blob Storage.
 
@@ -223,7 +226,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         container_name, blob_name = split_path(path)
         self._refresh_blob_service_client_if_needed()
 
-        def _invoke_api() -> None:
+        def _invoke_api() -> int:
             blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
 
             kwargs = {
@@ -246,6 +249,8 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
             blob_client.upload_blob(**kwargs)
 
+            return len(body)
+
         return self._collect_metrics(
             _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=len(body)
         )
@@ -264,17 +269,19 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", container=container_name, blob=blob_name)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
         src_container, src_blob = split_path(src_path)
         dest_container, dest_blob = split_path(dest_path)
         self._refresh_blob_service_client_if_needed()
 
-        def _invoke_api() -> None:
+        src_object = self._get_object_metadata(src_path)
+
+        def _invoke_api() -> int:
             src_blob_client = self._blob_service_client.get_blob_client(container=src_container, blob=src_blob)
             dest_blob_client = self._blob_service_client.get_blob_client(container=dest_container, blob=dest_blob)
             dest_blob_client.start_copy_from_url(src_blob_client.url)
 
-        src_object = self._get_object_metadata(src_path)
+            return src_object.content_length
 
         return self._collect_metrics(
             _invoke_api,
@@ -410,17 +417,20 @@ class AzureBlobStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", container=container_name, blob=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
         container_name, blob_name = split_path(remote_path)
+        file_size: int = 0
         self._refresh_blob_service_client_if_needed()
 
         if isinstance(f, str):
             file_size = os.path.getsize(f)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 with open(f, "rb") as data:
                     blob_client.upload_blob(data, overwrite=True)
+
+                return file_size
 
             return self._collect_metrics(
                 _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=file_size
@@ -436,16 +446,18 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             file_size = fp.tell()
             fp.seek(0)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 blob_client.upload_blob(fp, overwrite=True)
+
+                return file_size
 
             return self._collect_metrics(
                 _invoke_api, operation="PUT", container=container_name, blob=blob_name, put_object_size=file_size
             )
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
-        if not metadata:
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
+        if metadata is None:
             metadata = self._get_object_metadata(remote_path)
 
         container_name, blob_name = split_path(remote_path)
@@ -454,13 +466,15 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         if isinstance(f, str):
             os.makedirs(os.path.dirname(f), exist_ok=True)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
                     stream = blob_client.download_blob()
                     fp.write(stream.readall())
                 os.rename(src=temp_file_path, dst=f)
+
+                return metadata.content_length
 
             return self._collect_metrics(
                 _invoke_api,
@@ -471,13 +485,15 @@ class AzureBlobStorageProvider(BaseStorageProvider):
             )
         else:
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 blob_client = self._blob_service_client.get_blob_client(container=container_name, blob=blob_name)
                 stream = blob_client.download_blob()
                 if isinstance(f, io.StringIO):
                     f.write(stream.readall().decode("utf-8"))
                 else:
                     f.write(stream.readall())
+
+                return metadata.content_length
 
             return self._collect_metrics(
                 _invoke_api,

@@ -13,10 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict
-
 from jsonschema import validate
+from typing import Any
 
+
+EXTENSION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string"},
+        "options": {
+            "type": "object",
+        },
+    },
+    "required": ["type"],
+}
 
 OTEL_SCHEMA = {
     "type": "object",
@@ -24,23 +34,16 @@ OTEL_SCHEMA = {
         "metrics": {
             "type": "object",
             "properties": {
-                "exporter": {
+                "attributes": {"type": "array", "items": EXTENSION_SCHEMA},
+                "reader": {
                     "type": "object",
                     "properties": {
-                        "type": {
-                            "type": "string",
-                            "enum": ["otlp", "console"],
-                        },
                         "options": {
                             "type": "object",
-                            "properties": {
-                                "endpoint": {"type": "string", "format": "uri"},
-                            },
-                            "required": ["endpoint"],
                         },
                     },
-                    "required": ["type"],
-                }
+                },
+                "exporter": EXTENSION_SCHEMA,
             },
         },
         "traces": {
@@ -100,17 +103,6 @@ CACHE_SCHEMA = {
         },
     },
     "additionalProperties": False,
-}
-
-EXTENSION_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "type": {"type": "string"},
-        "options": {
-            "type": "object",
-        },
-    },
-    "required": ["type"],
 }
 
 PROFILE_SCHEMA = {
@@ -184,7 +176,7 @@ BENCHMARK_SCHEMA = {
 }
 
 
-def validate_config(config_dict: Dict[str, Any]) -> None:
+def validate_config(config_dict: dict[str, Any]) -> None:
     try:
         validate(instance=config_dict, schema=CONFIG_SCHEMA)
     except Exception as e:

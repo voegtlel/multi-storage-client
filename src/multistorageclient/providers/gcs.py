@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
 
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.auth import identity_pool
@@ -38,6 +39,8 @@ from ..types import (
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
+
+_T = TypeVar("_T")
 
 PROVIDER = "gcs"
 
@@ -160,13 +163,13 @@ class GoogleStorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         bucket: str,
         key: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around GCS operations such as PUT, GET, DELETE, etc.
 
@@ -194,7 +197,7 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except GoogleAPICallError as error:
@@ -247,7 +250,7 @@ class GoogleStorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         """
         Uploads an object to Google Cloud Storage.
 
@@ -260,7 +263,7 @@ class GoogleStorageProvider(BaseStorageProvider):
         bucket, key = split_path(path)
         self._refresh_gcs_client_if_needed()
 
-        def _invoke_api() -> None:
+        def _invoke_api() -> int:
             bucket_obj = self._gcs_client.bucket(bucket)
             blob = bucket_obj.blob(key)
             blob.metadata = metadata or None
@@ -277,6 +280,8 @@ class GoogleStorageProvider(BaseStorageProvider):
 
             blob.upload_from_string(body, **kwargs)
 
+            return len(body)
+
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
     def _get_object(self, path: str, byte_range: Optional[Range] = None) -> bytes:
@@ -292,12 +297,14 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
         src_bucket, src_key = split_path(src_path)
         dest_bucket, dest_key = split_path(dest_path)
         self._refresh_gcs_client_if_needed()
 
-        def _invoke_api() -> None:
+        src_object = self._get_object_metadata(src_path)
+
+        def _invoke_api() -> int:
             source_bucket_obj = self._gcs_client.bucket(src_bucket)
             source_blob = source_bucket_obj.blob(src_key)
 
@@ -311,7 +318,7 @@ class GoogleStorageProvider(BaseStorageProvider):
                 if next_rewrite_token is not None:
                     rewrite_tokens.append(next_rewrite_token)
 
-        src_object = self._get_object_metadata(src_path)
+            return src_object.content_length
 
         return self._collect_metrics(
             _invoke_api,
@@ -463,21 +470,22 @@ class GoogleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
         bucket, key = split_path(remote_path)
+        file_size: int = 0
         self._refresh_gcs_client_if_needed()
 
         if isinstance(f, str):
-            filesize = os.path.getsize(f)
+            file_size = os.path.getsize(f)
 
             # Upload small files
-            if filesize <= self._multipart_threshold:
+            if file_size <= self._multipart_threshold:
                 with open(f, "rb") as fp:
                     self._put_object(remote_path, fp.read())
-                return
+                return file_size
 
             # Upload large files using transfer manager
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
                 transfer_manager.upload_chunks_concurrently(
@@ -488,22 +496,26 @@ class GoogleStorageProvider(BaseStorageProvider):
                     worker_type=transfer_manager.THREAD,
                 )
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
+
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
         else:
             f.seek(0, io.SEEK_END)
-            filesize = f.tell()
+            file_size = f.tell()
             f.seek(0)
 
             # Upload small files
-            if filesize <= self._multipart_threshold:
+            if file_size <= self._multipart_threshold:
                 if isinstance(f, io.StringIO):
                     self._put_object(remote_path, f.read().encode("utf-8"))
                 else:
                     self._put_object(remote_path, f.read())
-                return
+                return file_size
 
             # Upload large files using transfer manager
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
 
@@ -527,12 +539,16 @@ class GoogleStorageProvider(BaseStorageProvider):
 
                 os.unlink(temp_file_path)
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
+
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
         self._refresh_gcs_client_if_needed()
 
-        if not metadata:
+        if metadata is None:
             metadata = self._get_object_metadata(remote_path)
 
         bucket, key = split_path(remote_path)
@@ -545,10 +561,10 @@ class GoogleStorageProvider(BaseStorageProvider):
                     temp_file_path = fp.name
                     fp.write(self._get_object(remote_path))
                 os.rename(src=temp_file_path, dst=f)
-                return
+                return metadata.content_length
 
             # Download large files using transfer manager
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
 
@@ -563,6 +579,8 @@ class GoogleStorageProvider(BaseStorageProvider):
                     )
                 os.rename(src=temp_file_path, dst=f)
 
+                return metadata.content_length
+
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
             )
@@ -573,10 +591,10 @@ class GoogleStorageProvider(BaseStorageProvider):
                     f.write(self._get_object(remote_path).decode("utf-8"))
                 else:
                     f.write(self._get_object(remote_path))
-                return
+                return metadata.content_length
 
             # Download large files using transfer manager
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 bucket_obj = self._gcs_client.bucket(bucket)
                 blob = bucket_obj.blob(key)
 
@@ -599,6 +617,8 @@ class GoogleStorageProvider(BaseStorageProvider):
                         f.write(fp.read())
 
                 os.unlink(temp_file_path)
+
+                return metadata.content_length
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length

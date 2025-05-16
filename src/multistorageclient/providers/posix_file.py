@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sized
 import glob
 import os
 import json
@@ -20,10 +21,12 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from io import BytesIO, StringIO
-from typing import IO, Any, Callable, Iterator, List, Optional, Union, Dict
+from typing import IO, Any, Callable, Dict, Iterator, List, Optional, TypeVar, Union
 
 from ..types import ObjectMetadata, Range, AWARE_DATETIME_MIN
 from .base import BaseStorageProvider
+
+_T = TypeVar("_T")
 
 PROVIDER = "file"
 
@@ -61,12 +64,12 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         path: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around file operations such as PUT, GET, DELETE, etc.
 
@@ -92,7 +95,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except FileNotFoundError as error:
@@ -118,8 +121,8 @@ class PosixFileStorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
-        def _invoke_api() -> None:
+    ) -> int:
+        def _invoke_api() -> int:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             atomic_write(source=BytesIO(body), destination=path)
 
@@ -128,6 +131,8 @@ class PosixFileStorageProvider(BaseStorageProvider):
                 json_str = json.dumps(metadata)
                 json_bytes = json_str.encode("utf-8")
                 os.setxattr(path, "user.json", json_bytes, flags=0)  # type: ignore
+
+            return len(body)
 
         return self._collect_metrics(_invoke_api, operation="PUT", path=path, put_object_size=len(body))
 
@@ -143,12 +148,14 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", path=path)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
-        def _invoke_api() -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
+        src_object = self._get_object_metadata(src_path)
+
+        def _invoke_api() -> int:
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             atomic_write(source=src_path, destination=dest_path)
 
-        src_object = self._get_object_metadata(src_path)
+            return src_object.content_length
 
         return self._collect_metrics(
             _invoke_api,
@@ -233,44 +240,52 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", path=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
         os.makedirs(os.path.dirname(remote_path), exist_ok=True)
 
-        def _invoke_api() -> None:
-            atomic_write(source=f, destination=remote_path)
-
+        filesize: int = 0
         if isinstance(f, str):
             filesize = os.path.getsize(f)
-            return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
         elif isinstance(f, StringIO):
             filesize = len(f.getvalue().encode("utf-8"))
-            return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
         else:
             filesize = len(f.getvalue())  # type: ignore
-            return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
+        def _invoke_api() -> int:
+            atomic_write(source=f, destination=remote_path)
+
+            return filesize
+
+        return self._collect_metrics(_invoke_api, operation="PUT", path=remote_path, put_object_size=filesize)
+
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
         filesize = metadata.content_length if metadata else os.path.getsize(remote_path)
 
         if isinstance(f, str):
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 os.makedirs(os.path.dirname(f), exist_ok=True)
                 atomic_write(source=remote_path, destination=f)
+
+                return filesize
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         elif isinstance(f, StringIO):
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 with open(remote_path, "r", encoding="utf-8") as src:
                     f.write(src.read())
+
+                return filesize
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
         else:
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 with open(remote_path, "rb") as src:
                     f.write(src.read())
+
+                return filesize
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
 

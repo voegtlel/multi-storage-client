@@ -136,12 +136,15 @@ def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
                 # exporter
                 trace_exporter_dict = trace_config_dict.get("exporter", None)
                 if trace_exporter_dict:
-                    module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING[trace_exporter_dict["type"]].rsplit(".", 1)
+                    exporter_type = trace_exporter_dict["type"]
+                    module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING.get(exporter_type, exporter_type).rsplit(
+                        ".", 1
+                    )
                     options = trace_exporter_dict.get("options", {})
                     cls = import_class(class_name, module_name)
                     auth_dict = trace_exporter_dict.get("auth", {})
                     auth_provider = AccessTokenProviderFactory.create_access_token_provider(auth_dict)
-                    if class_name != "console":
+                    if exporter_type == "otlp":
                         options["session"] = create_session(auth_provider)
                     exporter = cls(**options)
                 else:
@@ -174,11 +177,13 @@ def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
                 metric_exporter_dict = metric_config_dict.get("exporter", None)
                 if metric_config_dict:
                     exporter_type = metric_exporter_dict["type"]
-                    module_name, class_name = _OTEL_METRIC_EXPORTER_MAPPING[exporter_type].rsplit(".", 1)
+                    module_name, class_name = _OTEL_METRIC_EXPORTER_MAPPING.get(exporter_type, exporter_type).rsplit(
+                        ".", 1
+                    )
                     options = metric_exporter_dict.get("options", {})
                     auth_dict = metric_exporter_dict.get("auth", {})
                     auth_provider = AccessTokenProviderFactory.create_access_token_provider(auth_dict)
-                    if exporter_type != "console":
+                    if exporter_type == "otlp":
                         options["session"] = create_session(auth_provider)
                     cls = import_class(class_name, module_name)
                     exporter = cls(**options)

@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
 
 import oci
 from dateutil.parser import parse as dateutil_parser
@@ -40,6 +41,8 @@ from ..types import (
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
+
+_T = TypeVar("_T")
 
 MB = 1024 * 1024
 
@@ -104,13 +107,13 @@ class OracleStorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         bucket: str,
         key: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around object storage operations such as PUT, GET, DELETE, etc.
 
@@ -138,7 +141,7 @@ class OracleStorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except ServiceError as error:
@@ -190,13 +193,13 @@ class OracleStorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         bucket, key = split_path(path)
         self._refresh_oci_client_if_needed()
 
         # OCI only supports if_none_match=="*"
         # refer: https://docs.oracle.com/en-us/iaas/tools/python/2.150.0/api/object_storage/client/oci.object_storage.ObjectStorageClient.html?highlight=put_object#oci.object_storage.ObjectStorageClient.put_object
-        def _invoke_api() -> None:
+        def _invoke_api() -> int:
             self._oci_client.put_object(
                 namespace_name=self._namespace,
                 bucket_name=bucket,
@@ -206,6 +209,8 @@ class OracleStorageProvider(BaseStorageProvider):
                 if_match=if_match,
                 if_none_match=if_none_match,
             )
+
+            return len(body)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -225,12 +230,14 @@ class OracleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
         src_bucket, src_key = split_path(src_path)
         dest_bucket, dest_key = split_path(dest_path)
         self._refresh_oci_client_if_needed()
 
-        def _invoke_api() -> None:
+        src_object = self._get_object_metadata(src_path)
+
+        def _invoke_api() -> int:
             copy_details = oci.object_storage.models.CopyObjectDetails(
                 source_object_name=src_key, destination_bucket=dest_bucket, destination_object_name=dest_key
             )
@@ -239,7 +246,7 @@ class OracleStorageProvider(BaseStorageProvider):
                 namespace_name=self._namespace, bucket_name=src_bucket, copy_object_details=copy_details
             )
 
-        src_object = self._get_object_metadata(src_path)
+            return src_object.content_length
 
         return self._collect_metrics(
             _invoke_api,
@@ -415,15 +422,16 @@ class OracleStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
         bucket, key = split_path(remote_path)
+        file_size: int = 0
         self._refresh_oci_client_if_needed()
 
         if isinstance(f, str):
-            filesize = os.path.getsize(f)
+            file_size = os.path.getsize(f)
 
-            def _invoke_api() -> None:
-                if filesize > self._multipart_threshold:
+            def _invoke_api() -> int:
+                if file_size > self._multipart_threshold:
                     self._upload_manager.upload_file(
                         namespace_name=self._namespace,
                         bucket_name=bucket,
@@ -437,18 +445,22 @@ class OracleStorageProvider(BaseStorageProvider):
                         namespace_name=self._namespace, bucket_name=bucket, object_name=key, file_path=f
                     )
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
+
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
         else:
             # Convert file-like object to BytesIO because stream_ref cannot work with StringIO.
             if isinstance(f, io.StringIO):
                 f = io.BytesIO(f.getvalue().encode("utf-8"))
 
             f.seek(0, io.SEEK_END)
-            filesize = f.tell()
+            file_size = f.tell()
             f.seek(0)
 
-            def _invoke_api() -> None:
-                if filesize > self._multipart_threshold:
+            def _invoke_api() -> int:
+                if file_size > self._multipart_threshold:
                     self._upload_manager.upload_stream(
                         namespace_name=self._namespace,
                         bucket_name=bucket,
@@ -462,12 +474,16 @@ class OracleStorageProvider(BaseStorageProvider):
                         namespace_name=self._namespace, bucket_name=bucket, object_name=key, stream_ref=f
                     )
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
+
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
         self._refresh_oci_client_if_needed()
 
-        if not metadata:
+        if metadata is None:
             metadata = self._get_object_metadata(remote_path)
 
         bucket, key = split_path(remote_path)
@@ -475,7 +491,7 @@ class OracleStorageProvider(BaseStorageProvider):
         if isinstance(f, str):
             os.makedirs(os.path.dirname(f), exist_ok=True)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 response = self._oci_client.get_object(
                     namespace_name=self._namespace, bucket_name=bucket, object_name=key
                 )
@@ -485,12 +501,14 @@ class OracleStorageProvider(BaseStorageProvider):
                         fp.write(chunk)
                 os.rename(src=temp_file_path, dst=f)
 
+                return metadata.content_length
+
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
             )
         else:
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 response = self._oci_client.get_object(
                     namespace_name=self._namespace, bucket_name=bucket, object_name=key
                 )
@@ -503,6 +521,8 @@ class OracleStorageProvider(BaseStorageProvider):
                 else:
                     for chunk in response.data.raw.stream(1024 * 1024, decode_content=False):  # pyright: ignore [reportOptionalMemberAccess]
                         f.write(chunk)
+
+                return metadata.content_length
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length

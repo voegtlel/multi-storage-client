@@ -20,7 +20,9 @@ import tempfile
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 from collections import defaultdict
+from collections.abc import Sequence
 
+import opentelemetry.metrics as api_metrics
 import yaml
 
 from .cache import DEFAULT_CACHE_SIZE_MB, CacheBackendFactory, CacheManager
@@ -28,6 +30,8 @@ from .caching.cache_config import CacheConfig, CacheBackendConfig, EvictionPolic
 from .instrumentation import setup_opentelemetry
 from .providers.manifest_metadata import ManifestMetadataProvider
 from .schema import validate_config
+from .telemetry import Telemetry
+from .telemetry.attributes.base import AttributesProvider
 from .types import (
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_DELAY,
@@ -49,6 +53,15 @@ PROTOCOL_TO_PROVIDER_TYPE_MAPPING = {
     "gs": "gcs",
     "ais": "ais",
     "file": "file",
+}
+
+_TELEMETRY_ATTRIBUTES_PROVIDER_MAPPING = {
+    "environment_variables": "multistorageclient.telemetry.attributes.environment_variables.EnvironmentVariablesAttributesProvider",
+    "host": "multistorageclient.telemetry.attributes.host.HostAttributesProvider",
+    "msc_config": "multistorageclient.telemetry.attributes.msc_config.MSCConfigAttributesProvider",
+    "process": "multistorageclient.telemetry.attributes.process.ProcessAttributesProvider",
+    "static": "multistorageclient.telemetry.attributes.static.StaticAttributesProvider",
+    "thread": "multistorageclient.telemetry.attributes.thread.ThreadAttributesProvider",
 }
 
 
@@ -134,11 +147,22 @@ DEFAULT_EVICTION_POLICY = "fifo"
 
 
 class StorageClientConfigLoader:
+    _provider_bundle: Optional[ProviderBundle]
+    _profiles: dict[str, Any]
+    _profile: str
+    _profile_dict: dict[str, Any]
+    _opentelemetry_dict: Optional[dict[str, Any]]
+    _metric_gauges: Optional[dict[Telemetry.GaugeName, api_metrics._Gauge]]
+    _metric_counters: Optional[dict[Telemetry.CounterName, api_metrics.Counter]]
+    _metric_attributes_providers: Optional[Sequence[AttributesProvider]]
+    _cache_dict: Optional[dict[str, Any]]
+
     def __init__(
         self,
         config_dict: Dict[str, Any],
         profile: str = DEFAULT_POSIX_PROFILE_NAME,
         provider_bundle: Optional[ProviderBundle] = None,
+        telemetry: Optional[Telemetry] = None,
     ) -> None:
         """
         Initializes a :py:class:`StorageClientConfigLoader` to create a
@@ -148,6 +172,7 @@ class StorageClientConfigLoader:
         :param config_dict: Dictionary of configuration options.
         :param profile: Name of profile in ``config_dict`` to use to build configuration.
         :param provider_bundle: Optional pre-built :py:class:`multistorageclient.types.ProviderBundle`, takes precedence over ``config_dict``.
+        :param telemetry: Telemetry instance to use.
         """
         # ProviderBundle takes precedence
         self._provider_bundle = provider_bundle
@@ -178,13 +203,54 @@ class StorageClientConfigLoader:
 
         self._profile = profile
         self._profile_dict = profile_dict
+
         self._opentelemetry_dict = config_dict.get("opentelemetry", None)
+
+        self._metric_gauges = None
+        self._metric_counters = None
+        self._metric_attributes_providers = None
+        if self._opentelemetry_dict is not None:
+            if "metrics" in self._opentelemetry_dict:
+                if telemetry is not None:
+                    self._metric_gauges = {}
+                    for name in Telemetry.GaugeName:
+                        gauge = telemetry.gauge(config=self._opentelemetry_dict["metrics"], name=name)
+                        if gauge is not None:
+                            self._metric_gauges[name] = gauge
+                    self._metric_counters = {}
+                    for name in Telemetry.CounterName:
+                        counter = telemetry.counter(config=self._opentelemetry_dict["metrics"], name=name)
+                        if counter is not None:
+                            self._metric_counters[name] = counter
+
+                    if "attributes" in self._opentelemetry_dict["metrics"]:
+                        attributes_providers: list[AttributesProvider] = []
+                        attributes_provider_configs: list[dict[str, Any]] = self._opentelemetry_dict["metrics"][
+                            "attributes"
+                        ]
+                        for config in attributes_provider_configs:
+                            attributes_provider_type = config["type"]
+                            attributes_provider_fully_qualified_name = _TELEMETRY_ATTRIBUTES_PROVIDER_MAPPING.get(
+                                attributes_provider_type, attributes_provider_type
+                            )
+                            attributes_provider_module_name, attributes_provider_class_name = (
+                                attributes_provider_fully_qualified_name.rsplit(".", 1)
+                            )
+                            cls = import_class(attributes_provider_class_name, attributes_provider_module_name)
+                            attributes_provider_options = config.get("options", {})
+                            attributes_provider: AttributesProvider = cls(**attributes_provider_options)
+                            attributes_providers.append(attributes_provider)
+                        self._metric_attributes_providers = tuple(attributes_providers)
+                else:
+                    # TODO: Remove "beta" from the log once legacy metrics are removed.
+                    logging.error("No telemetry instance! Disabling beta metrics.")
+
         self._cache_dict = config_dict.get("cache", None)
 
     def _build_storage_provider(
         self,
         storage_provider_name: str,
-        storage_options: Optional[Dict[str, Any]],
+        storage_options: Optional[Dict[str, Any]] = None,
         credentials_provider: Optional[CredentialsProvider] = None,
     ) -> StorageProvider:
         if storage_options is None:
@@ -196,6 +262,12 @@ class StorageClientConfigLoader:
             )
         if credentials_provider:
             storage_options["credentials_provider"] = credentials_provider
+        if self._metric_gauges:
+            storage_options["metric_gauges"] = self._metric_gauges
+        if self._metric_counters:
+            storage_options["metric_counters"] = self._metric_counters
+        if self._metric_attributes_providers:
+            storage_options["metric_attributes_providers"] = self._metric_attributes_providers
         class_name = STORAGE_PROVIDER_MAPPING[storage_provider_name]
         module_name = ".providers"
         cls = import_class(class_name, module_name, PACKAGE_NAME)
@@ -363,32 +435,35 @@ class StorageClientConfigLoader:
     def _migrate_legacy_cache_config(self) -> Dict[str, Any]:
         """Convert legacy cache config to new format if needed."""
 
-        # If it's already in new format (has size and no size_mb), return as is
-        if "size" in self._cache_dict and "size_mb" not in self._cache_dict:
-            return self._cache_dict
+        if self._cache_dict:
+            # If it's already in new format (has size and no size_mb), return as is
+            if "size" in self._cache_dict and "size_mb" not in self._cache_dict:
+                return self._cache_dict
 
-        # Check if mixing old and new formats
-        if "size_mb" in self._cache_dict and (
-            "eviction_policy" in self._cache_dict and isinstance(self._cache_dict["eviction_policy"], dict)
-        ):
-            raise ValueError(
-                f"Cannot mix old and new cache config formats, eviction_policy must be a string not a dict, provided: {self._cache_dict['eviction_policy']}"
-            )
+            # Check if mixing old and new formats
+            if "size_mb" in self._cache_dict and (
+                "eviction_policy" in self._cache_dict and isinstance(self._cache_dict["eviction_policy"], dict)
+            ):
+                raise ValueError(
+                    f"Cannot mix old and new cache config formats, eviction_policy must be a string not a dict, provided: {self._cache_dict['eviction_policy']}"
+                )
 
-        # Convert legacy format to new format
-        return {
-            "size": f"{self._cache_dict['size_mb']}M",
-            "use_etag": self._cache_dict.get("use_etag", True),  # default to True
-            "eviction_policy": {
-                "policy": self._cache_dict.get("eviction_policy", DEFAULT_EVICTION_POLICY).lower()
-                if isinstance(self._cache_dict.get("eviction_policy"), str)
-                else DEFAULT_EVICTION_POLICY,
-                "refresh_interval": DEFAULT_CACHE_REFRESH_INTERVAL,
-            },
-            "cache_backend": {
-                "cache_path": self._cache_dict.get("location", os.path.join(tempfile.gettempdir(), ".msc_cache"))
-            },
-        }
+            # Convert legacy format to new format
+            return {
+                "size": f"{self._cache_dict['size_mb']}M",
+                "use_etag": self._cache_dict.get("use_etag", True),  # default to True
+                "eviction_policy": {
+                    "policy": self._cache_dict.get("eviction_policy", DEFAULT_EVICTION_POLICY).lower()
+                    if isinstance(self._cache_dict.get("eviction_policy"), str)
+                    else DEFAULT_EVICTION_POLICY,
+                    "refresh_interval": DEFAULT_CACHE_REFRESH_INTERVAL,
+                },
+                "cache_backend": {
+                    "cache_path": self._cache_dict.get("location", os.path.join(tempfile.gettempdir(), ".msc_cache"))
+                },
+            }
+        else:
+            return {}
 
     def build_config(self) -> "StorageClientConfig":
         bundle = self._build_provider_bundle()
@@ -440,6 +515,8 @@ class StorageClientConfigLoader:
             retry_config = RetryConfig(attempts=DEFAULT_RETRY_ATTEMPTS, delay=DEFAULT_RETRY_DELAY)
 
         # set up OpenTelemetry providers once per process
+        #
+        # TODO: Legacy, need to remove.
         if self._opentelemetry_dict:
             setup_opentelemetry(self._opentelemetry_dict)
 
@@ -621,32 +698,41 @@ class StorageClientConfig:
         self.cache_manager = cache_manager
 
     @staticmethod
-    def from_json(config_json: str, profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":
+    def from_json(
+        config_json: str, profile: str = DEFAULT_POSIX_PROFILE_NAME, telemetry: Optional[Telemetry] = None
+    ) -> "StorageClientConfig":
         config_dict = json.loads(config_json)
-        return StorageClientConfig.from_dict(config_dict, profile)
+        return StorageClientConfig.from_dict(config_dict=config_dict, profile=profile, telemetry=telemetry)
 
     @staticmethod
-    def from_yaml(config_yaml: str, profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":
+    def from_yaml(
+        config_yaml: str, profile: str = DEFAULT_POSIX_PROFILE_NAME, telemetry: Optional[Telemetry] = None
+    ) -> "StorageClientConfig":
         config_dict = yaml.safe_load(config_yaml)
-        return StorageClientConfig.from_dict(config_dict, profile)
+        return StorageClientConfig.from_dict(config_dict=config_dict, profile=profile, telemetry=telemetry)
 
     @staticmethod
     def from_dict(
-        config_dict: Dict[str, Any], profile: str = DEFAULT_POSIX_PROFILE_NAME, skip_validation: bool = False
+        config_dict: Dict[str, Any],
+        profile: str = DEFAULT_POSIX_PROFILE_NAME,
+        skip_validation: bool = False,
+        telemetry: Optional[Telemetry] = None,
     ) -> "StorageClientConfig":
         # Validate the config file with predefined JSON schema
         if not skip_validation:
             validate_config(config_dict)
 
         # Load config
-        loader = StorageClientConfigLoader(config_dict, profile)
+        loader = StorageClientConfigLoader(config_dict=config_dict, profile=profile, telemetry=telemetry)
         config = loader.build_config()
         config._config_dict = config_dict
 
         return config
 
     @staticmethod
-    def from_file(profile: str = DEFAULT_POSIX_PROFILE_NAME) -> "StorageClientConfig":
+    def from_file(
+        profile: str = DEFAULT_POSIX_PROFILE_NAME, telemetry: Optional[Telemetry] = None
+    ) -> "StorageClientConfig":
         msc_config_file = os.getenv("MSC_CONFIG", None)
 
         # Search config paths
@@ -670,7 +756,7 @@ class StorageClientConfig:
 
         # Check if profile is in merged_profiles
         if profile in merged_profiles:
-            return StorageClientConfig.from_dict(merged_config, profile)
+            return StorageClientConfig.from_dict(config_dict=merged_config, profile=profile, telemetry=telemetry)
         else:
             # Check if profile is the default profile or an implicit profile
             if profile == DEFAULT_POSIX_PROFILE_NAME:
@@ -699,13 +785,18 @@ class StorageClientConfig:
                 merged_config["profiles"] = implicit_profile_config["profiles"]
             else:
                 merged_config["profiles"][profile] = implicit_profile_config["profiles"][profile]
+            # the config is already validated while reading, skip the validation for implicit profiles which start profile with "_"
             return StorageClientConfig.from_dict(
-                merged_config, profile, skip_validation=True
-            )  # the config is already validated while reading, skip the validation for implicit profiles which start profile with "_"
+                config_dict=merged_config, profile=profile, skip_validation=True, telemetry=telemetry
+            )
 
     @staticmethod
-    def from_provider_bundle(config_dict: Dict[str, Any], provider_bundle: ProviderBundle) -> "StorageClientConfig":
-        loader = StorageClientConfigLoader(config_dict, provider_bundle=provider_bundle)
+    def from_provider_bundle(
+        config_dict: Dict[str, Any], provider_bundle: ProviderBundle, telemetry: Optional[Telemetry] = None
+    ) -> "StorageClientConfig":
+        loader = StorageClientConfigLoader(
+            config_dict=config_dict, provider_bundle=provider_bundle, telemetry=telemetry
+        )
         config = loader.build_config()
         config._config_dict = None  # Explicitly mark as None to avoid confusing pickling errors
         return config

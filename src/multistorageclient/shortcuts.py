@@ -188,7 +188,7 @@ def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
         if profile in _STORAGE_CLIENT_CACHE:
             return _STORAGE_CLIENT_CACHE[profile], path
         else:
-            client = StorageClient(config=StorageClientConfig.from_file(profile=profile))
+            client = StorageClient(config=StorageClientConfig.from_file(profile=profile, telemetry=get_telemetry()))
             _STORAGE_CLIENT_CACHE[profile] = client
 
     return client, path

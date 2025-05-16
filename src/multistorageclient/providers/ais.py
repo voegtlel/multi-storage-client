@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from collections.abc import Sized
 import io
 import os
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Tuple, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, Tuple, TypeVar, Union
 
 from aistore.sdk import Client
 from aistore.sdk.authn import AuthNClient
@@ -34,6 +34,8 @@ from ..types import (
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
+
+_T = TypeVar("_T")
 
 PROVIDER = "ais"
 
@@ -134,13 +136,13 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         bucket: str,
         key: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around object storage operations
         such as ``PUT``, ``GET``, ``DELETE``, etc.
@@ -169,7 +171,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except AISError as error:
@@ -210,15 +212,17 @@ class AIStoreStorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         # ais does not support if_match and if_none_match
         bucket, key = split_path(path)
 
-        def _invoke_api() -> None:
+        def _invoke_api() -> int:
             obj = self.client.bucket(bucket, self.provider).object(obj_name=key)
             obj.put_content(body)
             if metadata:
                 obj.set_custom_props(custom_metadata=metadata)
+
+            return len(body)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -239,7 +243,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
         raise AttributeError("AIStore does not support copy operations")
 
     def _delete_object(self, path: str, if_match: Optional[str] = None) -> None:
@@ -303,18 +307,28 @@ class AIStoreStorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
+        file_size: int = 0
+
         if isinstance(f, str):
             with open(f, "rb") as fp:
-                self._put_object(remote_path, fp.read())
+                body = fp.read()
+                file_size = len(body)
+                self._put_object(remote_path, body)
         else:
             if isinstance(f, io.StringIO):
-                self._put_object(remote_path, f.read().encode("utf-8"))
+                body = f.read().encode("utf-8")
+                file_size = len(body)
+                self._put_object(remote_path, body)
             else:
-                self._put_object(remote_path, f.read())
+                body = f.read()
+                file_size = len(body)
+                self._put_object(remote_path, body)
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
-        if not metadata:
+        return file_size
+
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
+        if metadata is None:
             metadata = self._get_object_metadata(remote_path)
 
         if isinstance(f, str):
@@ -326,3 +340,5 @@ class AIStoreStorageProvider(BaseStorageProvider):
                 f.write(self._get_object(remote_path).decode("utf-8"))
             else:
                 f.write(self._get_object(remote_path))
+
+        return metadata.content_length

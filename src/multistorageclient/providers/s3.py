@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence, Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Union
+from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
 
 import boto3
 from boto3.s3.transfer import TransferConfig
@@ -25,7 +26,10 @@ import botocore
 from botocore.credentials import RefreshableCredentials
 from botocore.exceptions import ClientError, ReadTimeoutError, IncompleteReadError, ResponseStreamingError
 from botocore.session import get_session
+import opentelemetry.metrics as api_metrics
 
+from ..telemetry import Telemetry
+from ..telemetry.attributes.base import AttributesProvider
 from ..types import (
     Credentials,
     CredentialsProvider,
@@ -38,6 +42,8 @@ from ..types import (
 from ..utils import split_path
 from .base import BaseStorageProvider
 from ..instrumentation.utils import set_span_attribute
+
+_T = TypeVar("_T")
 
 BOTO3_MAX_POOL_CONNECTIONS = 32
 
@@ -109,6 +115,9 @@ class S3StorageProvider(BaseStorageProvider):
         endpoint_url: str = "",
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
+        metric_counters: dict[Telemetry.CounterName, api_metrics.Counter] = {},
+        metric_gauges: dict[Telemetry.GaugeName, api_metrics._Gauge] = {},
+        metric_attributes_providers: Sequence[AttributesProvider] = (),
         **kwargs: Any,
     ) -> None:
         """
@@ -118,8 +127,17 @@ class S3StorageProvider(BaseStorageProvider):
         :param endpoint_url: The custom endpoint URL for the S3 service.
         :param base_path: The root prefix path within the S3 bucket where all operations will be scoped.
         :param credentials_provider: The provider to retrieve S3 credentials.
+        :param metric_counters: Metric counters.
+        :param metric_gauges: Metric gauges.
+        :param metric_attributes_providers: Metric attributes providers.
         """
-        super().__init__(base_path=base_path, provider_name=PROVIDER)
+        super().__init__(
+            base_path=base_path,
+            provider_name=PROVIDER,
+            metric_counters=metric_counters,
+            metric_gauges=metric_gauges,
+            metric_attributes_providers=metric_attributes_providers,
+        )
 
         self._region_name = region_name
         self._endpoint_url = endpoint_url
@@ -237,13 +255,13 @@ class S3StorageProvider(BaseStorageProvider):
 
     def _collect_metrics(
         self,
-        func: Callable,
+        func: Callable[[], _T],
         operation: str,
         bucket: str,
         key: str,
         put_object_size: Optional[int] = None,
         get_object_size: Optional[int] = None,
-    ) -> Any:
+    ) -> _T:
         """
         Collects and records performance metrics around S3 operations such as PUT, GET, DELETE, etc.
 
@@ -279,7 +297,7 @@ class S3StorageProvider(BaseStorageProvider):
 
         try:
             result = func()
-            if operation == "GET" and object_size is None:
+            if operation == "GET" and object_size is None and isinstance(result, Sized):
                 object_size = len(result)
             return result
         except ClientError as error:
@@ -363,7 +381,7 @@ class S3StorageProvider(BaseStorageProvider):
         metadata: Optional[Dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         """
         Uploads an object to the specified S3 path.
 
@@ -375,7 +393,7 @@ class S3StorageProvider(BaseStorageProvider):
         """
         bucket, key = split_path(path)
 
-        def _invoke_api() -> None:
+        def _invoke_api() -> int:
             kwargs = {"Bucket": bucket, "Key": key, "Body": body}
             if metadata:
                 kwargs["Metadata"] = metadata
@@ -391,6 +409,8 @@ class S3StorageProvider(BaseStorageProvider):
 
             # Extract and set x-trans-id if present
             _extract_x_trans_id(response)
+
+            return len(body)
 
         return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=len(body))
 
@@ -411,11 +431,13 @@ class S3StorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="GET", bucket=bucket, key=key)
 
-    def _copy_object(self, src_path: str, dest_path: str) -> None:
+    def _copy_object(self, src_path: str, dest_path: str) -> int:
         src_bucket, src_key = split_path(src_path)
         dest_bucket, dest_key = split_path(dest_path)
 
-        def _invoke_api() -> None:
+        src_object = self._get_object_metadata(src_path)
+
+        def _invoke_api() -> int:
             response = self._s3_client.copy(
                 CopySource={"Bucket": src_bucket, "Key": src_key},
                 Bucket=dest_bucket,
@@ -426,7 +448,7 @@ class S3StorageProvider(BaseStorageProvider):
             # Extract and set x-trans-id if present
             _extract_x_trans_id(response)
 
-        src_object = self._get_object_metadata(src_path)
+            return src_object.content_length
 
         return self._collect_metrics(
             _invoke_api,
@@ -572,20 +594,22 @@ class S3StorageProvider(BaseStorageProvider):
 
         return self._collect_metrics(_invoke_api, operation="LIST", bucket=bucket, key=prefix)
 
-    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> None:
+    def _upload_file(self, remote_path: str, f: Union[str, IO]) -> int:
+        file_size: int = 0
+
         if isinstance(f, str):
-            filesize = os.path.getsize(f)
+            file_size = os.path.getsize(f)
 
             # Upload small files
-            if filesize <= self._transfer_config.multipart_threshold:
+            if file_size <= self._transfer_config.multipart_threshold:
                 with open(f, "rb") as fp:
                     self._put_object(remote_path, fp.read())
-                return
+                return file_size
 
             # Upload large files using TransferConfig
             bucket, key = split_path(remote_path)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 extra_args = {}
                 if self._is_directory_bucket(bucket):
                     extra_args["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
@@ -600,24 +624,28 @@ class S3StorageProvider(BaseStorageProvider):
                 # Extract and set x-trans-id if present
                 _extract_x_trans_id(response)
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
+
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
         else:
             # Upload small files
             f.seek(0, io.SEEK_END)
-            filesize = f.tell()
+            file_size = f.tell()
             f.seek(0)
 
-            if filesize <= self._transfer_config.multipart_threshold:
+            if file_size <= self._transfer_config.multipart_threshold:
                 if isinstance(f, io.StringIO):
                     self._put_object(remote_path, f.read().encode("utf-8"))
                 else:
                     self._put_object(remote_path, f.read())
-                return
+                return file_size
 
             # Upload large files using TransferConfig
             bucket, key = split_path(remote_path)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 extra_args = {}
                 if self._is_directory_bucket(bucket):
                     extra_args["StorageClass"] = EXPRESS_ONEZONE_STORAGE_CLASS
@@ -629,10 +657,14 @@ class S3StorageProvider(BaseStorageProvider):
                     ExtraArgs=extra_args,
                 )
 
-            return self._collect_metrics(_invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=filesize)
+                return file_size
 
-    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> None:
-        if not metadata:
+            return self._collect_metrics(
+                _invoke_api, operation="PUT", bucket=bucket, key=key, put_object_size=file_size
+            )
+
+    def _download_file(self, remote_path: str, f: Union[str, IO], metadata: Optional[ObjectMetadata] = None) -> int:
+        if metadata is None:
             metadata = self._get_object_metadata(remote_path)
 
         if isinstance(f, str):
@@ -643,12 +675,12 @@ class S3StorageProvider(BaseStorageProvider):
                     temp_file_path = fp.name
                     fp.write(self._get_object(remote_path))
                 os.rename(src=temp_file_path, dst=f)
-                return
+                return metadata.content_length
 
             # Download large files using TransferConfig
             bucket, key = split_path(remote_path)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 response = None
                 with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=os.path.dirname(f), prefix=".") as fp:
                     temp_file_path = fp.name
@@ -663,6 +695,8 @@ class S3StorageProvider(BaseStorageProvider):
                 _extract_x_trans_id(response)
                 os.rename(src=temp_file_path, dst=f)
 
+                return metadata.content_length
+
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
             )
@@ -673,12 +707,12 @@ class S3StorageProvider(BaseStorageProvider):
                     f.write(self._get_object(remote_path).decode("utf-8"))
                 else:
                     f.write(self._get_object(remote_path))
-                return
+                return metadata.content_length
 
             # Download large files using TransferConfig
             bucket, key = split_path(remote_path)
 
-            def _invoke_api() -> None:
+            def _invoke_api() -> int:
                 response = self._s3_client.download_fileobj(
                     Bucket=bucket,
                     Key=key,
@@ -688,6 +722,8 @@ class S3StorageProvider(BaseStorageProvider):
 
                 # Extract and set x-trans-id if present
                 _extract_x_trans_id(response)
+
+                return metadata.content_length
 
             return self._collect_metrics(
                 _invoke_api, operation="GET", bucket=bucket, key=key, get_object_size=metadata.content_length
