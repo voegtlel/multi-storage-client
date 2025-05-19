@@ -52,6 +52,8 @@ _TRACE_EXPORTER_MAPPING = {
     "otlp": "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
 }
 
+logger = logging.Logger(__name__)
+
 
 class Telemetry:
     """
@@ -154,7 +156,7 @@ class Telemetry:
                     try:
                         import opentelemetry.sdk.metrics as sdk_metrics
                         import opentelemetry.sdk.metrics.export as sdk_metrics_export
-                        from .metrics.export import DiperiodicExportingMetricReader
+                        from .metrics.readers.diperiodic_exporting import DiperiodicExportingMetricReader
 
                         exporter_type = config["exporter"]["type"]
                         exporter_fully_qualified_name = _METRICS_EXPORTER_MAPPING.get(exporter_type, exporter_type)
@@ -165,20 +167,20 @@ class Telemetry:
 
                         reader_options = config.get("reader", {}).get("options", {})
                         reader: sdk_metrics_export.MetricReader = DiperiodicExportingMetricReader(
-                            exporter=exporter, **reader_options
+                            **reader_options, exporter=exporter
                         )
 
                         return self._meter_provider_cache.setdefault(
                             config_json, sdk_metrics.MeterProvider(metric_readers=[reader])
                         )
                     except (AttributeError, ImportError):
-                        logging.error(
+                        logger.error(
                             "Failed to import OpenTelemetry Python SDK or exporter! Disabling metrics.", exc_info=True
                         )
                         return None
                 else:
                     # Don't return a no-op meter provider to avoid unnecessary overhead.
-                    logging.error("No exporter configured! Disabling metrics.")
+                    logger.error("No exporter configured! Disabling metrics.")
                     return None
 
     def meter(self, config: dict[str, Any]) -> Optional[api_metrics.Meter]:
@@ -279,12 +281,12 @@ class Telemetry:
                             sdk_trace.TracerProvider(active_span_processor=processor, sampler=sampler),
                         )
                     except (AttributeError, ImportError):
-                        logging.error(
+                        logger.error(
                             "Failed to import OpenTelemetry Python SDK or exporter! Disabling traces.", exc_info=True
                         )
                         return None
                 else:
-                    logging.error("No exporter configured! Disabling traces.")
+                    logger.error("No exporter configured! Disabling traces.")
                     return None
 
     def tracer(self, config: dict[str, Any]) -> Optional[api_trace.Tracer]:
@@ -521,23 +523,23 @@ def init(
                 )
 
                 if mode == TelemetryMode.SERVER:
-                    logging.debug(f"Creating telemetry manager server at {telemetry_manager.address}.")
+                    logger.debug(f"Creating telemetry manager server at {telemetry_manager.address}.")
                     try:
                         telemetry_manager.start()
                         atexit.register(telemetry_manager.shutdown)
-                        logging.debug(f"Started telemetry manager server at {telemetry_manager.address}.")
+                        logger.debug(f"Started telemetry manager server at {telemetry_manager.address}.")
                     except Exception as e:
-                        logging.error(
+                        logger.error(
                             f"Failed to create telemetry manager server at {telemetry_manager.address}!", exc_info=True
                         )
                         raise e
 
-                logging.debug(f"Connecting to telemetry manager server at {telemetry_manager.address}.")
+                logger.debug(f"Connecting to telemetry manager server at {telemetry_manager.address}.")
                 try:
                     telemetry_manager.connect()
-                    logging.debug(f"Connected to telemetry manager server at {telemetry_manager.address}.")
+                    logger.debug(f"Connected to telemetry manager server at {telemetry_manager.address}.")
                 except Exception as e:
-                    logging.error(
+                    logger.error(
                         f"Failed to connect to telemetry manager server at {telemetry_manager.address}!", exc_info=True
                     )
                     raise e
