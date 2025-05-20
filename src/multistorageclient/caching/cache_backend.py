@@ -35,7 +35,7 @@ from ..instrumentation.utils import CacheManagerMetricsHelper
 from ..types import StorageProvider
 from .cache_config import CacheConfig
 from .cache_item import CacheItem
-from .eviction_policy import FIFO, LRU, RANDOM, EvictionPolicyFactory
+from .eviction_policy import FIFO, LRU, RANDOM, NO_EVICTION, EvictionPolicyFactory
 
 
 class _DummyLock:
@@ -160,6 +160,11 @@ class CacheBackend(ABC):
         """
         return self._split_key(file_name)[0]
 
+    def _should_refresh_cache(self) -> bool:
+        """Check if enough time has passed since the last refresh."""
+        now = datetime.now()
+        return (now - self._last_refresh_time).seconds > self._cache_refresh_interval
+
 
 class FileSystemBackend(CacheBackend):
     """
@@ -207,8 +212,12 @@ class FileSystemBackend(CacheBackend):
         self.refresh_cache()
 
     def _check_if_eviction_policy_is_valid(self, eviction_policy: str) -> bool:
-        """Check if the eviction policy is valid for this backend."""
-        return eviction_policy.lower() in {LRU, FIFO, RANDOM}
+        """Check if the eviction policy is valid for this backend.
+
+        :param eviction_policy: The eviction policy to check.
+        :return: True if the policy is valid, False otherwise.
+        """
+        return eviction_policy.lower() in {LRU, FIFO, RANDOM, NO_EVICTION}
 
     def get_file_size(self, file_path: str) -> Optional[int]:
         """Get the size of the file in bytes.
@@ -241,15 +250,6 @@ class FileSystemBackend(CacheBackend):
             os.unlink(lock_path)
         except OSError:
             pass
-
-    def _should_refresh_cache(self) -> bool:
-        """Check if enough time has passed since the last refresh.
-
-        Returns:
-            bool: True if cache should be refreshed, False otherwise
-        """
-        now = datetime.now()
-        return (now - self._last_refresh_time).seconds > self._cache_refresh_interval
 
     def evict_files(self) -> None:
         """
@@ -471,6 +471,11 @@ class FileSystemBackend(CacheBackend):
     def refresh_cache(self) -> bool:
         """Scan the cache directory and evict cache entries."""
         try:
+            # Skip eviction if policy is NO_EVICTION
+            if self._cache_config.eviction_policy.policy.lower() == NO_EVICTION:
+                self._last_refresh_time = datetime.now()
+                return True
+
             # If the process acquires the lock, then proceed with the cache eviction
             with self._cache_refresh_lock_file.acquire(blocking=False):
                 self.evict_files()
@@ -547,8 +552,14 @@ class StorageProviderBackend(CacheBackend):
         self._refresh_lock = threading.Lock()  # Local lock for refresh operations
 
     def _check_if_eviction_policy_is_valid(self, eviction_policy: str) -> bool:
-        """Check if the eviction policy is valid for this backend."""
-        return eviction_policy.lower() in {FIFO, RANDOM}
+        """Check if the eviction policy is valid for this backend.
+
+        :param eviction_policy: The eviction policy to check.
+        :return: True if the policy is valid, False otherwise.
+
+        NOTE: In future, we may support other eviction policies (FIFO, RANDOM), but for now, we only support NO_EVICTION
+        """
+        return eviction_policy.lower() in {NO_EVICTION}
 
     @property
     def last_refresh_time(self) -> datetime:
@@ -621,11 +632,6 @@ class StorageProviderBackend(CacheBackend):
             return None
         finally:
             self._metrics_helper.increase(operation="OPEN", success=success)
-
-    def _should_refresh_cache(self) -> bool:
-        """Check if enough time has passed since the last refresh."""
-        now = datetime.now()
-        return (now - self._last_refresh_time).seconds > self._cache_refresh_interval
 
     def set(self, key: str, source: Union[str, bytes]) -> None:
         """Store a file in the cache."""

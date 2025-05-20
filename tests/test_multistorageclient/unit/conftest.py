@@ -41,7 +41,9 @@ profiles:
       type: file
       options:
         base_path: /
-cache: {}
+cache:
+  eviction_policy:
+    policy: no_eviction
 """
 
 CONFIG_YAML_WITH_PATH_MAPPING = """

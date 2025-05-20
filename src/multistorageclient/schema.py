@@ -83,16 +83,15 @@ CACHE_SCHEMA = {
         "location": {"type": "string"},
         "use_etag": {"type": "boolean"},
         "eviction_policy": {
-            "oneOf": [
-                {"type": "string", "enum": ["lru", "fifo", "random"]},
-                {
-                    "type": "object",
-                    "properties": {
-                        "policy": {"type": "string", "enum": ["lru", "fifo", "random", "LRU", "FIFO", "RANDOM"]},
-                        "refresh_interval": {"type": "integer", "minimum": 300},
-                    },
+            "type": "object",
+            "properties": {
+                "policy": {
+                    "type": "string",
+                    "enum": ["lru", "fifo", "random", "no_eviction", "LRU", "FIFO", "RANDOM", "NO_EVICTION"],
                 },
-            ]
+                "refresh_interval": {"type": "integer", "minimum": 300},
+            },
+            "required": ["policy"],
         },
         "cache_backend": {  # Optional: If not specified, default cache backend will be used
             "type": "object",
@@ -102,6 +101,7 @@ CACHE_SCHEMA = {
             },
         },
     },
+    "required": ["eviction_policy"],
     "additionalProperties": False,
 }
 

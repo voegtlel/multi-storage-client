@@ -25,7 +25,7 @@ from multistorageclient.caching.cache_config import (
     EvictionPolicyConfig,
     CacheBackendConfig,
 )
-from multistorageclient.cache import CacheBackendFactory, DEFAULT_CACHE_SIZE_MB, DEFAULT_CACHE_REFRESH_INTERVAL
+from multistorageclient.cache import CacheBackendFactory, DEFAULT_CACHE_REFRESH_INTERVAL
 from multistorageclient.caching.cache_backend import FileSystemBackend
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient.config import StorageClientConfig
@@ -547,24 +547,19 @@ def create_incorrect_size_cache_config(profile_config, tmpdir):
     ids=["legacy_config", "new_config"],
 )
 def test_storage_provider_cache_configs(config_creator, temp_data_store_type, tmpdir):
-    """
-    Test that both legacy and new cache config formats work correctly.
-
-    This test verifies that cache operations work the same way regardless of whether
-    the legacy or new cache configuration format is used.
-    """
+    """Test that both legacy and new cache config formats work correctly."""
     with temp_data_store_type() as temp_store:
         config_dict = config_creator(temp_store.profile_config_dict(), tmpdir)
-        storage_config = StorageClientConfig.from_dict(config_dict)
-        real_storage_provider = storage_config.storage_provider
-
-        # Clean up any existing objects in the bucket with test prefix
-        for obj in real_storage_provider.list_objects(prefix="test_"):
-            real_storage_provider.delete_object(obj.key)
-
-        # Access the CacheManager
-        cache_manager = storage_config.cache_manager
-        verify_cache_operations(cache_manager)
+        if config_creator == create_legacy_cache_config:
+            with pytest.raises(RuntimeError, match="Failed to validate the config file"):
+                StorageClientConfig.from_dict(config_dict)
+        else:
+            storage_config = StorageClientConfig.from_dict(config_dict)
+            real_storage_provider = storage_config.storage_provider
+            for obj in real_storage_provider.list_objects(prefix="test_"):
+                real_storage_provider.delete_object(obj.key)
+            cache_manager = storage_config.cache_manager
+            verify_cache_operations(cache_manager)
 
 
 @pytest.mark.parametrize(
@@ -574,7 +569,7 @@ def test_storage_provider_cache_configs(config_creator, temp_data_store_type, tm
             tempdatastore.TemporaryAWSS3Bucket,
             create_mixed_cache_config,
             ValueError,
-            "Cannot mix old and new cache config formats",
+            "The 'size_mb' and 'location' properties are no longer supported",
         ],
         [
             tempdatastore.TemporaryAWSS3Bucket,
@@ -623,26 +618,10 @@ def storage_provider_empty_cache_config(tmpdir):
 def test_storage_provider_empty_cache_config(storage_provider_empty_cache_config, temp_data_store_type):
     with temp_data_store_type() as temp_store:
         config_dict = storage_provider_empty_cache_config(temp_store.profile_config_dict())
-        storage_config = StorageClientConfig.from_dict(config_dict)
-        real_storage_provider = storage_config.storage_provider
-        cache_backend = storage_config.cache_manager
-
-        # Clean up any existing objects in the bucket with test prefix
-        for obj in real_storage_provider.list_objects(prefix="test_"):
-            real_storage_provider.delete_object(obj.key)
-
-        # Access the CacheManager
-        cache_manager = storage_config.cache_manager
-        verify_cache_operations(cache_manager)
-
-        cache_config = storage_config.cache_config
-        assert cache_config is not None
-        assert cache_config.size == DEFAULT_CACHE_SIZE_MB
-        assert cache_config.backend.cache_path is not None and isinstance(cache_config.backend.cache_path, str)
-        assert cache_config.eviction_policy.policy == "fifo"
-        assert cache_config.eviction_policy.refresh_interval == DEFAULT_CACHE_REFRESH_INTERVAL
-        assert cache_config.use_etag
-        assert isinstance(cache_backend, FileSystemBackend)
+        with pytest.raises(RuntimeError) as exc_info:
+            StorageClientConfig.from_dict(config_dict)
+        assert "Failed to validate the config file" in str(exc_info.value)
+        assert "'eviction_policy' is a required property" in str(exc_info.value)
 
 
 @pytest.fixture
@@ -653,7 +632,10 @@ def storage_provider_partial_cache_config(tmpdir):
 
     # Create a config dictionary with profile and cache configuration
     def _config_builder(profile_config):
-        return {"profiles": {"s3-local": profile_config}, "cache": {"size": "100M"}}
+        return {
+            "profiles": {"s3-local": profile_config},
+            "cache": {"size": "100M", "eviction_policy": {"policy": "fifo"}},
+        }
 
     return _config_builder
 
@@ -704,15 +686,13 @@ def test_storage_provider_backend_requires_s3_provider(temp_data_store_type, exp
     with temp_data_store_type() as temp_data_store:
         # Get the profile name from the temp data store
         profile_config = temp_data_store.profile_config_dict()
-        print(f"Profile config: {profile_config}")  # Debug logging
         profile_name = list(profile_config.keys())[0]
-        print(f"Profile name from temp_data_store: {profile_name}")  # Debug logging
 
         # Create a cache config with storage provider profile
         cache_config = CacheConfig(
             size="100M",
             use_etag=True,
-            eviction_policy=EvictionPolicyConfig(policy="fifo", refresh_interval=300),
+            eviction_policy=EvictionPolicyConfig(policy="no_eviction"),
             backend=CacheBackendConfig(cache_path="tmp/msc_cache", storage_provider_profile=profile_name),
         )
 
@@ -733,3 +713,83 @@ def test_storage_provider_backend_requires_s3_provider(temp_data_store_type, exp
                 match="The storage_provider_profile must reference a profile that uses a storage provider of type s3 or s8k",
             ):
                 CacheBackendFactory.create(profile, cache_config, storage_provider)
+
+
+@pytest.fixture
+def no_eviction_cache_config(tmpdir):
+    cache_dir = os.path.join(str(tmpdir), "no_eviction_cache")
+    return CacheConfig(
+        size="3M",
+        use_etag=False,
+        eviction_policy=EvictionPolicyConfig(policy="NO_EVICTION"),
+        backend=CacheBackendConfig(cache_path=cache_dir),
+    )
+
+
+def test_no_eviction_policy(profile_name, no_eviction_cache_config):
+    """Test the NO_EVICTION eviction policy of the cache manager.
+
+    This test verifies that when NO_EVICTION eviction policy is set:
+    1. No files are evicted even when cache size limit is exceeded
+    2. All files remain in cache regardless of size
+    3. Cache refresh does not trigger eviction
+    4. No eviction thread is created
+    5. No lock file is created
+
+    :param profile_name: The name of the cache profile to use
+    :param no_eviction_cache_config: Cache configuration with NO_EVICTION eviction policy
+    """
+    # Clean the entire cache directory
+    cache_dir = no_eviction_cache_config.backend.cache_path
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+    os.makedirs(cache_dir)
+
+    # Create the CacheManager with the provided no_eviction_cache_config
+    cache_manager = CacheBackendFactory.create(profile=profile_name, cache_config=no_eviction_cache_config)
+
+    # Verify no eviction thread is created
+    assert not hasattr(cache_manager, "_eviction_thread"), "No eviction thread should be created for NONE policy"
+    assert not hasattr(cache_manager, "_eviction_thread_running"), (
+        "No eviction thread running flag should exist for NO_EVICTION policy"
+    )
+
+    test_uuid = str(uuid.uuid4())
+    # Add first 3 files to the cache (each file is 1 MB)
+    cache_manager.set(f"{test_uuid}/file1", b"a" * 1 * 1024 * 1024)  # 1 MB
+    cache_manager.set(f"{test_uuid}/file2", b"b" * 1 * 1024 * 1024)  # 1 MB
+    cache_manager.set(f"{test_uuid}/file3", b"c" * 1 * 1024 * 1024)  # 1 MB
+
+    # Verify first 3 files are in cache
+    for i in range(1, 4):
+        assert cache_manager.contains(f"{test_uuid}/file{i}"), f"File {i} should be in cache"
+
+    # Add 2 more files to exceed cache size limit
+    cache_manager.set(f"{test_uuid}/file4", b"d" * 1 * 1024 * 1024)  # 1 MB
+    cache_manager.set(f"{test_uuid}/file5", b"e" * 1 * 1024 * 1024)  # 1 MB
+
+    # Verify no lock file is created
+    lock_file_path = os.path.join(cache_dir, ".cache_refresh.lock")
+    assert not os.path.exists(lock_file_path), "No lock file should be created for NONE policy"
+
+    # Force refresh to trigger eviction by setting last refresh time to the past
+    cache_manager._last_refresh_time = datetime.now().replace(year=2000)
+    cache_manager.refresh_cache()
+
+    # Verify all 5 files are still in cache after refresh
+    for i in range(1, 6):
+        assert cache_manager.contains(f"{test_uuid}/file{i}"), f"File {i} should not be evicted"
+
+    # Verify total cache size exceeds the limit
+    total_size = 0
+    for i in range(1, 6):
+        data = cache_manager.read(f"{test_uuid}/file{i}")
+        if data is not None:
+            total_size += len(data)
+    assert total_size > 3 * 1024 * 1024, "Total cache size should exceed 3MB limit with NONE policy"
+
+    # Verify no eviction thread was created during the test
+    assert not hasattr(cache_manager, "_eviction_thread"), "No eviction thread should be created during test"
+    assert not hasattr(cache_manager, "_eviction_thread_running"), (
+        "No eviction thread running flag should exist during test"
+    )

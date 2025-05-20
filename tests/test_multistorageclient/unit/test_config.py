@@ -730,29 +730,21 @@ def test_storage_options_does_not_override_creds_provider_options() -> None:
 
 
 def test_legacy_cache_config():
-    """Test loading old cache config format."""
+    """Test that legacy cache config with size_mb and string eviction_policy raises schema validation error."""
     config_dict = {
         "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
-        "cache": {"location": "/tmp/msc_cache", "size_mb": 200000, "use_etag": True},
+        "cache": {"location": "/tmp/msc_cache", "size_mb": 200000, "use_etag": True, "eviction_policy": "fifo"},
     }
 
-    config = StorageClientConfig.from_dict(config_dict, "test")
-    assert config.cache_config is not None
-    assert config.cache_manager is not None
-
-    # Verify cache config values
-    assert config.cache_config.size == "200000M"  # Converted from size_mb
-    assert config.cache_config.use_etag is True
-    assert config.cache_config.backend.cache_path == "/tmp/msc_cache"
-    assert config.cache_config.eviction_policy.policy == "fifo"  # Default value
-    assert config.cache_config.eviction_policy.refresh_interval == 300  # Default value
+    with pytest.raises(RuntimeError, match="Failed to validate the config file"):
+        StorageClientConfig.from_dict(config_dict, "test")
 
 
 def test_cache_config_defaults():
     """Test cache config with minimal configuration."""
     config_dict = {
         "profiles": {"test": {"storage_provider": {"type": "file", "options": {"base_path": "/tmp/test_storage"}}}},
-        "cache": {"size": "100M"},
+        "cache": {"size": "100M", "eviction_policy": {"policy": "fifo"}},
     }
 
     config = StorageClientConfig.from_dict(config_dict, "test")
@@ -812,9 +804,8 @@ def test_mixed_cache_config():
         },
     }
 
-    # Should raise an error because mixing old format (size_mb, location)
-    # with new format (eviction_policy, cache_backend)
-    with pytest.raises(ValueError, match="Cannot mix old and new cache config formats"):
+    # Should raise an error because size_mb is no longer supported
+    with pytest.raises(ValueError, match="The 'size_mb' and 'location' properties are no longer supported"):
         StorageClientConfig.from_dict(config_dict, "test")
 
 

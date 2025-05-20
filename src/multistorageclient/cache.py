@@ -20,7 +20,8 @@ from .caching.cache_config import CacheConfig
 from .caching.cache_backend import CacheBackend, FileSystemBackend, StorageProviderBackend
 from .types import StorageProvider
 
-DEFAULT_CACHE_SIZE_MB = "10G"  # 10 GB
+DEFAULT_CACHE_SIZE = "10G"
+DEFAULT_CACHE_SIZE_MB = "10000"
 DEFAULT_CACHE_REFRESH_INTERVAL = 300  # 5 minutes
 DEFAULT_LOCK_TIMEOUT = 600  # 10 minutes
 

@@ -77,7 +77,7 @@ def test_validate_cache():
             "profiles": {
                 "default": default_storage_provider,
             },
-            "cache": {},
+            "cache": {"eviction_policy": {"policy": "no_eviction"}},
         }
     )
 
@@ -97,6 +97,19 @@ def test_validate_cache():
             },
         }
     )
+
+    # Test invalid eviction policy format
+    with pytest.raises(RuntimeError):
+        validate_config(
+            {
+                "profiles": {
+                    "default": default_storage_provider,
+                },
+                "cache": {
+                    "eviction_policy": "no_eviction"  # String format is no longer supported
+                },
+            }
+        )
 
 
 def test_validate_opentelemetry():

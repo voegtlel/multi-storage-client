@@ -276,9 +276,9 @@ def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.Temporar
                     "test": temp_data_store.profile_config_dict(),
                 },
                 "cache": {
-                    "size_mb": 5000,
-                    "location": "/tmp/msc_cache",
-                    "use_etag": True,
+                    "eviction_policy": {
+                        "policy": "fifo",
+                    }
                 },
             }
         )
@@ -312,9 +312,9 @@ def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore
                     "test": data_with_manifest_profile_config_dict,
                 },
                 "cache": {
-                    "size_mb": 5000,
-                    "location": "/tmp/msc_cache",
-                    "use_etag": True,
+                    "eviction_policy": {
+                        "policy": "fifo",
+                    }
                 },
             }
         )
@@ -340,7 +340,11 @@ def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: Type[tempdatas
                 "profiles": {
                     "test": profile_dict,
                 },
-                "cache": {},
+                "cache": {
+                    "eviction_policy": {
+                        "policy": "fifo",
+                    }
+                },
             }
         )
 

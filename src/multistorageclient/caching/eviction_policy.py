@@ -7,9 +7,10 @@ from .cache_item import CacheItem
 LRU = "lru"  # Least Recently Used
 FIFO = "fifo"  # First In First Out
 RANDOM = "random"  # Random Eviction
+NO_EVICTION = "no_eviction"  # No Eviction
 
 # Use a set for faster lookups
-VALID_EVICTION_POLICIES = {LRU, FIFO, RANDOM}
+VALID_EVICTION_POLICIES = {LRU, FIFO, RANDOM, NO_EVICTION}
 
 
 class EvictionPolicy(ABC):
@@ -100,6 +101,24 @@ class RandomEvictionPolicy(EvictionPolicy):
         return cache_items
 
 
+class NoEvictionPolicy(EvictionPolicy):
+    """No eviction policy.
+
+    This policy prevents any eviction from occurring, effectively making the cache
+    grow without bounds until manually cleared.
+    """
+
+    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+        """Return items in their original order without any sorting.
+
+        Since no eviction should occur, we return the items in their original order.
+
+        :param cache_items: List of cache items to sort.
+        :return: Items in their original order.
+        """
+        return cache_items
+
+
 class EvictionPolicyFactory:
     """Factory class for creating eviction policy instances.
 
@@ -110,6 +129,7 @@ class EvictionPolicyFactory:
         LRU: LRUEvictionPolicy,
         FIFO: FIFOEvictionPolicy,
         RANDOM: RandomEvictionPolicy,
+        NO_EVICTION: NoEvictionPolicy,
     }
 
     @staticmethod

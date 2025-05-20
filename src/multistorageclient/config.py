@@ -25,7 +25,7 @@ from collections.abc import Sequence
 import opentelemetry.metrics as api_metrics
 import yaml
 
-from .cache import DEFAULT_CACHE_SIZE_MB, CacheBackendFactory, CacheManager
+from .cache import DEFAULT_CACHE_SIZE, CacheBackendFactory, CacheManager
 from .caching.cache_config import CacheConfig, CacheBackendConfig, EvictionPolicyConfig
 from .instrumentation import setup_opentelemetry
 from .providers.manifest_metadata import ManifestMetadataProvider
@@ -143,7 +143,6 @@ class SimpleProviderBundle(ProviderBundle):
 
 
 DEFAULT_CACHE_REFRESH_INTERVAL = 300
-DEFAULT_EVICTION_POLICY = "fifo"
 
 
 class StorageClientConfigLoader:
@@ -432,38 +431,23 @@ class StorageClientConfigLoader:
         )
         return cache_manager
 
-    def _migrate_legacy_cache_config(self) -> Dict[str, Any]:
-        """Convert legacy cache config to new format if needed."""
-
-        if self._cache_dict:
-            # If it's already in new format (has size and no size_mb), return as is
-            if "size" in self._cache_dict and "size_mb" not in self._cache_dict:
-                return self._cache_dict
-
-            # Check if mixing old and new formats
-            if "size_mb" in self._cache_dict and (
-                "eviction_policy" in self._cache_dict and isinstance(self._cache_dict["eviction_policy"], dict)
-            ):
-                raise ValueError(
-                    f"Cannot mix old and new cache config formats, eviction_policy must be a string not a dict, provided: {self._cache_dict['eviction_policy']}"
-                )
-
-            # Convert legacy format to new format
-            return {
-                "size": f"{self._cache_dict['size_mb']}M",
-                "use_etag": self._cache_dict.get("use_etag", True),  # default to True
-                "eviction_policy": {
-                    "policy": self._cache_dict.get("eviction_policy", DEFAULT_EVICTION_POLICY).lower()
-                    if isinstance(self._cache_dict.get("eviction_policy"), str)
-                    else DEFAULT_EVICTION_POLICY,
-                    "refresh_interval": DEFAULT_CACHE_REFRESH_INTERVAL,
-                },
-                "cache_backend": {
-                    "cache_path": self._cache_dict.get("location", os.path.join(tempfile.gettempdir(), ".msc_cache"))
-                },
-            }
-        else:
-            return {}
+    def _verify_cache_config(self, cache_dict: Dict[str, Any]) -> None:
+        if "size_mb" in cache_dict or "location" in cache_dict:
+            raise ValueError(
+                "The 'size_mb' and 'location' properties are no longer supported. \n"
+                "Please use 'size' with a unit suffix (M, G, T) instead of size_mb.\n"
+                "Please use 'cache_backend.cache_path' to specify the cache path.\n"
+                "Example configuration:\n"
+                "cache:\n"
+                "  size: 20G\n"  # Optional: If not specified, default cache size (10GB) will be used
+                "  use_etag: true\n"  # Optional: If not specified, default cache use_etag (true) will be used
+                "  eviction_policy:\n"  # Required: The eviction policy to use
+                "    policy: fifo\n"  # Required: The eviction policy to use
+                "    refresh_interval: 300\n"  # Optional: If not specified, default cache refresh interval (300 seconds) will be used
+                "  cache_backend:\n"  # Optional: If not specified, default cache backend will be used
+                "    cache_path: tmp/msc_cache\n"  # Optional: If not specified, default cache path (tmp/.msc_cache) will be used
+                "    storage_provider_profile: test-s3e"  # Optional: specify ONLY for object storage backends
+            )
 
     def build_config(self) -> "StorageClientConfig":
         bundle = self._build_provider_bundle()
@@ -482,17 +466,15 @@ class StorageClientConfigLoader:
 
             # Initialize cache_dict with default values
             cache_dict = self._cache_dict
-
-            # Migrate legacy config if needed
-            if self._cache_dict != {}:
-                cache_dict = self._migrate_legacy_cache_config()
+            # Verify cache config
+            self._verify_cache_config(cache_dict)
 
             # Create cache config from the standardized format
             cache_config = CacheConfig(
-                size=cache_dict.get("size", DEFAULT_CACHE_SIZE_MB),
+                size=cache_dict.get("size", DEFAULT_CACHE_SIZE),
                 use_etag=cache_dict.get("use_etag", True),
                 eviction_policy=EvictionPolicyConfig(
-                    policy=cache_dict.get("eviction_policy", {}).get("policy", DEFAULT_EVICTION_POLICY).lower(),
+                    policy=cache_dict["eviction_policy"]["policy"].lower(),
                     refresh_interval=cache_dict.get("eviction_policy", {}).get(
                         "refresh_interval", DEFAULT_CACHE_REFRESH_INTERVAL
                     ),
