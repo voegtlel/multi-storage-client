@@ -13,7 +13,6 @@ from .eviction_policy import (
 
 from .cache_backend import CacheBackend, FileSystemBackend, StorageProviderBackend
 from .cache_config import CacheConfig, CacheBackendConfig, EvictionPolicyConfig
-from .distributed_hint import DistributedHint, DistributedHintConflictError
 
 __all__ = [
     "CacheItem",
@@ -32,6 +31,4 @@ __all__ = [
     "StorageProviderBackend",
     "CacheBackendConfig",
     "EvictionPolicyConfig",
-    "DistributedHint",
-    "DistributedHintConflictError",
 ]

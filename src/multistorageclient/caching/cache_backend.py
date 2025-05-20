@@ -35,7 +35,6 @@ from ..instrumentation.utils import CacheManagerMetricsHelper
 from ..types import StorageProvider
 from .cache_config import CacheConfig
 from .cache_item import CacheItem
-from .distributed_hint import DistributedHint
 from .eviction_policy import FIFO, LRU, RANDOM, EvictionPolicyFactory
 
 
@@ -546,12 +545,6 @@ class StorageProviderBackend(CacheBackend):
 
         self._eviction_policy = EvictionPolicyFactory.create(cache_config.eviction_policy.policy)
         self._refresh_lock = threading.Lock()  # Local lock for refresh operations
-
-        # Distributed lock configuration
-        self._distributed_lock_prefix = f"{self._profile}/locks/"
-        self._eviction_lock_key = f"{self._distributed_lock_prefix}eviction_lock"
-        # Initialize the distributed lock manager
-        self._lock_manager = DistributedHint(self._storage_provider, self._distributed_lock_prefix)  # type: ignore
 
     def _check_if_eviction_policy_is_valid(self, eviction_policy: str) -> bool:
         """Check if the eviction policy is valid for this backend."""
