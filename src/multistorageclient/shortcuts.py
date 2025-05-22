@@ -345,17 +345,18 @@ def write(url: str, body: bytes) -> None:
     client.write(path=path, body=body)
 
 
-def delete(url: str) -> None:
+def delete(url: str, recursive: bool = False) -> None:
     """
-    Deletes the specified object from the storage provider.
+    Deletes the specified object(s) from the storage provider.
 
     This function retrieves the corresponding :py:class:`multistorageclient.StorageClient`
-    for the given URL and deletes the object at the specified path.
+    for the given URL and deletes the object(s) at the specified path.
 
     :param url: The URL of the object to delete. (example: ``msc://profile/prefix/file.txt``)
+    :param recursive: Whether to delete objects in the path recursively.
     """
     client, path = resolve_storage_client(url)
-    client.delete(path)
+    client.delete(path, recursive=recursive)
 
 
 def commit_metadata(url: str) -> None:

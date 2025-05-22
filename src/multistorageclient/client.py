@@ -21,7 +21,7 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, cast, Dict, Iterator, List, Optional, Union
 
 from .config import StorageClientConfig
 from .constants import MEMORY_LOAD_LIMIT
@@ -30,7 +30,7 @@ from .instrumentation.utils import instrumented
 from .providers.posix_file import PosixFileStorageProvider
 from .retry import retry
 from .types import MSC_PROTOCOL, ObjectMetadata, Range
-from .utils import join_paths, calculate_worker_processes_and_threads
+from .utils import join_paths, calculate_worker_processes_and_threads, NullStorageClient
 
 logger = logging.Logger(__name__)
 
@@ -246,12 +246,21 @@ class StorageClient:
             metadata = self._storage_provider.get_object_metadata(dest_path)
             self._metadata_provider.add_file(virtual_dest_path, metadata)
 
-    def delete(self, path: str) -> None:
+    def delete(self, path: str, recursive: bool = False) -> None:
         """
         Deletes an object from the storage provider at the specified path.
 
         :param path: The virtual path of the object to delete.
+        :param recursive: Whether to delete objects in the path recursively.
         """
+        if recursive:
+            self.sync_from(NullStorageClient(), path, path, delete_unmatched_files=True, num_worker_processes=1)
+            # If this is a posix storage provider, we need to also delete remaining directory stubs.
+            if self._is_posix_file_storage_provider():
+                posix_storage_provider = cast(PosixFileStorageProvider, self._storage_provider)
+                posix_storage_provider.rmtree(path)
+            return
+
         virtual_path = path
         if self._metadata_provider:
             path, exists = self._metadata_provider.realpath(path)
@@ -425,6 +434,7 @@ class StorageClient:
         source_path: str = "",
         target_path: str = "",
         delete_unmatched_files: bool = False,
+        num_worker_processes: Optional[int] = None,
     ) -> None:
         """
         Syncs files from the source storage client to "path/".
@@ -433,12 +443,13 @@ class StorageClient:
         :param source_path: The path to sync from.
         :param target_path: The path to sync to.
         :param delete_unmatched_files: Whether to delete files at the target that are not present at the source.
+        :param num_worker_processes: The number of worker processes to use.
         """
         if source_client == self and (source_path.startswith(target_path) or target_path.startswith(source_path)):
             raise ValueError("Source and target paths cannot overlap on same StorageClient.")
 
         # Attempt to balance the number of worker processes and threads.
-        num_worker_processes, num_worker_threads = calculate_worker_processes_and_threads()
+        num_worker_processes, num_worker_threads = calculate_worker_processes_and_threads(num_worker_processes)
 
         if num_worker_processes == 1:
             file_queue = queue.Queue(maxsize=2000)

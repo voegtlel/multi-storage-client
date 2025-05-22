@@ -208,3 +208,8 @@ def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.Tempora
         # call commit_metadata again, should be a no-op
         storage_client.commit_metadata()
         assert set([f.key for f in storage_client.list(prefix="")]) == set(content_dict.keys())
+
+        # Test delete API with recursive=True, which auto-commits.
+        storage_client.delete(path="", recursive=True)
+        # Assert that all files are deleted
+        assert len(list(storage_client.list(prefix=""))) == 0

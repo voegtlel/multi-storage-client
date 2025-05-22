@@ -219,9 +219,11 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
             assert len(files) == 1
             assert files[0].key.endswith(f"{i}{file_extension}")
 
-        # Delete the files.
+        # Delete all the files recursively.
+        storage_client.delete(path="", recursive=True)
+        # Verify deletes
         for i in file_numbers:
-            storage_client.delete(path=f"{i}{file_extension}")
+            assert not storage_client.is_file(path=f"{i}{file_extension}")
 
 
 @pytest.mark.parametrize(

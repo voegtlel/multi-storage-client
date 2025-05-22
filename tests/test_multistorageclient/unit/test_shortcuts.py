@@ -25,8 +25,8 @@ import pytest
 
 import multistorageclient as msc
 from multistorageclient.client import StorageClient
-from multistorageclient.file import ObjectFile
 from multistorageclient.types import MSC_PROTOCOL
+from multistorageclient.file import ObjectFile
 from multistorageclient.providers.manifest_metadata import (
     DEFAULT_MANIFEST_BASE_DIR,
 )
@@ -209,7 +209,7 @@ def verify_shortcuts(profile: str, prefix: str):
 
     # open files
     for i in range(10):
-        with msc.open(f"msc://{profile}/{prefix}/data-{i}.bin", "wb") as fp:
+        with msc.open(f"msc://{profile}/{prefix}/folder/data-{i}.bin", "wb") as fp:
             fp.write(body)
 
     msc.commit_metadata(f"msc://{profile}")
@@ -220,7 +220,7 @@ def verify_shortcuts(profile: str, prefix: str):
     fp = tempfile.NamedTemporaryFile(mode="wb", delete=False)
     fp.write(body)
     fp.close()
-    msc.upload_file(f"msc://{profile}/{prefix}/data-11.bin", fp.name)
+    msc.upload_file(f"msc://{profile}/{prefix}/folder/data-11.bin", fp.name)
 
     msc.commit_metadata(f"msc://{profile}")
 
@@ -232,40 +232,47 @@ def verify_shortcuts(profile: str, prefix: str):
 
     # download
     filepath = os.path.join(tempfile.gettempdir(), "data-11.bin")
-    msc.download_file(f"msc://{profile}/{prefix}/data-11.bin", filepath)
+    msc.download_file(f"msc://{profile}/{prefix}/folder/data-11.bin", filepath)
     assert os.path.exists(filepath)
 
     # numpy
     arr = np.array([1, 2, 3, 4, 5], dtype=np.int32)
-    msc.numpy.save(f"msc://{profile}/{prefix}/arr-01.npy", arr)
+    msc.numpy.save(f"msc://{profile}/{prefix}/folder/arr-01.npy", arr)
     msc.commit_metadata(f"msc://{profile}")
 
-    assert msc.numpy.load(f"msc://{profile}/{prefix}/arr-01.npy").all() == arr.all()
-    assert msc.numpy.memmap(f"msc://{profile}/{prefix}/arr-01.npy", dtype=np.int32, shape=(5,)).all() == arr.all()
+    assert msc.numpy.load(f"msc://{profile}/{prefix}/folder/arr-01.npy").all() == arr.all()
+    assert (
+        msc.numpy.memmap(f"msc://{profile}/{prefix}/folder/arr-01.npy", dtype=np.int32, shape=(5,)).all() == arr.all()
+    )
 
     # mmap
-    with msc.open(f"msc://{profile}/{prefix}/data-2.bin") as fp:
+    with msc.open(f"msc://{profile}/{prefix}/folder/data-2.bin") as fp:
         with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
             content = mm[:]
             assert content == body
 
     # open file without cache
-    with msc.open(f"msc://{profile}/{prefix}/data-2.bin", disable_read_cache=True) as fp:
-        assert isinstance(fp, ObjectFile)
-        assert fp._cache_manager is None
+    with msc.open(f"msc://{profile}/{prefix}/folder/data-2.bin", disable_read_cache=True) as fp:
+        if isinstance(fp, ObjectFile):
+            assert fp._cache_manager is None
 
     # delete files
+    msc.delete(f"msc://{profile}/{prefix}", recursive=True)
     for file_url in file_list:
-        msc.delete(file_url)
+        assert not msc.is_file(file_url)
+
+    # Ensure all directories gone too
+    assert len(list(msc.list(f"msc://{profile}/{prefix}/", include_directories=True))) == 0
 
 
 @pytest.mark.parametrize(
     argnames=["temp_data_store_type"],
     argvalues=[
         [tempdatastore.TemporaryAWSS3Bucket],
+        [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_msc_shortcuts_with_s3(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_msc_shortcuts(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 

@@ -21,7 +21,9 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, Iterator, List, Optional, Tuple, Dict
+
+from .types import ObjectMetadata
 
 
 def split_path(path: str) -> Tuple[str, str]:
@@ -216,15 +218,25 @@ def find_executable_path(executable_name: str) -> Optional[Path]:
     return None
 
 
-def calculate_worker_processes_and_threads():
+def calculate_worker_processes_and_threads(num_worker_processes: Optional[int] = None):
     """
     Calculate the number of worker processes and threads based on CPU count and environment variables.
+
+    :param num_worker_processes: The number of worker processes to use. If not provided, the number of processes will be
+        calculated based on the CPU count and the MSC_NUM_PROCESSES environment variable.
 
     :return: Tuple of (num_worker_processes, num_worker_threads)
     """
     cpu_count = multiprocessing.cpu_count()
     default_processes = "8" if cpu_count > 8 else str(cpu_count)
-    num_worker_processes = int(os.getenv("MSC_NUM_PROCESSES", default_processes))
+    if num_worker_processes is None:
+        num_worker_processes = int(os.getenv("MSC_NUM_PROCESSES", default_processes))
     num_worker_threads = int(os.getenv("MSC_NUM_THREADS_PER_PROCESS", max(cpu_count // num_worker_processes, 16)))
 
     return num_worker_processes, num_worker_threads
+
+
+# Null implementation of StorageClient, where any call to list returns an empty list,
+class NullStorageClient:
+    def list(self, **kwargs: Any) -> Iterator[ObjectMetadata]:
+        return iter([])

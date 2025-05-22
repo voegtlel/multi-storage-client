@@ -17,6 +17,7 @@ from collections.abc import Sized
 import glob
 import os
 import json
+import shutil
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -302,3 +303,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
     def is_file(self, path: str) -> bool:
         path = self._prepend_base_path(path)
         return os.path.isfile(path)
+
+    def rmtree(self, path: str) -> None:
+        path = self._prepend_base_path(path)
+        shutil.rmtree(path)
