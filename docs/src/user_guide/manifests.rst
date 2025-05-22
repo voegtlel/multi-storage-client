@@ -1,57 +1,53 @@
+#########
 Manifests
-=========
-
-Overview
---------
+#########
 
 A manifest is a file (or group of files) describing the objects in a dataset, such as names, sizes, last-modified timestamps, and custom metadata tags. Manifests are optional but can greatly accelerate object listing and metadata retrieval for large datasets in object stores.
+
 A common approach is to prepare a manifest that includes metadata (e.g. object/file paths, sizes, custom tags) to speed up data loading and parallel processing of very large datasets. By reading a manifest, MSC can quickly discover (list) or filter (glob) objects without having to iterate over every object in the bucket or prefix.
 
+***************
 Manifest Format
----------------
+***************
 
 The MSC supports a **manifest index** (JSON) that references one or more **parts manifests** (JSONL). The main manifest or manifest index:
 
-- Declares a version.
-- Lists each part manifest, including its path.
+* Declares a version.
+* Lists each part manifest, including its path.
 
 The parts manifests are stored in JSON Lines (``.jsonl``) format, where each line is a separate object’s metadata. JSONL is more scalable than a single JSON array for large manifests because each line can be processed incrementally, avoiding excessive memory usage.
 
-Example Main Manifest (JSON)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: json
+   :caption: Example Main Manifest (JSON)
+
+   {
+     "version": "1.0",
+     "parts": [
+       {
+         "path": "parts/msc_manifest_part000001.jsonl"
+       },
+       {
+         "path": "parts/msc_manifest_part000002.jsonl"
+       }
+     ]
+   }
 
 .. code-block:: json
+   :caption: Example Parts Manifest (JSONL)
 
-  {
-    "version": "1.0",
-    "parts": [
-      {
-        "path": "parts/msc_manifest_part000001.jsonl"
-      },
-      {
-        "path": "parts/msc_manifest_part000002.jsonl"
-      }
-    ]
-  }
-
-Example Parts Manifest (JSONL)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: json
-
-  {
-    "key": "train/cat-pic001.jpg",
-    "size_bytes": 1048576,
-    "last_modified": "2024-09-05T15:45:00Z"
-  }
-  {
-    "key": "train/cat-pic002.jpg",
-    "size_bytes": 2097152,
-    "last_modified": "2024-09-05T15:46:00Z"
-  }
+   {
+     "key": "train/cat-pic001.jpg",
+     "size_bytes": 1048576,
+     "last_modified": "2024-09-05T15:45:00Z"
+   }
+   {
+     "key": "train/cat-pic002.jpg",
+     "size_bytes": 2097152,
+     "last_modified": "2024-09-05T15:46:00Z"
+   }
 
 Manifest Storage Organization
------------------------------
+=============================
 
 This example demonstrates how manifests are organized. Here, we assume that manifests are stored alongside the data in the same bucket. However, this is not strictly required, as MSC also supports placing manifests in a different location.
 
@@ -73,71 +69,75 @@ This example demonstrates how manifests are organized. Here, we assume that mani
                    └── msc_manifest_part000003.jsonl
 
 Writing and Using Manifests Programmatically
---------------------------------------------
+============================================
 
 MSC provides a :py:class:`multistorageclient.providers.ManifestMetadataProvider` to read from and write to manifests, and a :py:class:`multistorageclient.generators.ManifestMetadataGenerator` to generate the manifests. When manifests are configured as a “metadata provider,” MSC can utilize them for efficient object metadata retrieval.
 
-**Generating Manifests**
+Generating Manifests
+--------------------
+
 Using the :py:class:`multistorageclient.generators.ManifestMetadataGenerator` is straightforward. For example:
 
 .. code-block:: python
-  :linenos:
+   :linenos:
 
-  from multistorageclient import StorageClient
-  from multistorageclient.generators import ManifestMetadataGenerator
+   from multistorageclient import StorageClient
+   from multistorageclient.generators import ManifestMetadataGenerator
 
-  # Suppose we have two clients:
-  # data_storage_client: Reads the data files we want to include in the manifest.
-  # manifest_storage_client: Writes the manifest to the desired path (bucket/folder).
+   # Suppose we have two clients:
+   # data_storage_client: Reads the data files we want to include in the manifest.
+   # manifest_storage_client: Writes the manifest to the desired path (bucket/folder).
 
-  # This code enumerates all objects from data_storage_client, then writes out
-  # a main manifest + parts manifest(s) using manifest_storage_client.
+   # This code enumerates all objects from data_storage_client, then writes out
+   # a main manifest + parts manifest(s) using manifest_storage_client.
 
-  ManifestMetadataGenerator.generate_and_write_manifest(
-  data_storage_client=data_storage_client,
-      manifest_storage_client=manifest_storage_client
-  )
+   ManifestMetadataGenerator.generate_and_write_manifest(
+   data_storage_client=data_storage_client,
+       manifest_storage_client=manifest_storage_client
+   )
 
-**Referencing Manifests in Configuration**
+Referencing Manifests in Configuration
+--------------------------------------
+
 When you set a profile’s ``metadata_provider`` to ``type: manifest``, you must also provide the ``manifest_path`` option, which refers to manifest path relative to the storage profile's ``base_path``. For example:
 
 .. code-block:: yaml
-  :linenos:
+   :linenos:
 
-  profiles:
-    my-profile:
-      storage_provider:
-        type: s3
-        options:
-          base_path: "my-bucket"
-      metadata_provider:
-        type: manifest
-        options:
-          manifest_path: ".msc_manifests"
+   profiles:
+     my-profile:
+       storage_provider:
+         type: s3
+         options:
+           base_path: my-bucket
+       metadata_provider:
+         type: manifest
+         options:
+           manifest_path: .msc_manifests
 
 You can also store manifests in a **different** profile than your data. In that case, the ``metadata_provider`` will refer to storage profile using the ``storage_provider_profile`` option. Here's an example:
 
 .. code-block:: yaml
-  :linenos:
+   :linenos:
 
-  profiles:
-    my-manifest-profile:
-      storage_provider:
-        type: s3
-        options:
-          base_path: "manifest-bucket"
+   profiles:
+     my-manifest-profile:
+       storage_provider:
+         type: s3
+         options:
+           base_path: manifest-bucket
 
-    my-profile:
-      storage_provider:
-        type: s3
-        options:
-          base_path: "my-bucket"
-        metadata_provider:
-          type: manifest
-          options:
-            # Refer to the storage profile for the manifests
-            storage_provider_profile: "my-manifest-profile"
-            # The real path of manifests in this will be manifest-bucket/.msc_manifests
-            manifest_path: ".msc_manifests"
+     my-profile:
+       storage_provider:
+         type: s3
+         options:
+           base_path: my-bucket
+         metadata_provider:
+           type: manifest
+           options:
+             # Refer to the storage profile for the manifests
+             storage_provider_profile: my-manifest-profile
+             # The real path of manifests in this will be manifest-bucket/.msc_manifests
+             manifest_path: .msc_manifests
 
 Once configured, MSC automatically uses the manifests to speed up listing or retrieving metadata for objects whenever you perform MSC operations on that profile.

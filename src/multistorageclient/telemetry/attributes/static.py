@@ -20,13 +20,16 @@ import opentelemetry.util.types as api_types
 
 class StaticAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from static attributes.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from static attributes.
     """
 
     #: Static attributes.
     _attributes: api_types.Attributes
 
     def __init__(self, attributes: api_types.Attributes):
+        """
+        :param attributes: Map of attribute key to static attribute value.
+        """
         self._attributes = attributes
 
     def attributes(self) -> api_types.Attributes:

@@ -15,34 +15,45 @@
 
 from .base import AttributesProvider
 from collections.abc import Mapping
+import enum
 import opentelemetry.util.types as api_types
 import socket
 
 
 class HostAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from host information.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from host information.
     """
 
-    _HOST_ATTRIBUTES: frozenset[str] = frozenset({"name"})
+    class HostAttribute(enum.Enum):
+        """
+        Host attribute.
 
-    #: Attribute key to host attribute key map.
-    _attributes: Mapping[str, str]
+        Use the enum value in the attributes dictionary values.
+        """
+
+        #: Hostname.
+        NAME = "name"
+
+    #: Attribute key to host attribute map.
+    _attributes: Mapping[str, HostAttribute]
 
     def __init__(self, attributes: Mapping[str, str]):
-        unsupported_host_attributes = frozenset(attributes.values()) - self._HOST_ATTRIBUTES
-        if len(unsupported_host_attributes) > 0:
-            raise ValueError(f"Unsupported host attributes: {', '.join(unsupported_host_attributes)}")
-        self._attributes = attributes
+        """
+        :param attributes: Map of attribute key to host attribute.
+        """
+
+        self._attributes = {
+            attribute_key: HostAttributesProvider.HostAttribute(host_attribute)
+            for attribute_key, host_attribute in attributes.items()
+        }
 
     def attributes(self) -> api_types.Attributes:
         return {
-            attribute_key: self._host_attribute_value(host_attribute_key=host_attribute_key)
-            for attribute_key, host_attribute_key in self._attributes.items()
+            attribute_key: self._host_attribute_value(host_attribute=host_attribute)
+            for attribute_key, host_attribute in self._attributes.items()
         }
 
-    def _host_attribute_value(self, host_attribute_key: str) -> api_types.AttributeValue:
-        if host_attribute_key == "name":
+    def _host_attribute_value(self, host_attribute: HostAttribute) -> api_types.AttributeValue:
+        if host_attribute == HostAttributesProvider.HostAttribute.NAME:
             return socket.gethostname()
-        else:
-            raise ValueError(f"Unimplemented host attribute: {host_attribute_key}")

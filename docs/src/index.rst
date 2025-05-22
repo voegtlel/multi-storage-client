@@ -18,17 +18,20 @@ It provides a generic interface to interact with objects and files across variou
    :caption: Basic Usage
 
    user_guide/quickstart
+   user_guide/telemetry
    user_guide/manifests
    user_guide/libraries
-   config/index
-
-.. toctree::
-   :maxdepth: 1
-   :caption: API
-
-   api_reference/index
 
 .. toctree::
    :maxdepth: 2
+   :caption: References
 
-   indices/index
+   references/configuration
+   references/api
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Indices
+
+   /genindex
+   /modindex

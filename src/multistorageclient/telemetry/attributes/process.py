@@ -15,30 +15,43 @@
 
 from .base import AttributesProvider
 from collections.abc import Mapping
+import enum
 import multiprocessing
 import opentelemetry.util.types as api_types
 
 
 class ProcessAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from current process information.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from current process information.
     """
 
-    _PROCESS_ATTRIBUTES: frozenset[str] = frozenset({"pid"})
+    class ProcessAttribute(enum.Enum):
+        """
+        Process attribute.
 
-    #: Attribute key to process attribute key map.
-    _attributes: Mapping[str, str]
+        Use the enum value in the attributes dictionary values.
+        """
+
+        #: Process ID.
+        PID = "pid"
+
+    #: Attribute key to process attribute map.
+    _attributes: Mapping[str, ProcessAttribute]
 
     def __init__(self, attributes: Mapping[str, str]):
-        unsupported_process_attributes = frozenset(attributes.values()) - self._PROCESS_ATTRIBUTES
-        if len(unsupported_process_attributes) > 0:
-            raise ValueError(f"Unsupported process attributes: {', '.join(unsupported_process_attributes)}")
-        self._attributes = attributes
+        """
+        :param attributes: Map of attribute key to process attribute.
+        """
+
+        self._attributes = {
+            attribute_key: ProcessAttributesProvider.ProcessAttribute(process_attribute)
+            for attribute_key, process_attribute in attributes.items()
+        }
 
     def attributes(self) -> api_types.Attributes:
         process = multiprocessing.current_process()
         return {
-            attribute_key: getattr(process, process_attribute_key)
-            for attribute_key, process_attribute_key in self._attributes.items()
-            if hasattr(process, process_attribute_key)
+            attribute_key: getattr(process, process_attribute.value)
+            for attribute_key, process_attribute in self._attributes.items()
+            if hasattr(process, process_attribute.value)
         }

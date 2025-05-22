@@ -23,6 +23,7 @@ copyright = "NVIDIA Corporation"
 # Extensions.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx_copybutton",
 ]
@@ -42,3 +43,9 @@ viewcode_line_numbers = True
 # Docstrings.
 autoclass_content = "both"
 autodoc_typehints = "both"
+
+# Intersphinx.
+intersphinx_mapping = {
+    "opentelemetry-python": ("https://opentelemetry-python.readthedocs.io/en/latest", None),
+    "python": ("https://docs.python.org/3", None),
+}

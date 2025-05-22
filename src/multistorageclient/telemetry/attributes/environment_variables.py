@@ -21,13 +21,16 @@ import opentelemetry.util.types as api_types
 
 class EnvironmentVariablesAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from environment variables.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from environment variables.
     """
 
     #: Attribute key to environment variable key map.
     _attributes: Mapping[str, str]
 
     def __init__(self, attributes: Mapping[str, str]):
+        """
+        :param attributes: Map of attribute key to environment variable key.
+        """
         self._attributes = attributes
 
     def attributes(self) -> api_types.Attributes:

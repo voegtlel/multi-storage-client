@@ -41,7 +41,9 @@ def storage_client() -> StorageClient:
                     "reader": {
                         "options": {
                             "collect_interval_millis": 10,
+                            "collect_timeout_millis": 100,
                             "export_interval_millis": 1000,
+                            "export_timeout_millis": 500,
                         }
                     },
                     "exporter": {

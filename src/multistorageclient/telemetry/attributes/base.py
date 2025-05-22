@@ -20,11 +20,14 @@ import opentelemetry.util.types as api_types
 
 class AttributesProvider(ABC):
     """
-    Provides :py:type:``api_types.Attributes``.
+    Provides :py:type:`opentelemetry.util.types.Attributes`.
     """
 
     @abstractmethod
     def attributes(self) -> api_types.Attributes:
+        """
+        Collect attributes.
+        """
         pass
 
 

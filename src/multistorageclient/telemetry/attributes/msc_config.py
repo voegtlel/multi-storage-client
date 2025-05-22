@@ -20,10 +20,10 @@ import hashlib
 import jmespath
 import jmespath.functions as jmespath_functions
 import opentelemetry.util.types as api_types
-from typing import Any
+from typing import Any, TypedDict
 
 
-class MSCConfigJMESPathFunctions(jmespath_functions.Functions):
+class _MSCConfigJMESPathFunctions(jmespath_functions.Functions):
     """
     Additional JMESPath functions.
     """
@@ -44,20 +44,38 @@ class MSCConfigJMESPathFunctions(jmespath_functions.Functions):
 
 class MSCConfigAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from a multi-storage client configuration.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from a multi-storage client configuration.
     """
+
+    class AttributeValueOptions(TypedDict):
+        """
+        MSC configuration attribute value options.
+        """
+
+        #: JMESPath expression.
+        #:
+        #: Additional JMESPath functions:
+        #:
+        #: - ``hash(algorithm: str, value: str)``
+        #:    - Calculate the hash digest of a value using a specific hash algorithm (e.g. ``sha3-256``).
+        #:    - See :py:meth:`hashlib.new` for algorithms.
+        expression: str
 
     #: Static attributes.
     _attributes: api_types.Attributes
 
-    def __init__(self, attributes: Mapping[str, Mapping[str, Any]], config_dict: Mapping[str, Any]):
+    def __init__(self, attributes: Mapping[str, AttributeValueOptions], config_dict: Mapping[str, Any]):
+        """
+        :param attributes: Map of attribute key to map of attribute value options.
+        """
+
         self._attributes = {
             attribute_key: jmespath.search(
-                attribute_value_config_dict["expression"],
+                attribute_value_options["expression"],
                 config_dict,
-                options=jmespath.Options(custom_functions=MSCConfigJMESPathFunctions()),
+                options=jmespath.Options(custom_functions=_MSCConfigJMESPathFunctions()),
             )
-            for attribute_key, attribute_value_config_dict in attributes.items()
+            for attribute_key, attribute_value_options in attributes.items()
         }
 
     def attributes(self) -> api_types.Attributes:

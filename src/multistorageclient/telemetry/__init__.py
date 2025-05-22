@@ -34,11 +34,11 @@ from .. import utils
 # the expected post-hoc aggregate function is decomposable:
 #
 # * Decomposable aggregate functions (e.g. count, sum, min, max).
-#     * Use client-side aggregation.
-#         * E.g. preserve request + response counts.
+#   * Use client-side aggregation.
+#     * E.g. preserve request + response counts.
 # * Non-decomposable aggregate functions (e.g. average, percentile).
-#     * Use decimation by an integer factor or last value.
-#         * E.g. preserve the shape of the latency distribution (unlike tail sampling).
+#   * Use decimation by an integer factor or last value.
+#     * E.g. preserve the shape of the latency distribution (unlike tail sampling).
 
 _METRICS_EXPORTER_MAPPING = {
     "console": "opentelemetry.sdk.metrics.export.ConsoleMetricExporter",
@@ -61,7 +61,7 @@ class Telemetry:
 
     Instances shouldn't be copied between processes. Not fork-safe or pickleable.
 
-    Instances can be shared between processes by registering with a :py:class:``multiprocessing.Manager`` and using proxy objects.
+    Instances can be shared between processes by registering with a :py:class:`multiprocessing.managers.BaseManager` and using proxy objects.
     """
 
     # Metrics are named `multistorageclient.{property}(.{aggregation})?`.
@@ -142,10 +142,10 @@ class Telemetry:
 
     def meter_provider(self, config: dict[str, Any]) -> Optional[api_metrics.MeterProvider]:
         """
-        Create or return an existing :py:class:``api_metrics.MeterProvider`` for a config.
+        Create or return an existing :py:class:`api_metrics.MeterProvider` for a config.
 
         :param config: ``.opentelemetry.metrics`` config dict.
-        :return: A :py:class:``api_metrics.MeterProvider`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_metrics.MeterProvider` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._meter_provider_cache_lock:
@@ -185,10 +185,10 @@ class Telemetry:
 
     def meter(self, config: dict[str, Any]) -> Optional[api_metrics.Meter]:
         """
-        Create or return an existing :py:class:``api_metrics.Meter`` for a config.
+        Create or return an existing :py:class:`api_metrics.Meter` for a config.
 
         :param config: ``.opentelemetry.metrics`` config dict.
-        :return: A :py:class:``api_metrics.Meter`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_metrics.Meter` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._meter_cache_lock:
@@ -205,10 +205,10 @@ class Telemetry:
 
     def gauge(self, config: dict[str, Any], name: GaugeName) -> Optional[api_metrics._Gauge]:
         """
-        Create or return an existing :py:class:``api_metrics.Gauge`` for a config and gauge name.
+        Create or return an existing :py:class:`api_metrics.Gauge` for a config and gauge name.
 
         :param config: ``.opentelemetry.metrics`` config dict.
-        :return: A :py:class:``api_metrics.Gauge`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_metrics.Gauge` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._gauge_cache_lock:
@@ -226,10 +226,10 @@ class Telemetry:
 
     def counter(self, config: dict[str, Any], name: CounterName) -> Optional[api_metrics.Counter]:
         """
-        Create or return an existing :py:class:``api_metrics.Counter`` for a config and counter name.
+        Create or return an existing :py:class:`api_metrics.Counter` for a config and counter name.
 
         :param config: ``.opentelemetry.metrics`` config dict.
-        :return: A :py:class:``api_metrics.Counter`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_metrics.Counter` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._counter_cache_lock:
@@ -247,10 +247,10 @@ class Telemetry:
 
     def tracer_provider(self, config: dict[str, Any]) -> Optional[api_trace.TracerProvider]:
         """
-        Create or return an existing :py:class:``api_trace.TracerProvider`` for a config.
+        Create or return an existing :py:class:`api_trace.TracerProvider` for a config.
 
         :param config: ``.opentelemetry.traces`` config dict.
-        :return: A :py:class:``api_trace.TracerProvider`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_trace.TracerProvider` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._tracer_provider_cache_lock:
@@ -291,10 +291,10 @@ class Telemetry:
 
     def tracer(self, config: dict[str, Any]) -> Optional[api_trace.Tracer]:
         """
-        Create or return an existing :py:class:``api_trace.Tracer`` for a config.
+        Create or return an existing :py:class:`api_trace.Tracer` for a config.
 
         :param config: ``.opentelemetry.traces`` config dict.
-        :return: A :py:class:``api_trace.Tracer`` or ``None`` if no valid exporter is configured.
+        :return: A :py:class:`api_trace.Tracer` or ``None`` if no valid exporter is configured.
         """
         config_json = json.dumps(config, sort_keys=True)
         with self._tracer_cache_lock:
@@ -310,7 +310,7 @@ class Telemetry:
                     )
 
 
-# To share a single :py:class:``Telemetry`` within a process (e.g. local, manager).
+# To share a single :py:class:`Telemetry` within a process (e.g. local, manager).
 #
 # A manager's server processes shouldn't be forked, so this should be safe.
 _TELEMETRY: Optional[Telemetry] = None
@@ -319,7 +319,7 @@ _TELEMETRY_LOCK = threading.Lock()
 
 def _init() -> Telemetry:
     """
-    Create or return an existing :py:class:``Telemetry``.
+    Create or return an existing :py:class:`Telemetry`.
 
     :return: A telemetry instance.
     """
@@ -334,7 +334,7 @@ def _init() -> Telemetry:
 
 class TelemetryManager(multiprocessing.managers.BaseManager):
     """
-    A :py:class:``multiprocessing.Manager`` for telemetry resources.
+    A :py:class:`multiprocessing.managers.BaseManager` for telemetry resources.
 
     The OpenTelemetry Python SDK isn't fork-safe since telemetry sample buffers can be duplicated.
 
@@ -352,7 +352,9 @@ class TelemetryManager(multiprocessing.managers.BaseManager):
     a single process that's (ideally) a child of (i.e. directly under) the main process. This:
 
     * Relieves other processes of this work.
-        * Avoids issues with duplicate samples when forking and unpublished samples when exiting forks.
+
+      * Avoids issues with duplicate samples when forking and unpublished samples when exiting forks.
+
     * Allows cross-process resampling.
     * Reuses a single connection pool to telemetry backends.
 
@@ -361,7 +363,7 @@ class TelemetryManager(multiprocessing.managers.BaseManager):
     this isn't expected to be a problem. Remote data store latency should still be
     the primary throughput limiter for storage clients.
 
-    :py:class:``multiprocessing.Manager`` is used for this since it creates
+    :py:class:`multiprocessing.managers.BaseManager` is used for this since it creates
     a separate server process for shared objects.
 
     Telemetry resources are provided as
@@ -383,11 +385,14 @@ class TelemetryManager(multiprocessing.managers.BaseManager):
     In the OpenTelemetry Python SDK, provider shutdown is called automatically
     by exit handlers (when they work at least). Consequently, clients should:
 
-    * Only receive provider proxy objects.
-        * Enables metric reader + span processor + exporter re-use across processes.
-    * Never call shutdown on the provider proxy objects.
-        * The shutdown exit handler is registered on the manager's server process.
-        * ⚠️ We expect a finite number of providers (i.e. no dynamic configs) so we don't leak them.
+    * Only receive proxy objects.
+
+      * Enables metric reader + span processor + exporter re-use across processes.
+
+    * Never call shutdown on the proxy objects.
+
+      * The shutdown exit handler is registered on the manager's server process.
+      * ⚠️ We expect a finite number of providers (i.e. no dynamic configs) so we don't leak them.
     """
 
     pass
@@ -397,7 +402,7 @@ def _fully_qualified_name(c: type[Any]) -> str:
     """
     Return the fully qualified name for a class (e.g. ``module.Class``).
 
-    For :py:class:``multiprocessing.Manager`` type IDs.
+    For :py:class:`multiprocessing.Manager` type IDs.
     """
     return ".".join([c.__module__, c.__qualname__])
 
@@ -463,13 +468,17 @@ TelemetryManager.register(
 
 # Map of init options as a sorted JSON string (since dictionaries can't be hashed) to telemetry proxy.
 _TELEMETRY_PROXIES: dict[str, Telemetry] = {}
-# To share :py:class:``Telemetry`` proxy objects within a process (e.g. client, server).
+# To share :py:class:`Telemetry` proxy objects within a process (e.g. client, server).
 #
 # Forking isn't expected to happen while this is held (may lead to a deadlock).
 _TELEMETRY_PROXIES_LOCK = threading.Lock()
 
 
 class TelemetryMode(enum.Enum):
+    """
+    How to create a :py:class:`Telemetry` object.
+    """
+
     #: Keep everything local to the process (not fork-safe).
     LOCAL = "local"
     #: Start + connect to a telemetry IPC server.
@@ -495,10 +504,10 @@ def init(
     address: Optional[Union[str, tuple[str, int]]] = os.environ.get("MSC_TELEMETRY_ADDRESS", ("127.0.0.1", 4315)),
 ) -> Telemetry:
     """
-    Create or return an existing :py:class:``Telemetry`` or :py:class:``Telemetry`` proxy object.
+    Create or return an existing :py:class:`Telemetry` instance or :py:class:`Telemetry` proxy object.
 
-    :param mode: How to create a :py:class:``Telemetry`` object.
-    :param address: Telemetry IPC server address. Ignored if the mode is local.
+    :param mode: How to create a :py:class:`Telemetry` object.
+    :param address: Telemetry IPC server address. Passed directly to a :py:class:`multiprocessing.managers.BaseManager`. Ignored if the mode is :py:const:`TelemetryMode.LOCAL`.
     :return: A telemetry instance.
     """
 

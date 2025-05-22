@@ -15,30 +15,45 @@
 
 from .base import AttributesProvider
 from collections.abc import Mapping
+import enum
 import opentelemetry.util.types as api_types
 import threading
 
 
 class ThreadAttributesProvider(AttributesProvider):
     """
-    Provides :py:type:``api_types.Attributes`` from current thread information.
+    Provides :py:type:`opentelemetry.util.types.Attributes` from current thread information.
     """
 
-    _THREAD_ATTRIBUTES: frozenset[str] = frozenset({"ident", "native_id"})
+    class ThreadAttribute(enum.Enum):
+        """
+        Thread attribute.
+
+        Use the enum value in the attributes dictionary values.
+        """
+
+        #: Python thread ID.
+        IDENT = "ident"
+        #: OS thread ID.
+        NATIVE_ID = "native_id"
 
     #: Attribute key to thread attribute key map.
-    _attributes: Mapping[str, str]
+    _attributes: Mapping[str, ThreadAttribute]
 
     def __init__(self, attributes: Mapping[str, str]):
-        unsupported_thread_attributes = frozenset(attributes.values()) - self._THREAD_ATTRIBUTES
-        if len(unsupported_thread_attributes) > 0:
-            raise ValueError(f"Unsupported thread attributes: {', '.join(unsupported_thread_attributes)}")
-        self._attributes = attributes
+        """
+        :param attributes: Map of attribute key to thread attribute.
+        """
+
+        self._attributes = {
+            attribute_key: ThreadAttributesProvider.ThreadAttribute(thread_attribute)
+            for attribute_key, thread_attribute in attributes.items()
+        }
 
     def attributes(self) -> api_types.Attributes:
         thread = threading.current_thread()
         return {
-            attribute_key: getattr(thread, thread_attribute_key)
-            for attribute_key, thread_attribute_key in self._attributes.items()
-            if hasattr(thread, thread_attribute_key)
+            attribute_key: getattr(thread, thread_attribute.value)
+            for attribute_key, thread_attribute in self._attributes.items()
+            if hasattr(thread, thread_attribute.value)
         }

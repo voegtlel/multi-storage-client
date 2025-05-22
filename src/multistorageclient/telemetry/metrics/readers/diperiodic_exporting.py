@@ -26,7 +26,7 @@ import weakref
 
 # Not OTel spec. Use 1 second to keep the data volume per export interval reasonably small.
 DEFAULT_COLLECT_INTERVAL_MILLIS: float = 1000
-# Not OTel spec. Use the default on :py:meth:``sdk_metrics_export.MetricReader.collect``.
+# Not OTel spec. Use the default on :py:meth:`sdk_metrics_export.MetricReader.collect`.
 DEFAULT_COLLECT_TIMEOUT_MILLIS: float = 10000
 # OTel spec.
 DEFAULT_EXPORT_INTERVAL_MILLIS: float = 60000
@@ -38,8 +38,8 @@ logger = logging.Logger(__name__)
 
 class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
     """
-    :py:class:``sdk_metrics_export.MetricReader`` that collects + exports metrics on separate user-configurable time intervals.
-    This is in contrast with :py:class:``sdk_metrics_export.PeriodicExportingMetricReader`` which couples them with a 1 minute default.
+    :py:class:`opentelemetry.sdk.metrics.export.MetricReader` that collects + exports metrics on separate user-configurable time intervals.
+    This is in contrast with :py:class:`opentelemetry.sdk.metrics.export.PeriodicExportingMetricReader` which couples them with a 1 minute default.
 
     The metrics collection interval limits the temporal resolution. Most metric backends have 1 millisecond or finer temporal resolution.
     """
@@ -70,6 +70,14 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
         export_interval_millis: Optional[float] = None,
         export_timeout_millis: Optional[float] = None,
     ):
+        """
+        :param exporter: Metrics exporter.
+        :param collect_interval_millis: Collect interval in milliseconds.
+        :param collect_timeout_millis: Collect timeout in milliseconds.
+        :param export_interval_millis: Export interval in milliseconds.
+        :param export_timeout_millis: Export timeout in milliseconds.
+        """
+
         # Defer to the exporter for aggregation and temporality configurations.
         super().__init__(
             preferred_aggregation=exporter._preferred_aggregation, preferred_temporality=exporter._preferred_temporality
@@ -158,7 +166,7 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
         self._collect_iteration()
         self._export_iteration()
 
-    # :py:class:``sdk_metrics_export.MetricReader._collect`` already exists. Using another name.
+    # :py:class:`sdk_metrics_export.MetricReader._collect` already exists. Using another name.
     def _collect_iteration(self, timeout_millis: Optional[float] = None) -> None:
         try:
             # Inherited from :py:class:``sdk_metrics_export.MetricReader``.
@@ -168,7 +176,7 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
         except Exception:
             logger.exception("Exception while collecting metrics.")
 
-    # Called by :py:meth:``sdk_metrics_export.MetricReader.collect``.
+    # Called by :py:meth:`sdk_metrics_export.MetricReader.collect`.
     def _receive_metrics(
         self, metrics_data: sdk_metrics_export.MetricsData, timeout_millis: float = 0, **kwargs
     ) -> None:
@@ -208,7 +216,7 @@ class DiperiodicExportingMetricReader(sdk_metrics_export.MetricReader):
     ) -> bool:
         deadline_ns = time.time_ns() + (timeout_millis * 10**6)
 
-        # Calls :py:meth:``sdk_metrics_export.MetricReader.collect``.
+        # Calls :py:meth:`sdk_metrics_export.MetricReader.collect`.
         super().force_flush(timeout_millis=(deadline_ns - time.time_ns()) / 10**6)
         self._export_iteration(timeout_millis=(deadline_ns - time.time_ns()) / 10**6)
         self._exporter.force_flush(timeout_millis=(deadline_ns - time.time_ns()) / 10**6)
