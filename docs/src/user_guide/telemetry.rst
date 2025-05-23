@@ -62,10 +62,11 @@ Telemetry can be configured with the ``opentelemetry`` dictionary in the MSC con
    # correctly with Python multiprocessing.
    #
    # When on the main process, this creates a Python multiprocessing manager server
-   # listening on 127.0.0.1:4315 and connects to it.
+   # listening on 127.0.0.1:{dynamic port based on the current process PID}
+   # and connects to it.
    #
    # When in a child process, this connects to the Python multiprocessing manager server
-   # listening on 127.0.0.1:4315.
+   # listening on 127.0.0.1:{dynamic port based on the parent process PID}.
    #
    # The telemetry mode and address can be provided as function parameters.
    # See the API reference for more details.

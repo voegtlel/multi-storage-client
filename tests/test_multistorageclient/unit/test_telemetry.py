@@ -23,7 +23,7 @@ from opentelemetry.trace import Span, Tracer, TracerProvider, use_span
 import pytest
 from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
 from test_multistorageclient.unit.utils.telemetry.trace.export import InMemorySpanExporter
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 
 def test_telemetry_local_objects():
@@ -121,9 +121,15 @@ def test_telemetry_local_objects():
             active_span.add_event("event")
 
 
+def test_telemetry_manager_server_port():
+    # Make sure the port is in the dynamic/private/ephemeral port range.
+    port = telemetry._telemetry_manager_server_port()
+    assert (2**15 + 2**14) <= port
+    assert port < 2**16
+
+
 # Invoke in a separate process.
 def _test_telemetry_proxy_objects_client(
-    manager_address: Union[str, Tuple[str, int]],
     opentelemetry_config: Dict[str, Any],
     # Make sure caching works across processes.
     #
@@ -146,9 +152,7 @@ def _test_telemetry_proxy_objects_client(
     tracer_referent_str: str,
     tracer_proxy_repr: str,
 ):
-    telemetry_resources: telemetry.Telemetry = telemetry.init(
-        mode=telemetry.TelemetryMode.CLIENT, address=manager_address
-    )
+    telemetry_resources: telemetry.Telemetry = telemetry.init(mode=telemetry.TelemetryMode.CLIENT)
     assert isinstance(telemetry_resources, BaseProxy)
 
     assert telemetry_resources_referent_str == str(telemetry_resources)
@@ -212,9 +216,8 @@ def _test_telemetry_proxy_objects_client(
         active_span.add_event("event")
 
 
-@pytest.mark.parametrize(argnames=["process_start_method", "manager_port"], argvalues=[["fork", 4315], ["spawn", 4316]])
-def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
-    manager_address = ("127.0.0.1", manager_port)
+@pytest.mark.parametrize(argnames=["process_start_method"], argvalues=[["fork"], ["spawn"]])
+def test_telemetry_proxy_objects(process_start_method: str):
     opentelemetry_config = {
         "metrics": {"exporter": {"type": telemetry._fully_qualified_name(InMemoryMetricExporter)}},
         "traces": {"exporter": {"type": telemetry._fully_qualified_name(InMemorySpanExporter)}},
@@ -229,9 +232,7 @@ def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
     #
     # --------------------------------------------------------------------------------
 
-    telemetry_resources: telemetry.Telemetry = telemetry.init(
-        mode=telemetry.TelemetryMode.SERVER, address=manager_address
-    )
+    telemetry_resources: telemetry.Telemetry = telemetry.init(mode=telemetry.TelemetryMode.SERVER)
     assert isinstance(telemetry_resources, BaseProxy)
 
     meter_provider: Optional[MeterProvider] = telemetry_resources.meter_provider(opentelemetry_config["metrics"])
@@ -284,7 +285,6 @@ def test_telemetry_proxy_objects(process_start_method: str, manager_port: int):
     pool.apply(
         _test_telemetry_proxy_objects_client,
         kwds={
-            "manager_address": manager_address,
             "opentelemetry_config": opentelemetry_config,
             "telemetry_resources_referent_str": str(telemetry_resources),
             "telemetry_resources_proxy_repr": repr(telemetry_resources),

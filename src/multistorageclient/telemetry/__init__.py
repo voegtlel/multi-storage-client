@@ -22,7 +22,6 @@ import multiprocessing
 import multiprocessing.managers
 import opentelemetry.metrics as api_metrics
 import opentelemetry.trace as api_trace
-import os
 import threading
 from typing import Any, Optional, Union
 from .. import utils
@@ -487,21 +486,35 @@ class TelemetryMode(enum.Enum):
     CLIENT = "client"
 
 
+def _telemetry_manager_server_port() -> int:
+    """
+    Get the default telemetry manager server port.
+
+    This is PID-based to:
+
+    * Avoid collisions between multiple independent Python interpreters running on the same machine.
+    * Let child processes deterministically find their parent's telemetry manager server.
+    """
+
+    # This won't work with 2+ high Python processes trees, but such setups are uncommon.
+    process = multiprocessing.parent_process() or multiprocessing.current_process()
+    if process.pid is None:
+        raise ValueError(
+            "Can't calculate the default telemetry manager server port from an unstarted parent or current process!"
+        )
+
+    # Use the dynamic/private/ephemeral port range.
+    #
+    # https://www.rfc-editor.org/rfc/rfc6335.html#section-6
+    # https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers#Dynamic,_private_or_ephemeral_ports
+    #
+    # Modulo the parent/child process PID by the port range length, then add the initial offset.
+    return (2**15 + 2**14) + (process.pid % ((2**16) - (2**15 + 2**14)))
+
+
 def init(
     mode: TelemetryMode = TelemetryMode.SERVER if multiprocessing.parent_process() is None else TelemetryMode.CLIENT,
-    # Avoid registered and well-known ports.
-    #
-    # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
-    # https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
-    #
-    # Default ports for the OpenTelemetry Protocol (OTLP):
-    #
-    # * gRPC: 4317
-    # * HTTP: 4318
-    #
-    # https://opentelemetry.io/docs/specs/otlp#otlpgrpc-default-port
-    # https://opentelemetry.io/docs/specs/otlp#otlphttp-default-port
-    address: Optional[Union[str, tuple[str, int]]] = os.environ.get("MSC_TELEMETRY_ADDRESS", ("127.0.0.1", 4315)),
+    address: Optional[Union[str, tuple[str, int]]] = None,
 ) -> Telemetry:
     """
     Create or return an existing :py:class:`Telemetry` instance or :py:class:`Telemetry` proxy object.
@@ -516,6 +529,9 @@ def init(
     elif mode == TelemetryMode.SERVER or mode == TelemetryMode.CLIENT:
         global _TELEMETRY_PROXIES
         global _TELEMETRY_PROXIES_LOCK
+
+        if address is None:
+            address = ("127.0.0.1", _telemetry_manager_server_port())
 
         init_options = {"mode": mode.value, "address": address}
         init_options_json = json.dumps(init_options, sort_keys=True)
