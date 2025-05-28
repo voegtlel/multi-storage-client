@@ -28,7 +28,7 @@ def generate_file(fs, path):
 
 
 def verify_fsspec_implementation(profile: str):
-    fs = msc.async_fs.MultiAsyncFileSystem()
+    fs = msc.async_fs.MultiStorageAsyncFileSystem()
 
     # Create 15 files in total
     generate_file(fs, f"{profile}/f1.txt")

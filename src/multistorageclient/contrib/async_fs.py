@@ -30,7 +30,7 @@ _global_thread_pool = ThreadPoolExecutor(max_workers=int(os.getenv("MSC_MAX_WORK
 
 
 # pyright: reportIncompatibleMethodOverride=false
-class MultiAsyncFileSystem(AsyncFileSystem):
+class MultiStorageAsyncFileSystem(AsyncFileSystem):
     """
     Custom :py:class:`fsspec.asyn.AsyncFileSystem` implementation for MSC protocol (``msc://``).
     Uses :py:class:`multistorageclient.StorageClient` for backend operations.
@@ -40,13 +40,13 @@ class MultiAsyncFileSystem(AsyncFileSystem):
 
     def __init__(self, **kwargs: Any) -> None:
         """
-        Initializes the :py:class:`MultiAsyncFileSystem`.
+        Initializes the :py:class:`MultiStorageAsyncFileSystem`.
 
         :param kwargs: Additional arguments for the :py:class:`fsspec.asyn.AsyncFileSystem`.
         """
         super().__init__(**kwargs)
 
-    def resolve_path_and_storage_client(self, path: str) -> Tuple[StorageClient, str]:
+    def resolve_path_and_storage_client(self, path: Union[str, os.PathLike]) -> Tuple[StorageClient, str]:
         """
         Resolves the path and retrieves the associated :py:class:`multistorageclient.StorageClient`.
 
@@ -55,7 +55,7 @@ class MultiAsyncFileSystem(AsyncFileSystem):
         :return: A tuple containing the :py:class:`multistorageclient.StorageClient` and the resolved path.
         """
         # Use unstrip_protocol to prepend our 'msc://' protocol only if it wasn't given in "path".
-        return resolve_storage_client(self.unstrip_protocol(path.lstrip("/")))
+        return resolve_storage_client(self.unstrip_protocol(str(path).lstrip("/")))
 
     @staticmethod
     def asynchronize_sync(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

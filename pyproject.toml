@@ -98,7 +98,7 @@ msc-benchmark = "multistorageclient.commands.msc_benchmark:main"
 msc = "multistorageclient.commands.cli.main:main"
 
 [project.entry-points."fsspec.specs"]
-msc = "multistorageclient.contrib.async_fs.MultiAsyncFileSystem"
+msc = "multistorageclient.contrib.async_fs.MultiStorageAsyncFileSystem"
 
 [tool.coverage.run]
 branch = true

@@ -17,15 +17,14 @@ import os
 import tempfile
 
 import pytest
-
-import multistorageclient as msc
+import fsspec
 
 
 @pytest.mark.asyncio
 async def test_multi_async_filesystem(file_storage_config_with_cache):
-    filesystem = msc.async_fs.MultiAsyncFileSystem()
-
     with tempfile.TemporaryDirectory() as dirname:
+        filesystem = fsspec.filesystem("msc")
+
         # test _pipe_file, _cat_file
         filename = os.path.join(dirname, "test_file.txt")
         test_path = f"default{filename}"

@@ -10,7 +10,7 @@ fsspec
 
 :py:mod:`multistorageclient.async_fs` aliases the :py:mod:`multistorageclient.contrib.async_fs` module.
 
-This module provides the :py:class:`multistorageclient.contrib.async_fs.MultiAsyncFileSystem` class which implements fsspec's ``AsyncFileSystem`` class.
+This module provides the :py:class:`multistorageclient.contrib.async_fs.MultiStorageAsyncFileSystem` class which implements fsspec's ``AsyncFileSystem`` class.
 
 .. note:: The ``msc://`` protocol is automatically registered when ``pip install multi-storage-client`` is run.
 
@@ -20,7 +20,7 @@ This module provides the :py:class:`multistorageclient.contrib.async_fs.MultiAsy
    import multistorageclient as msc
 
    # Create an MSC-based AsyncFileSystem instance.
-   fs = msc.async_fs.MultiAsyncFileSystem()
+   fs = msc.async_fs.MultiStorageAsyncFileSystem()
 
    # Create a client for the data-s3-iad profile and open a file.
    file = fs.open("msc://data-s3-iad/animal-photos/red-panda.png")
