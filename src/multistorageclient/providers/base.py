@@ -14,13 +14,14 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
 from enum import Enum
+import importlib.metadata as importlib_metadata
 import opentelemetry.metrics as api_metrics
 import opentelemetry.util.types as api_types
 import os
 import time
-from typing import Callable, IO, Iterator, List, Optional, TypeVar, Union, Dict, cast
+from typing import IO, Optional, TypeVar, Union, cast
 
 from ..instrumentation.utils import StorageProviderMetricsHelper
 from ..telemetry import Telemetry
@@ -44,6 +45,7 @@ class BaseStorageProvider(StorageProvider):
 
     # Reserved attributes.
     class _AttributeName(Enum):
+        VERSION = "multistorageclient.version"
         PROVIDER = "multistorageclient.provider"
         OPERATION = "multistorageclient.operation"
         STATUS = "multistorageclient.status"
@@ -60,6 +62,9 @@ class BaseStorageProvider(StorageProvider):
     class _Status(Enum):
         SUCCESS = "success"
         ERROR = "error"
+
+    # Multi-Storage Client version.
+    _VERSION = importlib_metadata.version("multi-storage-client")
 
     # Operations to emit data size metrics for on success.
     _DATA_IO_OPERATIONS = {_Operation.READ, _Operation.WRITE, _Operation.COPY}
@@ -107,6 +112,7 @@ class BaseStorageProvider(StorageProvider):
 
         attributes: api_types.Attributes = {
             **(collect_attributes(attributes_providers=self._metric_attributes_providers) or {}),
+            BaseStorageProvider._AttributeName.VERSION.value: self._VERSION,
             BaseStorageProvider._AttributeName.PROVIDER.value: self._provider_name,
             BaseStorageProvider._AttributeName.OPERATION.value: operation.value,
         }
@@ -176,7 +182,7 @@ class BaseStorageProvider(StorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> None:
@@ -263,7 +269,7 @@ class BaseStorageProvider(StorageProvider):
             f=lambda: self._download_file(remote_path, f, metadata),
         )
 
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         prefix = extract_prefix_from_glob(pattern)
         if self._base_path:
             keys = [object.key for object in self.list_objects(prefix)]
@@ -284,7 +290,7 @@ class BaseStorageProvider(StorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:
