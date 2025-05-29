@@ -15,6 +15,7 @@
 
 import glob
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -34,6 +35,8 @@ from .base import BaseStorageProvider
 _T = TypeVar("_T")
 
 PROVIDER = "file"
+
+logger = logging.getLogger(__name__)
 
 
 def atomic_write(source: Union[str, IO], destination: str):
@@ -233,39 +236,65 @@ class PosixFileStorageProvider(BaseStorageProvider):
         include_directories: bool = False,
     ) -> Iterator[ObjectMetadata]:
         def _invoke_api() -> Iterator[ObjectMetadata]:
-            # Assume the file system guarantees lexicographical order (some don't).
-            for root, dirs, files in os.walk(prefix):
-                dirs.sort()
-                if include_directories:
-                    for dir in dirs:
-                        full_path = os.path.join(root, dir)
-                        relative_path = os.path.relpath(full_path, self._base_path)
-                        yield ObjectMetadata(
-                            key=relative_path,
-                            content_length=0,
-                            type="directory",
-                            last_modified=AWARE_DATETIME_MIN,
-                        )
+            # Get parent directory and list its contents
+            parent_dir = os.path.dirname(prefix)
+            if not os.path.exists(parent_dir):
+                return
 
-                # This is in reverse lexicographical order on some systems for some reason.
-                for name in sorted(files):
-                    full_path = os.path.join(root, name)
-                    # Changed the relative path from relative to prefix → relative to base path.
-                    relative_path = os.path.relpath(full_path, self._base_path)
-                    if (start_after is None or start_after < relative_path) and (
-                        end_at is None or relative_path <= end_at
-                    ):
+            # List contents of parent directory for prefix based filtering
+            try:
+                entries = os.listdir(parent_dir)
+            except (OSError, PermissionError) as e:
+                logger.warning(f"Failed to list contents of {parent_dir}, caused by: {e}")
+                entries = []
+
+            matching_entries = []
+            for entry in entries:
+                full_path = os.path.join(parent_dir, entry)
+                if full_path.startswith(prefix):
+                    matching_entries.append(full_path)
+
+            matching_entries.sort()
+
+            # Collect directories to walk
+            directories_to_walk = []
+
+            for full_path in matching_entries:
+                relative_path = os.path.relpath(full_path, self._base_path)
+                if (start_after is None or start_after < relative_path) and (end_at is None or relative_path <= end_at):
+                    if os.path.isfile(full_path):
                         yield ObjectMetadata(
                             key=relative_path,
                             content_length=os.path.getsize(full_path),
                             last_modified=datetime.fromtimestamp(os.path.getmtime(full_path), tz=timezone.utc),
                         )
-                    elif end_at is not None and end_at < relative_path:
-                        return
+                    elif os.path.isdir(full_path):
+                        if include_directories:
+                            yield ObjectMetadata(
+                                key=relative_path,
+                                content_length=0,
+                                type="directory",
+                                last_modified=AWARE_DATETIME_MIN,
+                            )
+                        else:
+                            directories_to_walk.append(full_path)
 
-                # Only walk one level
-                if include_directories:
-                    break
+            # Walk all directories only if include_directories is False
+            if not include_directories:
+                for dir_path in directories_to_walk:
+                    for root, _, files in os.walk(dir_path):
+                        for file_name in sorted(files):
+                            file_path = os.path.join(root, file_name)
+                            relative_path = os.path.relpath(file_path, self._base_path)
+
+                            if (start_after is None or start_after < relative_path) and (
+                                end_at is None or relative_path <= end_at
+                            ):
+                                yield ObjectMetadata(
+                                    key=relative_path,
+                                    content_length=os.path.getsize(file_path),
+                                    last_modified=datetime.fromtimestamp(os.path.getmtime(file_path), tz=timezone.utc),
+                                )
 
         return self._collect_metrics(_invoke_api, operation="LIST", path=prefix)
 

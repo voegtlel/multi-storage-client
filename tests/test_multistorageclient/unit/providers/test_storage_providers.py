@@ -123,6 +123,18 @@ def test_storage_providers(temp_data_store_type: type[tempdatastore.TemporaryDat
         # List the infix directory.
         assert len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/", include_directories=True))) == 1
 
+        # List based on the partial prefix
+        assert len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/in", include_directories=True))) == 1
+        assert len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/in", include_directories=False))) == 1
+        assert (
+            len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/infix/suffix", include_directories=True)))
+            == 1
+        )
+        assert (
+            len(list(storage_client.list(prefix=f"{file_path_fragments[0]}/infix/suffix", include_directories=False)))
+            == 1
+        )
+
         # Delete the file.
         storage_client.delete(path=file_path)
 
