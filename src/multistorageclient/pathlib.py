@@ -16,7 +16,7 @@
 import logging
 import os
 from pathlib import Path, PurePosixPath
-from typing import List, Union
+from typing import Union
 
 from .client import StorageClient
 from .shortcuts import resolve_storage_client
@@ -108,7 +108,7 @@ class MultiStoragePath:
         return self._internal_path.suffix
 
     @property
-    def suffixes(self) -> List[str]:
+    def suffixes(self) -> list[str]:
         return self._internal_path.suffixes
 
     @property
@@ -123,7 +123,7 @@ class MultiStoragePath:
         return MultiStoragePath(join_paths(f"{MSC_PROTOCOL}{self._storage_client.profile}", str(parent_path)))
 
     @property
-    def parents(self) -> List["MultiStoragePath"]:
+    def parents(self) -> list["MultiStoragePath"]:
         if self._storage_client.is_default_profile():
             return [MultiStoragePath(str(p)) for p in self._internal_path.parents]
         else:

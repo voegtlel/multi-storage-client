@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pickle as _pickle
 import os
-from typing import IO, Any, Callable, Iterable, Optional, Union
+import pickle as _pickle
+from collections.abc import Callable, Iterable
+from typing import IO, Any, Optional, Union
 
-from ..shortcuts import open as msc_open
 from ..pathlib import MultiStoragePath
+from ..shortcuts import open as msc_open
 
 
 def load(

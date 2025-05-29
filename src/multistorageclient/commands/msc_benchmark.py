@@ -18,11 +18,10 @@ import json
 import os
 import statistics
 import time
-
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Pool, Manager
+from multiprocessing import Manager, Pool
 from multiprocessing.managers import ListProxy
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Optional, Union
 
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.schema import BENCHMARK_SCHEMA, validate
@@ -38,7 +37,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def load_config(config_path: Optional[str]) -> Dict[str, Any]:
+def load_config(config_path: Optional[str]) -> dict[str, Any]:
     """
     Load configuration from a JSON file.
 
@@ -72,10 +71,10 @@ def size_to_bytes(size: str) -> int:
 class PerformanceMetrics:
     def __init__(
         self,
-        start_times: Union[List[Any], ListProxy],
-        end_times: Union[List[Any], ListProxy],
-        response_times: Union[List[Any], ListProxy],
-        object_sizes: Union[List[Any], ListProxy],
+        start_times: Union[list[Any], ListProxy],
+        end_times: Union[list[Any], ListProxy],
+        response_times: Union[list[Any], ListProxy],
+        object_sizes: Union[list[Any], ListProxy],
     ) -> None:
         self.start_times = start_times
         self.end_times = end_times
@@ -124,9 +123,9 @@ class BenchmarkRunner:
     def __init__(
         self,
         storage_client: StorageClient,
-        test_sizes: Optional[Dict[str, int]] = None,
-        processes: Optional[List[int]] = None,
-        threads: Optional[List[int]] = None,
+        test_sizes: Optional[dict[str, int]] = None,
+        processes: Optional[list[int]] = None,
+        threads: Optional[list[int]] = None,
         prefix: str = "",
     ) -> None:
         """Initialize the benchmark runner with a storage client and test parameters.

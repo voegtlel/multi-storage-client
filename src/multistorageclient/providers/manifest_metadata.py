@@ -15,13 +15,14 @@
 
 from __future__ import annotations  # Enables forward references in type hints
 
-import logging
 import io
 import json
+import logging
 import os
-from dataclasses import dataclass, asdict
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Optional
 
 from ..types import MetadataProvider, ObjectMetadata, StorageProvider
 from ..utils import glob
@@ -41,15 +42,13 @@ SEQUENCE_PADDING = 6  # Define padding for the sequence number (e.g., 6 for "000
 class ManifestPartReference:
     """
     A data class representing a reference to dataset manifest part.
-
-    Attributes:
-        path (str): The path of the manifest part relative to the main manifest.
     """
 
+    #: The path of the manifest part relative to the main manifest.
     path: str
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> ManifestPartReference:
+    def from_dict(data: dict[str, Any]) -> ManifestPartReference:
         """
         Creates a ManifestPartReference instance from a dictionary.
         """
@@ -72,14 +71,12 @@ class ManifestPartReference:
 class Manifest:
     """
     A data class representing a dataset manifest.
-
-    Attributes:
-        :version (str): Defines the version of the manifest schema.
-        :parts (List[ManifestPartReference]): References to manifest parts.
     """
 
+    #: Defines the version of the manifest schema.
     version: str
-    parts: List[ManifestPartReference]
+    #: References to manifest parts.
+    parts: list[ManifestPartReference]
 
     @staticmethod
     def from_dict(data: dict) -> "Manifest":
@@ -116,8 +113,8 @@ def _metadata_to_manifest_dict(metadata: ObjectMetadata) -> dict:
 
 class ManifestMetadataProvider(MetadataProvider):
     _storage_provider: StorageProvider
-    _files: Dict[str, ObjectMetadata]
-    _pending_adds: Dict[str, ObjectMetadata]
+    _files: dict[str, ObjectMetadata]
+    _pending_adds: dict[str, ObjectMetadata]
     _pending_removes: list[str]
     _manifest_path: str
     _writable: bool
@@ -194,7 +191,7 @@ class ManifestMetadataProvider(MetadataProvider):
 
             # Load manifest parts.
             for manifest_part_reference in manifest.parts:
-                object_metadata: List[ObjectMetadata] = self._load_manifest_part_file(
+                object_metadata: list[ObjectMetadata] = self._load_manifest_part_file(
                     storage_provider=storage_provider,
                     manifest_base=manifest_base,
                     manifest_part_reference=manifest_part_reference,
@@ -207,7 +204,7 @@ class ManifestMetadataProvider(MetadataProvider):
 
     def _load_manifest_part_file(
         self, storage_provider: StorageProvider, manifest_base: str, manifest_part_reference: ManifestPartReference
-    ) -> List[ObjectMetadata]:
+    ) -> list[ObjectMetadata]:
         """
         Loads a manifest part.
 
@@ -232,13 +229,12 @@ class ManifestMetadataProvider(MetadataProvider):
 
         return object_metadata
 
-    def _write_manifest_files(self, storage_provider: StorageProvider, object_metadata: List[ObjectMetadata]) -> None:
+    def _write_manifest_files(self, storage_provider: StorageProvider, object_metadata: list[ObjectMetadata]) -> None:
         """
         Writes the main manifest and its part files.
 
-        Args:
-            storage_provider (StorageProvider): The storage provider to use for writing.
-            object_metadata (List[ObjectMetadata]): objects to include in manifest.
+        :param storage_provider: The storage provider to use for writing.
+        :param object_metadata: objects to include in manifest.
         """
 
         def helper_write_file_to_storage(storage_provider: StorageProvider, path: str, content: str) -> None:
@@ -349,11 +345,11 @@ class ManifestMetadataProvider(MetadataProvider):
         else:
             raise FileNotFoundError(f"Object {path} does not exist.")
 
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         all_objects = [object.key for object in self.list_objects("")]
         return [key for key in glob(all_objects, pattern)]
 
-    def realpath(self, path: str) -> Tuple[str, bool]:
+    def realpath(self, path: str) -> tuple[str, bool]:
         exists = path in self._files
         return path, exists
 

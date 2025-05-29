@@ -14,8 +14,9 @@
 # limitations under the License.
 
 import pytest
-import test_multistorageclient.e2e.common as common
+
 import multistorageclient as msc
+import test_multistorageclient.e2e.common as common
 from multistorageclient.types import PreconditionFailedError
 
 

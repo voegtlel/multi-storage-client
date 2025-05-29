@@ -16,7 +16,7 @@
 import argparse
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Optional
 
 
 class MSCHelpFormatter(argparse.HelpFormatter):
@@ -77,7 +77,7 @@ class ActionRegistry:
     """
 
     def __init__(self):
-        self.actions: Dict[str, Action] = {}
+        self.actions: dict[str, Action] = {}
 
     def register_action(self, action: Action) -> None:
         """Register an action."""

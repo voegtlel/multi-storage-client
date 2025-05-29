@@ -13,11 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from multistorageclient.telemetry.metrics.readers.diperiodic_exporting import DiperiodicExportingMetricReader
+import time
+
 import opentelemetry.sdk.metrics as sdk_metrics
 import opentelemetry.sdk.metrics.export as sdk_metrics_export
+
+from multistorageclient.telemetry.metrics.readers.diperiodic_exporting import DiperiodicExportingMetricReader
 from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
-import time
 
 
 def test_diperiodic_exporting_metric_reader():

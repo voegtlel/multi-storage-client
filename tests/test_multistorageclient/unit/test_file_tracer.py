@@ -14,11 +14,13 @@
 # limitations under the License.
 
 import unittest
-from unittest.mock import MagicMock, patch
-from opentelemetry.trace import StatusCode
-from multistorageclient.instrumentation.utils import file_tracer
 from typing import Any
+from unittest.mock import MagicMock, patch
+
 import pytest
+from opentelemetry.trace import StatusCode
+
+from multistorageclient.instrumentation.utils import file_tracer
 
 
 class MockManagedFile:

@@ -13,24 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sized
 import io
 import os
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, Tuple, TypeVar, Union
+from collections.abc import Callable, Iterator, Sized
+from typing import IO, Any, Optional, TypeVar, Union
 
 from aistore.sdk import Client
 from aistore.sdk.authn import AuthNClient
 from aistore.sdk.errors import AISError
+from aistore.sdk.obj.object_props import ObjectProps
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
-from aistore.sdk.obj.object_props import ObjectProps
+
 from ..types import (
+    AWARE_DATETIME_MIN,
     Credentials,
     CredentialsProvider,
     ObjectMetadata,
     Range,
-    AWARE_DATETIME_MIN,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -68,7 +69,7 @@ class StaticAISCredentialProvider(CredentialsProvider):
         :param password: The password for the AIStore authentication.
         :param authn_endpoint: The AIStore authentication endpoint.
         :param token: The AIStore authentication token. This is used for authentication if username,
-                        password and authn_endpoint are not provided.
+            password and authn_endpoint are not provided.
         :param skip_verify: If true, skip SSL certificate verification.
         :param ca_cert: Path to a CA certificate file for SSL verification.
         """
@@ -96,8 +97,8 @@ class AIStoreStorageProvider(BaseStorageProvider):
         provider: str = PROVIDER,
         skip_verify: bool = True,
         ca_cert: Optional[str] = None,
-        timeout: Optional[Union[float, Tuple[float, float]]] = None,
-        retry: Optional[Dict[str, Any]] = None,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        retry: Optional[dict[str, Any]] = None,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
         **kwargs: Any,
@@ -209,7 +210,7 @@ class AIStoreStorageProvider(BaseStorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:

@@ -18,11 +18,12 @@ import os
 import random
 import tempfile
 import time
-
 from unittest.mock import patch
+
 import pytest
+
 from multistorageclient.cache import CacheBackendFactory
-from multistorageclient.caching.cache_config import CacheConfig, CacheBackendConfig
+from multistorageclient.caching.cache_config import CacheBackendConfig, CacheConfig
 
 
 def worker_write_read(cache_dir, keys, data, barrier, result_queue):

@@ -16,8 +16,8 @@
 import os
 import tempfile
 
-import pytest
 import fsspec
+import pytest
 
 
 @pytest.mark.asyncio

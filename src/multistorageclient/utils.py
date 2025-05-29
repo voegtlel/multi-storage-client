@@ -20,13 +20,14 @@ import multiprocessing
 import os
 import re
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Tuple, Dict
+from typing import Any, Optional
 
 from .types import ObjectMetadata
 
 
-def split_path(path: str) -> Tuple[str, str]:
+def split_path(path: str) -> tuple[str, str]:
     """
     Splits the given path into components: bucket, key
 
@@ -42,7 +43,7 @@ def split_path(path: str) -> Tuple[str, str]:
     return bucket, key
 
 
-def glob(keys: List[str], pattern: str) -> List[str]:
+def glob(keys: list[str], pattern: str) -> list[str]:
     """
     Matches a list of keys against a Unix-style wildcard pattern, including recursive ``**``.
 
@@ -163,10 +164,10 @@ def extract_prefix_from_glob(s: str) -> str:
 
 
 def merge_dictionaries_no_overwrite(
-    dict1: Optional[Dict[str, Any]] = None,
-    dict2: Optional[Dict[str, Any]] = None,
-    conflicted_keys: Optional[List[str]] = None,
-) -> Tuple[Dict[str, Any], List[str]]:
+    dict1: Optional[dict[str, Any]] = None,
+    dict2: Optional[dict[str, Any]] = None,
+    conflicted_keys: Optional[list[str]] = None,
+) -> tuple[dict[str, Any], list[str]]:
     """
     Recursively merges two dictionaries without overwriting existing keys.
 

@@ -14,14 +14,14 @@
 # limitations under the License.
 
 import json
-from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 
 from multistorageclient.types import ObjectMetadata
 from multistorageclient.utils import calculate_worker_processes_and_threads
 
 from .. import StorageClient
-from ..providers.manifest_metadata import ManifestMetadataProvider, DEFAULT_MANIFEST_BASE_DIR
+from ..providers.manifest_metadata import DEFAULT_MANIFEST_BASE_DIR, ManifestMetadataProvider
 
 
 class ManifestMetadataGenerator:
@@ -30,7 +30,7 @@ class ManifestMetadataGenerator:
     """
 
     @staticmethod
-    def _generate_manifest_part_body(object_metadata: List[ObjectMetadata]) -> bytes:
+    def _generate_manifest_part_body(object_metadata: list[ObjectMetadata]) -> bytes:
         return "\n".join(
             [
                 json.dumps({**metadata_dict, "size_bytes": metadata_dict.pop("content_length")})
@@ -43,7 +43,7 @@ class ManifestMetadataGenerator:
     def generate_and_write_manifest(
         data_storage_client: StorageClient,
         manifest_storage_client: StorageClient,
-        partition_keys: Optional[List[str]] = None,
+        partition_keys: Optional[list[str]] = None,
     ) -> None:
         """
         Generates a file metadata manifest.

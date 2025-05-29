@@ -1,9 +1,9 @@
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
 from opentelemetry.sdk.trace import Span
-from opentelemetry.trace import StatusCode, SpanContext, TraceFlags
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.trace import SpanContext, StatusCode, TraceFlags
 
 from multistorageclient.instrumentation.error_aware_processor import ErrorAwareBatchSpanProcessor
 

@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jsonschema import validate
 from typing import Any
 
+from jsonschema import validate
 
 EXTENSION_SCHEMA = {
     "type": "object",

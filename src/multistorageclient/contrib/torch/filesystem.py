@@ -15,9 +15,10 @@
 
 import io
 import os
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import Dict, Generator, List, Union, cast
+from typing import Union, cast
 
 from torch.distributed.checkpoint.filesystem import FileSystemBase, FileSystemReader, FileSystemWriter
 from torch.distributed.checkpoint.planner import (
@@ -71,7 +72,7 @@ class MultiStorageFileSystem(FileSystemBase):
         return [str(p) for p in MultiStoragePath(path).iterdir()]
 
 
-def _prefetch_objects(fs: MultiStorageFileSystem, urls: List[MultiStoragePath], thread_count: int) -> None:
+def _prefetch_objects(fs: MultiStorageFileSystem, urls: list[MultiStoragePath], thread_count: int) -> None:
     """
     Efficiently pre-downloads files from object storage using parallel threads, storing them in cache when enabled for optimized subsequent access.
     """
@@ -109,7 +110,7 @@ class MultiStorageFileSystemReader(FileSystemReader):
         """
         if self.thread_count > 1:
             # group requests by file
-            per_file: Dict[str, List[ReadItem]] = {}
+            per_file: dict[str, list[ReadItem]] = {}
             for read_item in plan.items:
                 item_md = self.storage_data[read_item.storage_index]
                 path = item_md.relative_path

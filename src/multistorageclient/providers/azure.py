@@ -13,24 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
+from collections.abc import Callable, Iterator, Sized
+from typing import IO, Any, Optional, TypeVar, Union
 
-from azure.core.exceptions import HttpResponseError, AzureError
-from azure.storage.blob import BlobPrefix, BlobServiceClient
 from azure.core import MatchConditions
+from azure.core.exceptions import AzureError, HttpResponseError
+from azure.storage.blob import BlobPrefix, BlobServiceClient
 
 from ..types import (
+    AWARE_DATETIME_MIN,
     Credentials,
     CredentialsProvider,
     ObjectMetadata,
-    Range,
-    AWARE_DATETIME_MIN,
     PreconditionFailedError,
+    Range,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -77,7 +77,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         endpoint_url: str,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
-        **kwargs: Dict[str, Any],
+        **kwargs: dict[str, Any],
     ):
         """
         Initializes the :py:class:`AzureBlobStorageProvider` with the endpoint URL and optional credentials provider.
@@ -210,7 +210,7 @@ class AzureBlobStorageProvider(BaseStorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:

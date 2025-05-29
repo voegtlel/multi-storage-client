@@ -14,10 +14,10 @@
 # limitations under the License.
 
 import configparser
-from functools import cache
 import os
+from functools import cache
 from pathlib import Path
-from typing import Dict, Optional, Any, Tuple
+from typing import Any, Optional
 
 from .utils import find_executable_path
 
@@ -61,7 +61,7 @@ def _get_rclone_config_path() -> Optional[Path]:
 
 
 def _set_if_exists(
-    section: configparser.SectionProxy, target_dict: Dict[str, Any], msc_key: str, rclone_key: str
+    section: configparser.SectionProxy, target_dict: dict[str, Any], msc_key: str, rclone_key: str
 ) -> None:
     """
     Checks for a specific rclone key in a config section; if found, sets its value with MSC key in the target dict.
@@ -78,7 +78,7 @@ def _set_if_exists(
         target_dict[msc_key] = section[rclone_key]
 
 
-def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tuple[Dict, Dict]:
+def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> tuple[dict, dict]:
     """
     Parse S3 related keys from a config section.
 
@@ -87,19 +87,19 @@ def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tup
         - storage_provider_options (dict): Includes region_name, endpoint_url, etc.
         - credentials_provider (dict): Includes type (if applicable) and an 'options' dict
     """
-    storage_provider_options: Dict[str, Any] = {}
+    storage_provider_options: dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "region_name", "region")
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
     _set_if_exists(section, storage_provider_options, "request_checksum_calculation", "request_checksum_calculation")
     _set_if_exists(section, storage_provider_options, "response_checksum_validation", "response_checksum_validation")
 
-    credentials_provider_options: Dict[str, Any] = {}
+    credentials_provider_options: dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "access_key", "access_key_id")
     _set_if_exists(section, credentials_provider_options, "secret_key", "secret_access_key")
     _set_if_exists(section, credentials_provider_options, "session_token", "session_token")
 
-    credentials_provider: Dict[str, Any] = {}
+    credentials_provider: dict[str, Any] = {}
     credentials_provider["options"] = credentials_provider_options
 
     # If there's at least an access_key, we can consider this S3Credentials
@@ -109,7 +109,7 @@ def _parse_s3_storage_provider_config(section: configparser.SectionProxy) -> Tup
     return storage_provider_options, credentials_provider
 
 
-def _parse_azure_storage_provider_config(section: configparser.SectionProxy) -> Tuple[Dict, Dict]:
+def _parse_azure_storage_provider_config(section: configparser.SectionProxy) -> tuple[dict, dict]:
     """
     Parse Azure related keys from a config section.
 
@@ -118,14 +118,14 @@ def _parse_azure_storage_provider_config(section: configparser.SectionProxy) -> 
         - storage_provider_options (dict): Includes storage specific provider options, etc.
         - credentials_provider (dict): Includes type (if applicable) and an 'options' dict
     """
-    storage_provider_options: Dict[str, Any] = {}
+    storage_provider_options: dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
-    credentials_provider_options: Dict[str, Any] = {}
+    credentials_provider_options: dict[str, Any] = {}
     _set_if_exists(section, credentials_provider_options, "connection", "connection")
 
-    credentials_provider: Dict[str, Any] = {"options": credentials_provider_options}
+    credentials_provider: dict[str, Any] = {"options": credentials_provider_options}
 
     # If there's a connection string, we assume static Azure credentials are being used
     if "connection" in credentials_provider_options:
@@ -134,7 +134,7 @@ def _parse_azure_storage_provider_config(section: configparser.SectionProxy) -> 
     return storage_provider_options, credentials_provider
 
 
-def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> Tuple[Dict, Dict]:
+def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> tuple[dict, dict]:
     """
     Parse Google Cloud Storage related keys from a config section.
 
@@ -143,7 +143,7 @@ def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> Tu
         - storage_provider_options (dict): Includes storage specific provider options, etc.
         - credentials_provider (dict): Includes type (if applicable) and an 'options' dict
     """
-    storage_provider_options: Dict[str, Any] = {}
+    storage_provider_options: dict[str, Any] = {}
     # rclone uses 'project_number' for GCS.
     _set_if_exists(section, storage_provider_options, "project_id", "project_number")
     _set_if_exists(section, storage_provider_options, "endpoint_url", "endpoint")
@@ -152,7 +152,7 @@ def _parse_gcs_storage_provider_config(section: configparser.SectionProxy) -> Tu
     return storage_provider_options, {}
 
 
-def _parse_oci_storage_provider_config(section: configparser.SectionProxy) -> Tuple[Dict, Dict]:
+def _parse_oci_storage_provider_config(section: configparser.SectionProxy) -> tuple[dict, dict]:
     """
     Parse Oracle Cloud Infrastructure Object Storage related keys from a config section.
 
@@ -161,14 +161,14 @@ def _parse_oci_storage_provider_config(section: configparser.SectionProxy) -> Tu
         - storage_provider_options (dict): Includes storage specific provider options, etc.
         - credentials_provider (dict): Includes type (if applicable) and an 'options' dict
     """
-    storage_provider_options: Dict[str, Any] = {}
+    storage_provider_options: dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "namespace", "namespace")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}
 
 
-def _parse_ais_storage_provider_config(section: configparser.SectionProxy) -> Tuple[Dict, Dict]:
+def _parse_ais_storage_provider_config(section: configparser.SectionProxy) -> tuple[dict, dict]:
     """
     Parse AIStore related keys from a config section.
 
@@ -177,14 +177,14 @@ def _parse_ais_storage_provider_config(section: configparser.SectionProxy) -> Tu
         - storage_provider_options (dict): Includes storage specific provider options, etc.
         - credentials_provider (dict): Includes type (if applicable) and an 'options' dict
     """
-    storage_provider_options: Dict[str, Any] = {}
+    storage_provider_options: dict[str, Any] = {}
     _set_if_exists(section, storage_provider_options, "endpoint", "endpoint")
     _set_if_exists(section, storage_provider_options, "base_path", "base_path")
 
     return storage_provider_options, {}
 
 
-def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
+def _parse_config_section(section: configparser.SectionProxy) -> dict[str, Any]:
     """
     Parses a config section to create a dictionary with 'storage_provider' and 'credentials_provider'.
 
@@ -232,7 +232,7 @@ def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
     # Set default base_path to make it compatible with rclone config
     storage_provider_options["base_path"] = storage_provider_options.get("base_path", "")
 
-    storage_provider: Dict[str, Any] = {
+    storage_provider: dict[str, Any] = {
         "type": storage_type,
         "options": storage_provider_options,
     }
@@ -246,7 +246,7 @@ def _parse_config_section(section: configparser.SectionProxy) -> Dict[str, Any]:
     return config
 
 
-def _parse_from_config_parser(config: configparser.ConfigParser) -> Dict[str, Any]:
+def _parse_from_config_parser(config: configparser.ConfigParser) -> dict[str, Any]:
     """
     Parse a ConfigParser object containing one or more rclone sections (remotes).
 
@@ -275,7 +275,7 @@ def _parse_from_config_parser(config: configparser.ConfigParser) -> Dict[str, An
 
 
 @cache
-def read_rclone_config() -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+def read_rclone_config() -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """
     High-level utility to locate an rclone.conf file, parse it, and return its representation.
 

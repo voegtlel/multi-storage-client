@@ -15,13 +15,13 @@
 
 import importlib
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from .manifest_metadata import ManifestMetadataProvider
 from .posix_file import PosixFileStorageProvider
 
 # Dictionary to hold lazy imported classes
-_imports: Dict[str, Any] = {}
+_imports: dict[str, Any] = {}
 
 logger = logging.getLogger(__name__)
 

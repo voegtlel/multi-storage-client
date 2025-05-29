@@ -18,8 +18,8 @@ from typing import IO, Any, Union
 
 import torch as _torch
 
-from ...shortcuts import open as msc_open
 from ...pathlib import MultiStoragePath
+from ...shortcuts import open as msc_open
 
 
 def load(f: Union[str, os.PathLike[str], IO[bytes]], *args: Any, **kwargs: Any) -> Any:

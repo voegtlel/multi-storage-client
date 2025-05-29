@@ -19,13 +19,14 @@ import sys
 import tempfile
 
 import pytest
+
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.config import SimpleProviderBundle
 from multistorageclient.providers import (
     ManifestMetadataProvider,
     PosixFileStorageProvider,
-    StaticS3CredentialsProvider,
     S3StorageProvider,
+    StaticS3CredentialsProvider,
 )
 from multistorageclient.types import StorageProviderConfig
 

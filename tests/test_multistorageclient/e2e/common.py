@@ -16,8 +16,10 @@
 import os
 import tempfile
 import time
-from typing import Callable, Iterable, TypeVar
 import uuid
+from collections.abc import Callable, Iterable
+from typing import TypeVar
+
 import pytest
 
 import multistorageclient as msc

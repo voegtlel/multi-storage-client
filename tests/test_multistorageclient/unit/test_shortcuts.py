@@ -18,18 +18,17 @@ import mmap
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from typing import Tuple, Type
 
 import numpy as np
 import pytest
 
 import multistorageclient as msc
 from multistorageclient.client import StorageClient
-from multistorageclient.types import MSC_PROTOCOL
 from multistorageclient.file import ObjectFile
 from multistorageclient.providers.manifest_metadata import (
     DEFAULT_MANIFEST_BASE_DIR,
 )
+from multistorageclient.types import MSC_PROTOCOL
 from test_multistorageclient.unit.utils import config, tempdatastore
 
 MB = 1024 * 1024
@@ -70,7 +69,7 @@ def test_resolve_storage_client(file_storage_config):
     assert p7 == os.path.realpath("workspace/datasets")
 
     # Multithreading test to verify the storage_client instance is the same
-    def storage_client_thread(number: int) -> Tuple[StorageClient, str]:
+    def storage_client_thread(number: int) -> tuple[StorageClient, str]:
         tempdir = tempfile.mkdtemp()
         storage_client, path = msc.resolve_storage_client(f"{MSC_PROTOCOL}default{tempdir}/testfile.bin")
         return storage_client, path
@@ -272,7 +271,7 @@ def verify_shortcuts(profile: str, prefix: str):
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_msc_shortcuts(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_msc_shortcuts(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
@@ -299,7 +298,7 @@ def test_msc_shortcuts(temp_data_store_type: Type[tempdatastore.TemporaryDataSto
         [tempdatastore.TemporaryAWSS3Bucket],
     ],
 )
-def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
@@ -335,7 +334,7 @@ def test_msc_shortcuts_with_s3_manifest(temp_data_store_type: Type[tempdatastore
         [tempdatastore.TemporaryAWSS3Bucket],
     ],
 )
-def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 
@@ -364,7 +363,7 @@ def test_msc_shortcuts_with_empty_base_path(temp_data_store_type: Type[tempdatas
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_glob_include_prefix(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_glob_include_prefix(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 

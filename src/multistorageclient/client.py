@@ -19,9 +19,10 @@ import os
 import queue
 import tempfile
 import threading
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, cast, Dict, Iterator, List, Optional, Union
+from typing import Any, Optional, Union, cast
 
 from .config import StorageClientConfig
 from .constants import MEMORY_LOAD_LIMIT
@@ -30,7 +31,7 @@ from .instrumentation.utils import instrumented
 from .providers.posix_file import PosixFileStorageProvider
 from .retry import retry
 from .types import MSC_PROTOCOL, ObjectMetadata, Range
-from .utils import join_paths, calculate_worker_processes_and_threads, NullStorageClient
+from .utils import NullStorageClient, calculate_worker_processes_and_threads, join_paths
 
 logger = logging.Logger(__name__)
 
@@ -276,7 +277,7 @@ class StorageClient:
 
         self._storage_provider.delete_object(path)
 
-    def glob(self, pattern: str, include_url_prefix: bool = False) -> List[str]:
+    def glob(self, pattern: str, include_url_prefix: bool = False) -> list[str]:
         """
         Matches and retrieves a list of objects in the storage provider that
         match the specified pattern.
@@ -416,7 +417,7 @@ class StorageClient:
             pass
         return True
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         state = self.__dict__.copy()
         del state["_credentials_provider"]
         del state["_storage_provider"]
@@ -424,7 +425,7 @@ class StorageClient:
         del state["_cache_manager"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         config = state["_config"]
         self._initialize_providers(config)
 

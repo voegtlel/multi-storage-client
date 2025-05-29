@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from typing import Any, Optional
+
 from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.trace import StatusCode
-from typing import Dict, Optional, Any
 
 
 class ErrorAwareBatchSpanProcessor(BatchSpanProcessor):
@@ -55,7 +56,7 @@ class ErrorAwareBatchSpanProcessor(BatchSpanProcessor):
             export_timeout_millis=export_timeout_millis,
         )
         self.long_running_threshold_ms = long_running_threshold_ms
-        self.trace_states: Dict[int, Dict] = {}
+        self.trace_states: dict[int, dict] = {}
 
     def on_start(self, span: Span, parent_context: Optional[Any] = None) -> None:
         """Called when a span is started.

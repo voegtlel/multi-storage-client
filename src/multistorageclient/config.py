@@ -17,34 +17,34 @@ import json
 import logging
 import os
 import tempfile
-from typing import Any, Dict, Optional, Tuple
-from urllib.parse import urlparse
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Any, Optional
+from urllib.parse import urlparse
 
 import opentelemetry.metrics as api_metrics
 import yaml
 
 from .cache import DEFAULT_CACHE_SIZE, CacheBackendFactory, CacheManager
-from .caching.cache_config import CacheConfig, CacheBackendConfig, EvictionPolicyConfig
+from .caching.cache_config import CacheBackendConfig, CacheConfig, EvictionPolicyConfig
 from .instrumentation import setup_opentelemetry
 from .providers.manifest_metadata import ManifestMetadataProvider
+from .rclone import read_rclone_config
 from .schema import validate_config
 from .telemetry import Telemetry
 from .telemetry.attributes.base import AttributesProvider
 from .types import (
     DEFAULT_RETRY_ATTEMPTS,
     DEFAULT_RETRY_DELAY,
+    MSC_PROTOCOL,
     CredentialsProvider,
     MetadataProvider,
     ProviderBundle,
     RetryConfig,
     StorageProvider,
     StorageProviderConfig,
-    MSC_PROTOCOL,
 )
 from .utils import expand_env_vars, import_class, merge_dictionaries_no_overwrite
-from .rclone import read_rclone_config
 
 # Constants related to implicit profiles
 SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS = ("s3", "gs", "ais", "file")
@@ -158,7 +158,7 @@ class StorageClientConfigLoader:
 
     def __init__(
         self,
-        config_dict: Dict[str, Any],
+        config_dict: dict[str, Any],
         profile: str = DEFAULT_POSIX_PROFILE_NAME,
         provider_bundle: Optional[ProviderBundle] = None,
         telemetry: Optional[Telemetry] = None,
@@ -249,7 +249,7 @@ class StorageClientConfigLoader:
     def _build_storage_provider(
         self,
         storage_provider_name: str,
-        storage_options: Optional[Dict[str, Any]] = None,
+        storage_options: Optional[dict[str, Any]] = None,
         credentials_provider: Optional[CredentialsProvider] = None,
     ) -> StorageProvider:
         if storage_options is None:
@@ -304,8 +304,8 @@ class StorageClientConfigLoader:
 
     def _build_credentials_provider(
         self,
-        credentials_provider_dict: Optional[Dict[str, Any]],
-        storage_options: Optional[Dict[str, Any]] = None,
+        credentials_provider_dict: Optional[dict[str, Any]],
+        storage_options: Optional[dict[str, Any]] = None,
     ) -> Optional[CredentialsProvider]:
         """
         Initializes the CredentialsProvider based on the provided dictionary.
@@ -341,7 +341,7 @@ class StorageClientConfigLoader:
 
         return cls(**options)
 
-    def _build_provider_bundle_from_config(self, profile_dict: Dict[str, Any]) -> ProviderBundle:
+    def _build_provider_bundle_from_config(self, profile_dict: dict[str, Any]) -> ProviderBundle:
         # Initialize StorageProvider
         storage_provider_dict = profile_dict.get("storage_provider", None)
         if storage_provider_dict:
@@ -393,7 +393,7 @@ class StorageClientConfigLoader:
             metadata_provider=metadata_provider,
         )
 
-    def _build_provider_bundle_from_extension(self, provider_bundle_dict: Dict[str, Any]) -> ProviderBundle:
+    def _build_provider_bundle_from_extension(self, provider_bundle_dict: dict[str, Any]) -> ProviderBundle:
         class_type = provider_bundle_dict["type"]
         module_name, class_name = class_type.rsplit(".", 1)
         cls = import_class(class_name, module_name)
@@ -431,7 +431,7 @@ class StorageClientConfigLoader:
         )
         return cache_manager
 
-    def _verify_cache_config(self, cache_dict: Dict[str, Any]) -> None:
+    def _verify_cache_config(self, cache_dict: dict[str, Any]) -> None:
         if "size_mb" in cache_dict or "location" in cache_dict:
             raise ValueError(
                 "The 'size_mb' and 'location' properties are no longer supported. \n"
@@ -527,7 +527,7 @@ class PathMapping:
         self._mapping = defaultdict(lambda: defaultdict(list))
 
     @classmethod
-    def from_config(cls, config_dict: Optional[Dict[str, Any]] = None) -> "PathMapping":
+    def from_config(cls, config_dict: Optional[dict[str, Any]] = None) -> "PathMapping":
         """
         Create a PathMapping instance from configuration dictionary.
 
@@ -547,7 +547,7 @@ class PathMapping:
         instance._load_mapping(config_dict)
         return instance
 
-    def _load_mapping(self, config_dict: Dict[str, Any]) -> None:
+    def _load_mapping(self, config_dict: dict[str, Any]) -> None:
         """
         Load path mapping from a configuration dictionary.
 
@@ -596,7 +596,7 @@ class PathMapping:
             for bucket, prefixes in buckets.items():
                 self._mapping[protocol][bucket] = sorted(prefixes, key=lambda x: len(x[0]), reverse=True)
 
-    def find_mapping(self, url: str) -> Optional[Tuple[str, str]]:
+    def find_mapping(self, url: str) -> Optional[tuple[str, str]]:
         """
         Find the best matching mapping for the given URL.
 
@@ -659,7 +659,7 @@ class StorageClientConfig:
     cache_manager: Optional[CacheManager]
     retry_config: Optional[RetryConfig]
 
-    _config_dict: Optional[Dict[str, Any]]
+    _config_dict: Optional[dict[str, Any]]
 
     def __init__(
         self,
@@ -695,7 +695,7 @@ class StorageClientConfig:
 
     @staticmethod
     def from_dict(
-        config_dict: Dict[str, Any],
+        config_dict: dict[str, Any],
         profile: str = DEFAULT_POSIX_PROFILE_NAME,
         skip_validation: bool = False,
         telemetry: Optional[Telemetry] = None,
@@ -774,7 +774,7 @@ class StorageClientConfig:
 
     @staticmethod
     def from_provider_bundle(
-        config_dict: Dict[str, Any], provider_bundle: ProviderBundle, telemetry: Optional[Telemetry] = None
+        config_dict: dict[str, Any], provider_bundle: ProviderBundle, telemetry: Optional[Telemetry] = None
     ) -> "StorageClientConfig":
         loader = StorageClientConfigLoader(
             config_dict=config_dict, provider_bundle=provider_bundle, telemetry=telemetry
@@ -784,7 +784,7 @@ class StorageClientConfig:
         return config
 
     @staticmethod
-    def read_msc_config() -> Optional[Dict[str, Any]]:
+    def read_msc_config() -> Optional[dict[str, Any]]:
         """Get the MSC configuration dictionary.
 
         :return: The MSC configuration dictionary or empty dict if no config was found
@@ -846,7 +846,7 @@ class StorageClientConfig:
             logger.error("Failed to load path_mapping from MSC config")
             return PathMapping()
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         state = self.__dict__.copy()
         if not state.get("_config_dict"):
             raise ValueError("StorageClientConfig is not serializable")
@@ -856,7 +856,7 @@ class StorageClientConfig:
         del state["cache_manager"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self.profile = state["profile"]
         loader = StorageClientConfigLoader(state["_config_dict"], self.profile)
         new_config = loader.build_config()

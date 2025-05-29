@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sized
 import glob
-import os
 import json
+import os
 import shutil
 import tempfile
 import time
+from collections.abc import Callable, Iterator, Sized
 from datetime import datetime, timezone
 from io import BytesIO, StringIO
-from typing import IO, Any, Callable, Dict, Iterator, List, Optional, TypeVar, Union
+from typing import IO, Any, Optional, TypeVar, Union
 
-from ..types import ObjectMetadata, Range, AWARE_DATETIME_MIN
+from ..types import AWARE_DATETIME_MIN, ObjectMetadata, Range
 from .base import BaseStorageProvider
 
 _T = TypeVar("_T")
@@ -119,7 +119,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:
@@ -290,7 +290,7 @@ class PosixFileStorageProvider(BaseStorageProvider):
 
             return self._collect_metrics(_invoke_api, operation="GET", path=remote_path, get_object_size=filesize)
 
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         pattern = self._prepend_base_path(pattern)
         keys = list(glob.glob(pattern, recursive=True))
         if self._base_path == "/":

@@ -18,7 +18,6 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Type
 
 import pytest
 
@@ -220,7 +219,7 @@ def verify_pathlib(profile: str, prefix: str):
         [tempdatastore.TemporaryAWSS3Bucket],
     ],
 )
-def test_pathlib_with_s3(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_pathlib_with_s3(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     # Clear the instance cache to ensure that the config is not reused from the previous test
     msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
 

@@ -1,25 +1,38 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import fnmatch
-import pytest
 import tempfile
-from typing import Dict, Optional, Iterator, Type, List, Tuple
 import uuid
+from collections.abc import Iterator
+from typing import Optional
 
-from multistorageclient import StorageClient, StorageClientConfig
-from multistorageclient.types import MetadataProvider, ObjectMetadata
+import pytest
 
 import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
+from multistorageclient import StorageClient, StorageClientConfig
+from multistorageclient.types import MetadataProvider, ObjectMetadata
 
 
 class UuidMetadataProvider(MetadataProvider):
     def __init__(self):
         # Remap the paths to random uuid filenames
-        self._path_to_uuid: Dict[str, str] = {}
-        self._uuid_to_info: Dict[str, ObjectMetadata] = {}
-        self._pending_adds: Dict[str, ObjectMetadata] = {}
-        self._pending_deletes: List[str] = []
+        self._path_to_uuid: dict[str, str] = {}
+        self._uuid_to_info: dict[str, ObjectMetadata] = {}
+        self._pending_adds: dict[str, ObjectMetadata] = {}
+        self._pending_deletes: list[str] = []
 
     def list_objects(
         self,
@@ -47,10 +60,10 @@ class UuidMetadataProvider(MetadataProvider):
             raise FileNotFoundError(f"Object {path} does not exist.")
         return self._uuid_to_info[u]
 
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         return [path for path in self._path_to_uuid.keys() if fnmatch.fnmatch(path, pattern)]
 
-    def realpath(self, path: str) -> Tuple[str, bool]:
+    def realpath(self, path: str) -> tuple[str, bool]:
         u = self._path_to_uuid.get(path)
         if u is None:
             return str(uuid.uuid4()), False
@@ -88,7 +101,7 @@ class UuidMetadataProvider(MetadataProvider):
     argnames=["temp_data_store_type"],
     argvalues=[[tempdatastore.TemporaryPOSIXDirectory], [tempdatastore.TemporaryAWSS3Bucket]],
 )
-def test_uuid_metadata_provider(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_uuid_metadata_provider(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         data_with_uuid_profile = "uuid"
 

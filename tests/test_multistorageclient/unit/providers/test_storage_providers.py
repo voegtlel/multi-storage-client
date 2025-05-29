@@ -14,17 +14,18 @@
 # limitations under the License.
 
 import functools
+import os
+import tempfile
+import uuid
+
+import pytest
+
+import multistorageclient.telemetry as telemetry
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.constants import MEMORY_LOAD_LIMIT
-import multistorageclient.telemetry as telemetry
 from multistorageclient.types import PreconditionFailedError
-import os
-import pytest
-import tempfile
-import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
-from typing import Type
-import uuid
 
 
 @pytest.mark.parametrize(
@@ -38,7 +39,7 @@ import uuid
     ],
 )
 @pytest.mark.parametrize(argnames=["with_cache"], argvalues=[[True], [False]])
-def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDataStore], with_cache: bool):
+def test_storage_providers(temp_data_store_type: type[tempdatastore.TemporaryDataStore], with_cache: bool):
     telemetry_resources: telemetry.Telemetry = telemetry.init(mode=telemetry.TelemetryMode.LOCAL)
 
     with temp_data_store_type() as temp_data_store:
@@ -237,7 +238,7 @@ def test_storage_providers(temp_data_store_type: Type[tempdatastore.TemporaryDat
 )
 @pytest.mark.parametrize(argnames=["with_cache"], argvalues=[[True], [False]])
 def test_storage_providers_list_directories(
-    temp_data_store_type: Type[tempdatastore.TemporaryDataStore], with_cache: bool
+    temp_data_store_type: type[tempdatastore.TemporaryDataStore], with_cache: bool
 ):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
@@ -269,7 +270,7 @@ def test_storage_providers_list_directories(
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_put_object_with_etag_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_put_object_with_etag_metadata(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
@@ -313,7 +314,7 @@ def test_put_object_with_etag_metadata(temp_data_store_type: Type[tempdatastore.
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_delete_object_with_etag(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_delete_object_with_etag(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
@@ -367,7 +368,7 @@ def test_delete_object_with_etag(temp_data_store_type: Type[tempdatastore.Tempor
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_posix_xattr_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_posix_xattr_metadata(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         config_dict = {"profiles": {profile: temp_data_store.profile_config_dict()}}
@@ -421,7 +422,7 @@ def test_posix_xattr_metadata(temp_data_store_type: Type[tempdatastore.Temporary
         [tempdatastore.TemporarySwiftStackBucket],
     ],
 )
-def test_put_object_with_conditional_params(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_put_object_with_conditional_params(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     """
     Test put_object with if_match and if_none_match parameters.
     """
@@ -488,7 +489,7 @@ def test_put_object_with_conditional_params(temp_data_store_type: Type[tempdatas
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_storage_with_root_base_path(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_storage_with_root_base_path(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         profile_dict = temp_data_store.profile_config_dict()

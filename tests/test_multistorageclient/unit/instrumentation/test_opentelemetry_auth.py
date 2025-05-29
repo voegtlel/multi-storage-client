@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from multistorageclient.instrumentation.auth import AzureAccessTokenProvider, AccessTokenProviderFactory
+from multistorageclient.instrumentation.auth import AccessTokenProviderFactory, AzureAccessTokenProvider
 
 
 @pytest.fixture

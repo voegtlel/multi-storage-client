@@ -13,22 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.metadata as importlib_metadata
+import os
+import time
 from abc import abstractmethod
 from collections.abc import Callable, Iterator, Sequence
 from enum import Enum
-import importlib.metadata as importlib_metadata
-import opentelemetry.metrics as api_metrics
-import opentelemetry.util.types as api_types
-import os
-import time
 from typing import IO, Optional, TypeVar, Union, cast
 
-from ..instrumentation.utils import StorageProviderMetricsHelper
+import opentelemetry.metrics as api_metrics
+import opentelemetry.util.types as api_types
+
+from ..instrumentation.utils import StorageProviderMetricsHelper, instrumented
 from ..telemetry import Telemetry
 from ..telemetry.attributes.base import AttributesProvider, collect_attributes
 from ..types import ObjectMetadata, Range, StorageProvider
-from ..utils import glob, extract_prefix_from_glob
-from ..instrumentation.utils import instrumented
+from ..utils import extract_prefix_from_glob, glob
 
 _T = TypeVar("_T")
 

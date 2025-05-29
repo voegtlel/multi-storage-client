@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import IO, Iterator, Optional, Union
+from typing import IO, Optional, Union
 from unittest.mock import MagicMock
 
 from multistorageclient.providers.base import BaseStorageProvider

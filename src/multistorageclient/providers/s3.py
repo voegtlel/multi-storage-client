@@ -13,35 +13,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sequence, Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
+from collections.abc import Callable, Iterator, Sequence, Sized
+from typing import IO, Any, Optional, TypeVar, Union
 
 import boto3
-from boto3.s3.transfer import TransferConfig
 import botocore
-from botocore.credentials import RefreshableCredentials
-from botocore.exceptions import ClientError, ReadTimeoutError, IncompleteReadError, ResponseStreamingError
-from botocore.session import get_session
 import opentelemetry.metrics as api_metrics
+from boto3.s3.transfer import TransferConfig
+from botocore.credentials import RefreshableCredentials
+from botocore.exceptions import ClientError, IncompleteReadError, ReadTimeoutError, ResponseStreamingError
+from botocore.session import get_session
 
+from ..instrumentation.utils import set_span_attribute
 from ..telemetry import Telemetry
 from ..telemetry.attributes.base import AttributesProvider
 from ..types import (
+    AWARE_DATETIME_MIN,
     Credentials,
     CredentialsProvider,
     ObjectMetadata,
+    PreconditionFailedError,
     Range,
     RetryableError,
-    AWARE_DATETIME_MIN,
-    PreconditionFailedError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
-from ..instrumentation.utils import set_span_attribute
 
 _T = TypeVar("_T")
 
@@ -174,7 +174,7 @@ class S3StorageProvider(BaseStorageProvider):
         max_pool_connections: int = BOTO3_MAX_POOL_CONNECTIONS,
         connect_timeout: Union[float, int, None] = None,
         read_timeout: Union[float, int, None] = None,
-        retries: Optional[Dict[str, Any]] = None,
+        retries: Optional[dict[str, Any]] = None,
     ):
         """
         Creates and configures the boto3 S3 client, using refreshable credentials if possible.
@@ -378,7 +378,7 @@ class S3StorageProvider(BaseStorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:

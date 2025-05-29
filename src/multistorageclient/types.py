@@ -14,9 +14,10 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import IO, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import IO, Any, Optional, Union
 
 from dateutil.parser import parse as dateutil_parser
 
@@ -49,7 +50,7 @@ class Credentials:
     #: The expiration time of the credentials in ISO 8601 format.
     expiration: Optional[str]
     #: A dictionary for storing custom key-value pairs.
-    custom_fields: Dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
 
     def is_expired(self) -> bool:
         """
@@ -94,7 +95,7 @@ class ObjectMetadata:
     #: The storage class of the object.
     storage_class: Optional[str] = field(default=None)
 
-    metadata: Optional[Dict[str, Any]] = field(default=None)
+    metadata: Optional[dict[str, Any]] = field(default=None)
 
     @staticmethod
     def from_dict(data: dict) -> "ObjectMetadata":
@@ -167,7 +168,7 @@ class StorageProvider(ABC):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> None:
@@ -268,7 +269,7 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         """
         Matches and retrieves a list of object keys in the storage provider that match the specified pattern.
 
@@ -328,7 +329,7 @@ class MetadataProvider(ABC):
         pass
 
     @abstractmethod
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         """
         Matches and retrieves a list of object keys in the storage provider that match the specified pattern.
 
@@ -339,7 +340,7 @@ class MetadataProvider(ABC):
         pass
 
     @abstractmethod
-    def realpath(self, path: str) -> Tuple[str, bool]:
+    def realpath(self, path: str) -> tuple[str, bool]:
         """
         Returns the canonical, full real physical path for use by a
         :py:class:`StorageProvider`. This provides translation from user-visible paths to
@@ -397,7 +398,7 @@ class StorageProviderConfig:
     #: The name or type of the storage provider (e.g., ``s3``, ``gcs``, ``oci``, ``azure``).
     type: str
     #: Additional options required to configure the storage provider (e.g., endpoint URLs, region, etc.).
-    options: Optional[Dict[str, Any]] = None
+    options: Optional[dict[str, Any]] = None
 
 
 class ProviderBundle(ABC):

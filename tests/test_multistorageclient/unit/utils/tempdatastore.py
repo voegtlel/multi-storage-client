@@ -20,8 +20,7 @@ import uuid
 from abc import abstractmethod
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any, Dict, Optional
-
+from typing import Any, Optional
 
 # Python's `tempfile` but for data stores.
 #
@@ -36,9 +35,9 @@ class TemporaryDataStore(AbstractContextManager):
     """
 
     #: Profile configuration dictionary.
-    _profile_config_dict: Dict[str, Any]
+    _profile_config_dict: dict[str, Any]
 
-    def profile_config_dict(self) -> Dict[str, Any]:
+    def profile_config_dict(self) -> dict[str, Any]:
         """
         Return a multi-storage client profile configuration dictionary for the temporary data store.
         """

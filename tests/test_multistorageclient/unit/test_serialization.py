@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import pickle
-from typing import Type
 
 import pytest
 
@@ -26,7 +25,7 @@ from multistorageclient import StorageClient, StorageClientConfig
     argnames=["temp_data_store_type"],
     argvalues=[[tempdatastore.TemporaryPOSIXDirectory], [tempdatastore.TemporaryAWSS3Bucket]],
 )
-def test_pickle_file_open(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_pickle_file_open(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         storage_client = StorageClient(

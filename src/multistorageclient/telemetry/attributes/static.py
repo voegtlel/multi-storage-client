@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import AttributesProvider
 import copy
+
 import opentelemetry.util.types as api_types
+
+from .base import AttributesProvider
 
 
 class StaticAttributesProvider(AttributesProvider):

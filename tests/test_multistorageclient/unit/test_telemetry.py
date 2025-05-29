@@ -16,14 +16,16 @@
 from multiprocessing import get_context
 from multiprocessing.managers import BaseProxy
 from multiprocessing.pool import Pool
-import multistorageclient.telemetry as telemetry
-from opentelemetry.context import get_current
-from opentelemetry.metrics import Counter, _Gauge as Gauge, Meter, MeterProvider
-from opentelemetry.trace import Span, Tracer, TracerProvider, use_span
+from typing import Any, Optional
+
 import pytest
+from opentelemetry.context import get_current
+from opentelemetry.metrics import Counter, Meter, MeterProvider, _Gauge
+from opentelemetry.trace import Span, Tracer, TracerProvider, use_span
+
+import multistorageclient.telemetry as telemetry
 from test_multistorageclient.unit.utils.telemetry.metrics.export import InMemoryMetricExporter
 from test_multistorageclient.unit.utils.telemetry.trace.export import InMemorySpanExporter
-from typing import Any, Dict, Optional
 
 
 def test_telemetry_local_objects():
@@ -70,7 +72,7 @@ def test_telemetry_local_objects():
         else:
             assert meter_str == str(meter)
 
-        gauge: Optional[Gauge] = telemetry_resources.gauge(
+        gauge: Optional[_Gauge] = telemetry_resources.gauge(
             opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
         )
         assert gauge is not None
@@ -130,7 +132,7 @@ def test_telemetry_manager_server_port():
 
 # Invoke in a separate process.
 def _test_telemetry_proxy_objects_client(
-    opentelemetry_config: Dict[str, Any],
+    opentelemetry_config: dict[str, Any],
     # Make sure caching works across processes.
     #
     # BaseProxy.__str__ returns the __str__ of the referent.
@@ -172,7 +174,7 @@ def _test_telemetry_proxy_objects_client(
     assert meter_referent_str == str(meter)
     assert meter_proxy_repr != repr(meter)
 
-    gauge: Optional[Gauge] = telemetry_resources.gauge(
+    gauge: Optional[_Gauge] = telemetry_resources.gauge(
         opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
     )
     assert gauge is not None
@@ -243,7 +245,7 @@ def test_telemetry_proxy_objects(process_start_method: str):
     assert meter is not None
     assert isinstance(meter, BaseProxy)
 
-    gauge: Optional[Gauge] = telemetry_resources.gauge(
+    gauge: Optional[_Gauge] = telemetry_resources.gauge(
         opentelemetry_config["metrics"], name=telemetry.Telemetry.GaugeName.DATA_SIZE
     )
     assert gauge is not None

@@ -19,7 +19,6 @@ import tempfile
 
 import multistorageclient as msc
 
-
 PATH_CLASSES = [str, pathlib.Path, msc.Path]
 
 

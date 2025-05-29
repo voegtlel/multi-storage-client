@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pytest
+
 from multistorageclient.schema import validate_config
 
 

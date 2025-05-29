@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import multistorageclient.instrumentation
 import pytest
-from multistorageclient import StorageClientConfig
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -30,6 +28,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, DEFAULT_ON
 from opentelemetry.trace import ProxyTracerProvider
 
+import multistorageclient.instrumentation
+from multistorageclient import StorageClientConfig
 from multistorageclient.instrumentation.auth import AzureAccessTokenProvider
 
 """

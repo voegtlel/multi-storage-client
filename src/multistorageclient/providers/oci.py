@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sized
 import io
 import os
 import tempfile
 import time
-from typing import IO, Any, Callable, Dict, Iterator, Optional, TypeVar, Union
+from collections.abc import Callable, Iterator, Sized
+from typing import IO, Any, Optional, TypeVar, Union
 
 import oci
 from dateutil.parser import parse as dateutil_parser
@@ -32,12 +32,12 @@ from oci.object_storage import ObjectStorageClient, UploadManager
 from oci.retry import DEFAULT_RETRY_STRATEGY, RetryStrategyBuilder
 
 from ..types import (
+    AWARE_DATETIME_MIN,
     CredentialsProvider,
     ObjectMetadata,
+    PreconditionFailedError,
     Range,
     RetryableError,
-    AWARE_DATETIME_MIN,
-    PreconditionFailedError,
 )
 from ..utils import split_path
 from .base import BaseStorageProvider
@@ -63,7 +63,7 @@ class OracleStorageProvider(BaseStorageProvider):
         namespace: str,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
-        retry_strategy: Optional[Dict[str, Any]] = None,
+        retry_strategy: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -190,7 +190,7 @@ class OracleStorageProvider(BaseStorageProvider):
         self,
         path: str,
         body: bytes,
-        metadata: Optional[Dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
         if_match: Optional[str] = None,
         if_none_match: Optional[str] = None,
     ) -> int:

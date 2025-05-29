@@ -17,7 +17,7 @@
 
 import logging
 import threading
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from opentelemetry import metrics, trace
 
@@ -115,7 +115,7 @@ _setup_lock = threading.Lock()
 logger = logging.Logger(__name__)
 
 
-def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
+def _setup_opentelemetry_impl(config: dict[str, Any]) -> None:
     """
     Setup global OpenTelemetry providers for trace/metrics
     """
@@ -209,7 +209,7 @@ def _setup_opentelemetry_impl(config: Dict[str, Any]) -> None:
             _IS_SETUP_DONE = True
 
 
-def setup_opentelemetry(config: Dict[str, Any]) -> None:
+def setup_opentelemetry(config: dict[str, Any]) -> None:
     """
     Setup global OpenTelemetry providers for trace/metrics.
     When dependencies are not available, this becomes a no-op function.

@@ -20,8 +20,9 @@ import logging
 import os
 import tempfile
 import threading
+from collections.abc import Iterator
 from io import BytesIO, StringIO
-from typing import IO, TYPE_CHECKING, Any, Iterator, List, Optional
+from typing import IO, TYPE_CHECKING, Any, Optional
 
 from opentelemetry.trace import Span
 
@@ -117,7 +118,7 @@ class RemoteFileReader(IO[bytes]):
     def readline(self, size: int = -1) -> bytes:
         raise io.UnsupportedOperation("readline operation is not supported on this file")
 
-    def readlines(self, hint: int = -1) -> List[bytes]:
+    def readlines(self, hint: int = -1) -> list[bytes]:
         raise io.UnsupportedOperation("readlines operation is not supported on this file")
 
     @property
@@ -398,7 +399,7 @@ class ObjectFile(IO):
         return self._file.readline(size)
 
     @file_tracer
-    def readlines(self, hint: int = -1) -> List[Any]:
+    def readlines(self, hint: int = -1) -> list[Any]:
         if self.readable():
             self._download_complete.wait()
         return self._file.readlines()
@@ -637,7 +638,7 @@ class PosixFile(IO):
         return self._file.readline(size)
 
     @file_tracer
-    def readlines(self, hint: int = -1) -> List[Any]:
+    def readlines(self, hint: int = -1) -> list[Any]:
         return self._file.readlines()
 
     def __iter__(self) -> Iterator[Any]:

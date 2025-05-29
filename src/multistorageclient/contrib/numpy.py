@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import numpy as _np
 
-from ..shortcuts import open as msc_open
 from ..pathlib import MultiStoragePath
+from ..shortcuts import open as msc_open
 
 
 def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
@@ -44,7 +44,7 @@ def memmap(*args: Any, **kwargs: Any) -> _np.memmap:
     return _np.memmap(*args, **kwargs)  # pyright: ignore [reportArgumentType, reportCallIssue]
 
 
-def load(*args: Any, **kwargs: Any) -> Union[_np.ndarray, Dict[str, _np.ndarray], _np.lib.npyio.NpzFile]:
+def load(*args: Any, **kwargs: Any) -> Union[_np.ndarray, dict[str, _np.ndarray], _np.lib.npyio.NpzFile]:
     """
     Adapt ``numpy.load``.
     """

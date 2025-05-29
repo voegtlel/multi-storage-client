@@ -16,9 +16,6 @@
 import importlib
 from importlib.metadata import version
 
-__version__ = version("multi-storage-client")
-
-
 from .cache import CacheConfig
 from .client import StorageClient, StorageClientConfig
 from .pathlib import MultiStoragePath as Path
@@ -38,6 +35,8 @@ from .shortcuts import (
     upload_file,
     write,
 )
+
+__version__ = version("multi-storage-client")
 
 __all__ = [
     # Classes

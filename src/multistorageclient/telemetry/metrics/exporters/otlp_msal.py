@@ -14,12 +14,13 @@
 # limitations under the License.
 
 import logging
-from multistorageclient.instrumentation.auth import AccessTokenProvider, AzureAccessTokenProvider
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-import requests
-import requests.adapters as requests_adapters
 from typing import Any
 
+import requests
+import requests.adapters as requests_adapters
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
+from multistorageclient.instrumentation.auth import AccessTokenProvider, AzureAccessTokenProvider
 
 logger = logging.Logger(__name__)
 

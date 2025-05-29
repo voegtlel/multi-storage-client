@@ -20,12 +20,12 @@ import pytest
 
 import multistorageclient as msc
 from multistorageclient.utils import (
+    calculate_worker_processes_and_threads,
     expand_env_vars,
     extract_prefix_from_glob,
     glob,
     join_paths,
     merge_dictionaries_no_overwrite,
-    calculate_worker_processes_and_threads,
 )
 
 

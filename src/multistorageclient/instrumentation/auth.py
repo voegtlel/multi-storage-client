@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import logging
-import requests
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Optional
+
+import requests
 
 logger = logging.Logger(__name__)
 
@@ -24,7 +26,7 @@ BACKOFF_FACTOR = 0.5
 
 
 class AccessTokenProvider:
-    def __init__(self, auth_options: Dict[str, Any]):
+    def __init__(self, auth_options: dict[str, Any]):
         self.auth_options = auth_options
 
     def _require_refresh(self) -> bool:
@@ -94,7 +96,7 @@ class AzureAccessTokenProvider(AccessTokenProvider):
 
 class AccessTokenProviderFactory:
     @staticmethod
-    def create_access_token_provider(auth_config: Dict[str, Any]) -> Optional[AccessTokenProvider]:
+    def create_access_token_provider(auth_config: dict[str, Any]) -> Optional[AccessTokenProvider]:
         if not auth_config:
             return None
         auth_type = auth_config.get("type", None)

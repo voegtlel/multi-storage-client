@@ -15,18 +15,20 @@
 
 import os
 import pickle
-from typing import Any, Mapping
-from unittest.mock import MagicMock, call, Mock
+from collections.abc import Mapping
+from typing import Any
+from unittest.mock import MagicMock, Mock, call
 
 import pytest
+
 from multistorageclient.instrumentation.utils import (
+    DURATION_P50_GAUGE,
+    DURATION_P99_GAUGE,
+    DURATION_P999_GAUGE,
     CacheManagerMetricsHelper,
     StorageProviderMetricsHelper,
     TDigestPercentiles,
     collect_default_attributes,
-    DURATION_P50_GAUGE,
-    DURATION_P99_GAUGE,
-    DURATION_P999_GAUGE,
 )
 
 

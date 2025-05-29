@@ -15,7 +15,8 @@
 
 import os
 import threading
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from collections.abc import Iterator
+from typing import Any, Optional, Union
 from urllib.parse import ParseResult, urlparse
 
 from .client import StorageClient
@@ -26,7 +27,7 @@ from .types import MSC_PROTOCOL, ObjectMetadata
 
 _TELEMETRY: Optional[Telemetry] = None
 _TELEMETRY_LOCK = threading.Lock()
-_STORAGE_CLIENT_CACHE: Dict[str, StorageClient] = {}
+_STORAGE_CLIENT_CACHE: dict[str, StorageClient] = {}
 _STORAGE_CLIENT_CACHE_LOCK = threading.Lock()
 
 
@@ -69,7 +70,7 @@ def _build_full_path(pr: ParseResult) -> str:
     return path
 
 
-def _resolve_msc_url(url: str) -> Tuple[str, str]:
+def _resolve_msc_url(url: str) -> tuple[str, str]:
     """
     Resolve an MSC URL to a profile name and path.
 
@@ -84,7 +85,7 @@ def _resolve_msc_url(url: str) -> Tuple[str, str]:
     return profile, path
 
 
-def _resolve_non_msc_url(url: str) -> Tuple[str, str]:
+def _resolve_non_msc_url(url: str) -> tuple[str, str]:
     """
     Resolve a non-MSC URL to a profile name and path.
 
@@ -143,7 +144,7 @@ def _resolve_non_msc_url(url: str) -> Tuple[str, str]:
     return profile_name, path
 
 
-def resolve_storage_client(url: str) -> Tuple[StorageClient, str]:
+def resolve_storage_client(url: str) -> tuple[StorageClient, str]:
     """
     Build and return a :py:class:`multistorageclient.StorageClient` instance based on the provided URL or path.
 
@@ -212,7 +213,7 @@ def open(url: str, mode: str = "rb", **kwargs: Any) -> Union[PosixFile, ObjectFi
     return client.open(path, mode, **kwargs)
 
 
-def glob(pattern: str) -> List[str]:
+def glob(pattern: str) -> list[str]:
     """
     Return a list of files matching a pattern.
 

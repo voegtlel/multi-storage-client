@@ -15,14 +15,15 @@
 
 import logging
 import math
-import opentelemetry.sdk.environment_variables as sdk_environment_variables
-import opentelemetry.sdk.metrics as sdk_metrics
-import opentelemetry.sdk.metrics.export as sdk_metrics_export
 import os
 import threading
 import time
-from typing import Optional
 import weakref
+from typing import Optional
+
+import opentelemetry.sdk.environment_variables as sdk_environment_variables
+import opentelemetry.sdk.metrics as sdk_metrics
+import opentelemetry.sdk.metrics.export as sdk_metrics_export
 
 # Not OTel spec. Use 1 second to keep the data volume per export interval reasonably small.
 DEFAULT_COLLECT_INTERVAL_MILLIS: float = 1000

@@ -14,15 +14,16 @@
 # limitations under the License.
 
 import copy
+import os
+import tempfile
+
+import pytest
+
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.providers.manifest_metadata import (
     DEFAULT_MANIFEST_BASE_DIR,
 )
-import os
-import pytest
-import tempfile
-import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
-from typing import Type
 
 
 @pytest.mark.parametrize(
@@ -37,7 +38,7 @@ from typing import Type
         [tempdatastore.TemporaryAWSS3Bucket, True],
     ],
 )
-def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore], replace_base_path: bool):
+def test_manifest_metadata(temp_data_store_type: type[tempdatastore.TemporaryDataStore], replace_base_path: bool):
     with temp_data_store_type() as temp_data_store:
         data_profile = "data"
         data_with_manifest_profile = "data_with_manifest"

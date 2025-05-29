@@ -13,17 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sequence
 import hashlib
-from multistorageclient.telemetry.attributes.base import AttributesProvider, collect_attributes
+import os
+
+import pytest
+
+from multistorageclient.telemetry.attributes.base import collect_attributes
 from multistorageclient.telemetry.attributes.environment_variables import EnvironmentVariablesAttributesProvider
 from multistorageclient.telemetry.attributes.host import HostAttributesProvider
 from multistorageclient.telemetry.attributes.msc_config import MSCConfigAttributesProvider
 from multistorageclient.telemetry.attributes.process import ProcessAttributesProvider
 from multistorageclient.telemetry.attributes.static import StaticAttributesProvider
 from multistorageclient.telemetry.attributes.thread import ThreadAttributesProvider
-import os
-import pytest
 
 
 def test_environment_variables_attributes_provider():
@@ -114,10 +115,10 @@ def test_collect_attributes():
     attribute_value_x = 1
     attribute_value_y = 1
     attribute_value_y_overlay = 2
-    attributes_providers: Sequence[AttributesProvider] = (
+    attributes_providers = [
         StaticAttributesProvider(attributes={attribute_key_x: attribute_value_x, attribute_key_y: attribute_value_y}),
         StaticAttributesProvider(attributes={attribute_key_y: attribute_value_y_overlay}),
-    )
+    ]
     attributes = collect_attributes(attributes_providers=attributes_providers)
     assert attributes is not None
     assert attribute_key_x in attributes

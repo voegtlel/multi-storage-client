@@ -16,13 +16,14 @@
 # pyright: reportPossiblyUnboundVariable=false
 
 import os
-from functools import wraps
-from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Tuple, Union
 import time
+from collections.abc import Callable, Mapping, MutableMapping
+from functools import wraps
+from typing import Any, Optional, Union
 
 from opentelemetry import metrics, trace
-from opentelemetry.trace import StatusCode, set_span_in_context, Tracer
 from opentelemetry.metrics import get_meter_provider
+from opentelemetry.trace import StatusCode, Tracer, set_span_in_context
 
 from . import HAS_OBSERVABILITY_DEPS
 
@@ -96,7 +97,7 @@ class AttributeProvider:
         """Detect if the current environment matches this provider."""
         raise NotImplementedError
 
-    def collect_attributes(self, env: Mapping[str, Any]) -> Dict[str, Any]:
+    def collect_attributes(self, env: Mapping[str, Any]) -> dict[str, Any]:
         """Collect attributes specific to this provider."""
         raise NotImplementedError
 
@@ -106,7 +107,7 @@ class K8SAttributeProvider(AttributeProvider):
         # Check if running inside a Kubernetes cluster using default environment variables
         return "KUBERNETES_SERVICE_HOST" in env
 
-    def collect_attributes(self, env: Mapping[str, Any]) -> Dict[str, Any]:
+    def collect_attributes(self, env: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "job_id": None,
             "job_name": None,
@@ -120,7 +121,7 @@ class SlurmAttributeProvider(AttributeProvider):
     def detect(self, env: Mapping[str, Any]) -> bool:
         return "SLURM_JOB_ID" in env
 
-    def collect_attributes(self, env: Mapping[str, Any]) -> Dict[str, Any]:
+    def collect_attributes(self, env: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "job_id": env.get("SLURM_JOB_ID"),
             "job_name": env.get("SLURM_JOB_NAME"),
@@ -135,7 +136,7 @@ class MSCAttributeProvider(AttributeProvider):
         # Always checks for MSC env vars as they act as base values.
         return True
 
-    def collect_attributes(self, env: Mapping[str, Any]) -> Dict[str, Any]:
+    def collect_attributes(self, env: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "job_id": env.get("MSC_JOB_ID"),
             "job_name": env.get("MSC_JOB_NAME"),
@@ -156,7 +157,7 @@ msc_base_provider = MSCAttributeProvider()
 def collect_default_attributes(  # pylint: disable=dangerous-default-value
     env: Mapping[str, Any] = os.environ,
 ) -> Mapping[str, Any]:
-    collected_attributes: Dict[str, Any] = {}
+    collected_attributes: dict[str, Any] = {}
 
     for provider in providers:
         if provider.detect(env):
@@ -184,7 +185,7 @@ class TDigestPercentiles:
     """
 
     def __init__(self, p50_gauge: metrics._Gauge, p99_gauge: metrics._Gauge, p999_gauge: metrics._Gauge):
-        self._tdigests: MutableMapping[Tuple, Any] = {}
+        self._tdigests: MutableMapping[tuple, Any] = {}
         self._p50_gauge = p50_gauge
         self._p99_gauge = p99_gauge
         self._p999_gauge = p999_gauge
@@ -220,14 +221,14 @@ class TDigestPercentiles:
 
         return self._tdigests[attributes_key]
 
-    def _serialize_tdigests(self) -> Mapping[Tuple, bytes]:
+    def _serialize_tdigests(self) -> Mapping[tuple, bytes]:
         """Serialize tdigests objects into bytes."""
         m = {}
         for k, v in self._tdigests.items():
             m[k] = v.serialize()
         return m
 
-    def _deserialize_tdigests(self, tdigests: Mapping[Tuple, bytes]) -> MutableMapping[Tuple, Any]:
+    def _deserialize_tdigests(self, tdigests: Mapping[tuple, bytes]) -> MutableMapping[tuple, Any]:
         """Deserialize tdigests objects from bytes."""
 
         m = {}
@@ -235,13 +236,13 @@ class TDigestPercentiles:
             m[k] = datasketches.tdigest_float.deserialize(v)  # pyright: ignore [reportAttributeAccessIssue]
         return m
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self._tdigests = self._deserialize_tdigests(state["_tdigests"])
         self._p50_gauge = state["_p50_gauge"]
         self._p99_gauge = state["_p99_gauge"]
         self._p999_gauge = state["_p999_gauge"]
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         state = self.__dict__.copy()
         state["_tdigests"] = self._serialize_tdigests()
         return state
@@ -268,7 +269,7 @@ class StorageProviderMetricsHelper:
 
         self._attributes = attributes
 
-    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> dict[str, Any]:
         """
         Merges default attributes with provided attributes.
         """
@@ -493,7 +494,7 @@ class CacheManagerMetricsHelper:
         self._attributes = attributes
         self._counter = CACHE_MANAGER_COUNTER
 
-    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def _merge_attributes(self, attributes: Optional[Mapping[str, Any]] = None) -> dict[str, Any]:
         """
         Merges default attributes with provided attributes.
         """

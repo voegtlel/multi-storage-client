@@ -14,15 +14,16 @@
 # limitations under the License.
 
 import os
+from collections.abc import Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Any, Iterator, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
+import numpy as np
 import zarr as _zarr
 from zarr.storage import BaseStore
 
 from ..shortcuts import resolve_storage_client
 from ..types import MSC_PROTOCOL
-import numpy as np
 
 if TYPE_CHECKING:
     from ..client import StorageClient
@@ -64,7 +65,7 @@ class LazyZarrStore(BaseStore):
         return self.storage_client.read(full_key)
 
     def getitems(self, keys: Sequence[str], *, contexts: Any) -> Mapping[str, Any]:
-        def get_item(key: str) -> Tuple[str, Any]:
+        def get_item(key: str) -> tuple[str, Any]:
             return key, self.__getitem__(key)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:

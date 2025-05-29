@@ -15,9 +15,8 @@
 
 from typing import Optional
 
-
-from .caching.cache_config import CacheConfig
 from .caching.cache_backend import CacheBackend, FileSystemBackend, StorageProviderBackend
+from .caching.cache_config import CacheConfig
 from .types import StorageProvider
 
 DEFAULT_CACHE_SIZE = "10G"

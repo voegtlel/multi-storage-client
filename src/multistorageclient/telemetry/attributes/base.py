@@ -15,6 +15,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+
 import opentelemetry.util.types as api_types
 
 

@@ -15,9 +15,10 @@
 
 import asyncio
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Union
 
 from fsspec.asyn import AsyncFileSystem
 
@@ -46,7 +47,7 @@ class MultiStorageAsyncFileSystem(AsyncFileSystem):
         """
         super().__init__(**kwargs)
 
-    def resolve_path_and_storage_client(self, path: Union[str, os.PathLike]) -> Tuple[StorageClient, str]:
+    def resolve_path_and_storage_client(self, path: Union[str, os.PathLike]) -> tuple[StorageClient, str]:
         """
         Resolves the path and retrieves the associated :py:class:`multistorageclient.StorageClient`.
 
@@ -71,7 +72,7 @@ class MultiStorageAsyncFileSystem(AsyncFileSystem):
         loop = asyncio.get_event_loop()
         return loop.run_in_executor(_global_thread_pool, partial(func, *args, **kwargs))
 
-    def ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[List[Dict[str, Any]], List[str]]:
+    def ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[list[dict[str, Any]], list[str]]:
         """
         Lists the contents of a directory.
 
@@ -103,7 +104,7 @@ class MultiStorageAsyncFileSystem(AsyncFileSystem):
         else:
             return [os.path.join(storage_client.profile, obj.key) for obj in objects]
 
-    async def _ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[List[Dict[str, Any]], List[str]]:
+    async def _ls(self, path: str, detail: bool = True, **kwargs: Any) -> Union[list[dict[str, Any]], list[str]]:
         """
         Asynchronously lists the contents of a directory.
 
@@ -115,7 +116,7 @@ class MultiStorageAsyncFileSystem(AsyncFileSystem):
         """
         return await self.asynchronize_sync(self.ls, path, detail, **kwargs)
 
-    def info(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    def info(self, path: str, **kwargs: Any) -> dict[str, Any]:
         """
         Retrieves metadata information for a file.
 
@@ -135,7 +136,7 @@ class MultiStorageAsyncFileSystem(AsyncFileSystem):
             "type": metadata.type,
         }
 
-    async def _info(self, path: str, **kwargs: Any) -> Dict[str, Any]:
+    async def _info(self, path: str, **kwargs: Any) -> dict[str, Any]:
         """
         Asynchronously retrieves metadata information for a file.
 

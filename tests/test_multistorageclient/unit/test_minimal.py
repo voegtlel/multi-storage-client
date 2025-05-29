@@ -16,7 +16,6 @@
 import mmap
 import os
 import tempfile
-from typing import Type
 
 import pytest
 
@@ -31,7 +30,7 @@ from test_multistorageclient.unit.utils import tempdatastore
         [tempdatastore.TemporaryPOSIXDirectory],
     ],
 )
-def test_storage_client_basic_usage(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_storage_client_basic_usage(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         storage_client = StorageClient(

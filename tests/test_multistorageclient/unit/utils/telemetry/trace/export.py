@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
+from collections.abc import Sequence
+from typing import Optional
+
 import opentelemetry.sdk.trace as sdk_trace
 import opentelemetry.sdk.trace.export as sdk_trace_export
-import threading
-from typing import Optional, Sequence
 
 
 class InMemorySpanExporter(sdk_trace_export.SpanExporter):

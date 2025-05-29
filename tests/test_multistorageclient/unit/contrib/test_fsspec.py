@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import multistorageclient as msc
 import os
-import pytest
 import tempfile
-from test_multistorageclient.unit.utils import config, tempdatastore
-from typing import Type
 import uuid
+
+import pytest
+
+import multistorageclient as msc
+from test_multistorageclient.unit.utils import config, tempdatastore
 
 
 def generate_file(fs, path):
@@ -108,7 +109,7 @@ def verify_fsspec_implementation(profile: str):
         [tempdatastore.TemporaryAWSS3Bucket],
     ],
 )
-def test_fsspec_implementation(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]) -> None:
+def test_fsspec_implementation(temp_data_store_type: type[tempdatastore.TemporaryDataStore]) -> None:
     with temp_data_store_type() as temp_data_store:
         profile = "data"
         config.setup_msc_config(

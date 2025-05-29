@@ -17,6 +17,7 @@ import os
 from unittest.mock import MagicMock, Mock
 
 import pytest
+
 from multistorageclient.instrumentation.utils import StorageProviderMetricsHelper
 
 

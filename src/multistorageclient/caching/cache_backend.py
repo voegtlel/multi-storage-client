@@ -13,29 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Standard library imports
-from abc import ABC, abstractmethod
-from collections import OrderedDict
-from datetime import datetime
-from io import BytesIO, StringIO
 import logging
 import os
 import stat
 import tempfile
 import threading
 import time
-from typing import Any, List, Optional, Tuple, Union
-import xattr
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from datetime import datetime
+from io import BytesIO, StringIO
+from typing import Any, Optional, Union
 
-# Third-party imports
+import xattr
 from filelock import BaseFileLock, FileLock, Timeout
 
-# Local application imports
 from ..instrumentation.utils import CacheManagerMetricsHelper
 from ..types import StorageProvider
 from .cache_config import CacheConfig
 from .cache_item import CacheItem
-from .eviction_policy import FIFO, LRU, RANDOM, NO_EVICTION, EvictionPolicyFactory
+from .eviction_policy import FIFO, LRU, NO_EVICTION, RANDOM, EvictionPolicyFactory
 
 
 class _DummyLock:
@@ -140,7 +137,7 @@ class CacheBackend(ABC):
         """Check if the eviction policy is valid for this backend."""
         pass
 
-    def _split_key(self, key: str) -> Tuple[str, Optional[str]]:
+    def _split_key(self, key: str) -> tuple[str, Optional[str]]:
         """Split the key into path and etag.
 
         :param key: The key to split.
@@ -256,7 +253,7 @@ class FileSystemBackend(CacheBackend):
         Evict cache entries based on the configured eviction policy.
         """
         logging.debug("\nStarting evict_files...")
-        cache_items: List[CacheItem] = []
+        cache_items: list[CacheItem] = []
 
         # Traverse the directory and subdirectories
         for dirpath, _, filenames in os.walk(self._cache_dir):

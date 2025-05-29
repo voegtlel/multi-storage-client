@@ -151,6 +151,9 @@ docstring-code-format = true
 indent-style = "space"
 
 [tool.ruff.lint]
+extend-select = [
+    "I"
+]
 fixable = [
     "ALL"
 ]

@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Type
-
 import pytest
 import torch
 import torch.distributed.checkpoint as dcp
@@ -83,7 +81,7 @@ class SimpleModel(torch.nn.Module):
         [tempdatastore.TemporarySwiftStackBucket],
     ],
 )
-def test_filesystem_reader_writer(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_filesystem_reader_writer(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         config.setup_msc_config(
             config_dict={

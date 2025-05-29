@@ -1,6 +1,21 @@
-from abc import ABC, abstractmethod
-from typing import List, Type
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import random
+from abc import ABC, abstractmethod
+
 from .cache_item import CacheItem
 
 # Valid eviction policy types
@@ -21,7 +36,7 @@ class EvictionPolicy(ABC):
     """
 
     @abstractmethod
-    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+    def sort_items(self, cache_items: list[CacheItem]) -> list[CacheItem]:
         """Sort cache items according to the eviction policy.
 
         :param cache_items: List of cache items to sort.
@@ -36,7 +51,7 @@ class LRUEvictionPolicy(EvictionPolicy):
     This policy evicts the least recently used items first, based on file access times.
     """
 
-    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+    def sort_items(self, cache_items: list[CacheItem]) -> list[CacheItem]:
         """Sort items by access time (oldest first).
 
         :param cache_items: List of cache items to sort.
@@ -53,7 +68,7 @@ class FIFOEvictionPolicy(EvictionPolicy):
     based on file modification times.
     """
 
-    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+    def sort_items(self, cache_items: list[CacheItem]) -> list[CacheItem]:
         """Sort items by modification time (oldest first).
 
         :param cache_items: List of cache items to sort.
@@ -70,7 +85,7 @@ class RandomEvictionPolicy(EvictionPolicy):
     added file to prevent immediate eviction of newly cached items.
     """
 
-    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+    def sort_items(self, cache_items: list[CacheItem]) -> list[CacheItem]:
         """Randomly shuffle items, but ensure newest file is preserved.
 
         For the random policy, we want to ensure that the most recently added file
@@ -108,7 +123,7 @@ class NoEvictionPolicy(EvictionPolicy):
     grow without bounds until manually cleared.
     """
 
-    def sort_items(self, cache_items: List[CacheItem]) -> List[CacheItem]:
+    def sort_items(self, cache_items: list[CacheItem]) -> list[CacheItem]:
         """Return items in their original order without any sorting.
 
         Since no eviction should occur, we return the items in their original order.
@@ -125,7 +140,7 @@ class EvictionPolicyFactory:
     This factory creates instances of different eviction policies based on the policy type.
     """
 
-    _policy_map: dict[str, Type[EvictionPolicy]] = {
+    _policy_map: dict[str, type[EvictionPolicy]] = {
         LRU: LRUEvictionPolicy,
         FIFO: FIFOEvictionPolicy,
         RANDOM: RandomEvictionPolicy,

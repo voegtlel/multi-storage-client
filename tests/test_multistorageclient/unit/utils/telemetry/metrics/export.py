@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
+from typing import Optional
+
 import opentelemetry.sdk.metrics.export as sdk_metrics_export
 import opentelemetry.sdk.metrics.view as sdk_metrics_view
-import threading
-from typing import Dict, Optional, Type
 
 
 class InMemoryMetricExporter(sdk_metrics_export.MetricExporter):
@@ -29,8 +30,8 @@ class InMemoryMetricExporter(sdk_metrics_export.MetricExporter):
 
     def __init__(
         self,
-        preferred_temporality: Dict[Type, sdk_metrics_export.AggregationTemporality] = {},
-        preferred_aggregation: Dict[Type, sdk_metrics_view.Aggregation] = {},
+        preferred_temporality: dict[type, sdk_metrics_export.AggregationTemporality] = {},
+        preferred_aggregation: dict[type, sdk_metrics_view.Aggregation] = {},
     ):
         super().__init__(preferred_aggregation=preferred_aggregation, preferred_temporality=preferred_temporality)
         self._metrics_data = None

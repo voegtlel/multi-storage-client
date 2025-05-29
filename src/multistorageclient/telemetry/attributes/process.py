@@ -13,11 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import AttributesProvider
-from collections.abc import Mapping
 import enum
 import multiprocessing
+from collections.abc import Mapping
+
 import opentelemetry.util.types as api_types
+
+from .base import AttributesProvider
 
 
 class ProcessAttributesProvider(AttributesProvider):

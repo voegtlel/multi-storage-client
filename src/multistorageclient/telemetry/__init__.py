@@ -20,10 +20,12 @@ import json
 import logging
 import multiprocessing
 import multiprocessing.managers
-import opentelemetry.metrics as api_metrics
-import opentelemetry.trace as api_trace
 import threading
 from typing import Any, Optional, Union
+
+import opentelemetry.metrics as api_metrics
+import opentelemetry.trace as api_trace
+
 from .. import utils
 
 # MSC telemetry prefers publishing raw samples when possible to support arbitrary post-hoc aggregations.
@@ -155,6 +157,7 @@ class Telemetry:
                     try:
                         import opentelemetry.sdk.metrics as sdk_metrics
                         import opentelemetry.sdk.metrics.export as sdk_metrics_export
+
                         from .metrics.readers.diperiodic_exporting import DiperiodicExportingMetricReader
 
                         exporter_type = config["exporter"]["type"]

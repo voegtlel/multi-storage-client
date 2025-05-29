@@ -15,5 +15,4 @@
 
 from .manifest_metadata import ManifestMetadataGenerator
 
-
 __all__ = ["ManifestMetadataGenerator"]

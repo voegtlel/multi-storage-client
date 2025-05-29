@@ -14,27 +14,27 @@
 # limitations under the License.
 
 import copy
-from datetime import datetime, timezone
 import json
+import os
+import random
+import re
+import time
+from datetime import datetime, timezone
 
+import pytest
+
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.generators import ManifestMetadataGenerator
 from multistorageclient.providers.manifest_metadata import (
     DEFAULT_MANIFEST_BASE_DIR,
     MANIFEST_INDEX_FILENAME,
-    MANIFEST_PARTS_CHILD_DIR,
     MANIFEST_PART_PREFIX,
     MANIFEST_PART_SUFFIX,
+    MANIFEST_PARTS_CHILD_DIR,
     SEQUENCE_PADDING,
 )
 from multistorageclient.types import ObjectMetadata
-import os
-import pytest
-import random
-import re
-import time
-from typing import Type
-import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
         [tempdatastore.TemporarySwiftStackBucket],
     ],
 )
-def test_manifest_metadata(temp_data_store_type: Type[tempdatastore.TemporaryDataStore]):
+def test_manifest_metadata(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
     with temp_data_store_type() as temp_data_store:
         data_profile = "data"
         data_with_manifest_profile = "data_with_manifest"

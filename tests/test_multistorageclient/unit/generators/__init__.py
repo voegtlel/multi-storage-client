@@ -12,20 +12,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import json
-import os
-import tempfile
-from typing import Any
-
-
-def setup_msc_config(config_dict: dict[str, Any]) -> None:
-    """
-    Setup the multi-storage client configuration.
-    """
-    config_file = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
-
-    with open(config_file.name, "w") as f:
-        json.dump(config_dict, f)
-
-    os.environ["MSC_CONFIG"] = config_file.name

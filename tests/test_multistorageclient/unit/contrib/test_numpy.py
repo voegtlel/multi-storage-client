@@ -14,7 +14,9 @@
 # limitations under the License.
 
 import tempfile
+
 import pytest
+
 import multistorageclient as msc
 from multistorageclient.types import MSC_PROTOCOL
 

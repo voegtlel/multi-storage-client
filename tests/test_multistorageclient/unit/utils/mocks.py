@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterator
 from datetime import datetime, timezone
-from typing import Iterator, List, Optional, Tuple
+from typing import Optional
 
 from multistorageclient.types import (
     Credentials,
@@ -80,10 +81,10 @@ class TestMetadataProvider(MetadataProvider):
         assert not include_pending, "Not supported in tests"
         return ObjectMetadata(key=path, content_length=19283, last_modified=datetime.now(tz=timezone.utc))
 
-    def glob(self, pattern: str) -> List[str]:
+    def glob(self, pattern: str) -> list[str]:
         return glob_util(list(self._files.keys()), pattern)
 
-    def realpath(self, path: str) -> Tuple[str, bool]:
+    def realpath(self, path: str) -> tuple[str, bool]:
         exists = path in self._files
         return path, exists
 

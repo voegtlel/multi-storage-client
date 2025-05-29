@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import random
+import uuid
+
+import pytest
+
+import multistorageclient.telemetry as telemetry
+import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
 from multistorageclient import StorageClient, StorageClientConfig
 from multistorageclient.constants import MEMORY_LOAD_LIMIT
-import multistorageclient.telemetry as telemetry
-import os
-import pytest
-import random
-import test_multistorageclient.unit.utils.tempdatastore as tempdatastore
-import uuid
 
 
 @pytest.fixture(scope="session")

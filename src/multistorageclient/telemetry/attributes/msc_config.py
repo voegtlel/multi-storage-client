@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import AttributesProvider
-from collections.abc import Mapping
 import copy
 import hashlib
+from collections.abc import Mapping
+from typing import Any, TypedDict
+
 import jmespath
 import jmespath.functions as jmespath_functions
 import opentelemetry.util.types as api_types
-from typing import Any, TypedDict
+
+from .base import AttributesProvider
 
 
 class _MSCConfigJMESPathFunctions(jmespath_functions.Functions):
