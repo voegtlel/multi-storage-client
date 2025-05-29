@@ -100,13 +100,7 @@
             fake-gcs-server
             minio
             # Telemetry systems.
-            #
-            # Grafana in the locked Nixpkgs commit fails to build on aarch64-darwin.
-            #
-            # https://github.com/NixOS/nixpkgs/pull/393960#issuecomment-2815934612
-            #
-            # Piggyback off the older Nixpkgs with Python 3.9.
-            system-inputs.packages.nixpkgs-python39.grafana
+            grafana
             mimir
             tempo
             # JFrog CLI.

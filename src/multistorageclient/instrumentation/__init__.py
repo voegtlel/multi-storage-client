@@ -136,7 +136,7 @@ def _setup_opentelemetry_impl(config: dict[str, Any]) -> None:
                 # exporter
                 trace_exporter_dict = trace_config_dict.get("exporter", None)
                 if trace_exporter_dict:
-                    exporter_type = trace_exporter_dict["type"]
+                    exporter_type: str = trace_exporter_dict["type"]
                     module_name, class_name = _OTEL_TRACE_EXPORTER_MAPPING.get(exporter_type, exporter_type).rsplit(
                         ".", 1
                     )

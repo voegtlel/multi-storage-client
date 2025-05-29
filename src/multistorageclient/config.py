@@ -228,7 +228,7 @@ class StorageClientConfigLoader:
                             "attributes"
                         ]
                         for config in attributes_provider_configs:
-                            attributes_provider_type = config["type"]
+                            attributes_provider_type: str = config["type"]
                             attributes_provider_fully_qualified_name = _TELEMETRY_ATTRIBUTES_PROVIDER_MAPPING.get(
                                 attributes_provider_type, attributes_provider_type
                             )

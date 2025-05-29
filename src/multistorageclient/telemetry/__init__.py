@@ -160,7 +160,7 @@ class Telemetry:
 
                         from .metrics.readers.diperiodic_exporting import DiperiodicExportingMetricReader
 
-                        exporter_type = config["exporter"]["type"]
+                        exporter_type: str = config["exporter"]["type"]
                         exporter_fully_qualified_name = _METRICS_EXPORTER_MAPPING.get(exporter_type, exporter_type)
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)
@@ -265,7 +265,7 @@ class Telemetry:
                         import opentelemetry.sdk.trace.export as sdk_trace_export
                         import opentelemetry.sdk.trace.sampling as sdk_trace_sampling
 
-                        exporter_type = config["exporter"]["type"]
+                        exporter_type: str = config["exporter"]["type"]
                         exporter_fully_qualified_name = _TRACE_EXPORTER_MAPPING.get(exporter_type, exporter_type)
                         exporter_module_name, exporter_class_name = exporter_fully_qualified_name.rsplit(".", 1)
                         cls = utils.import_class(exporter_class_name, exporter_module_name)

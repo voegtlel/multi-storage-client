@@ -30,7 +30,7 @@ analyze: prepare-virtual-environment
     # Format.
     if [[ -z "${CI:-}" ]]; then ruff format; else ruff format --check; fi
     # Lint.
-    if [[ -z "${CI:-}" ]]; then ruff check --fix; else ruff check --output-format gitlab --output-file .reports/ruff.json; fi
+    if [[ -z "${CI:-}" ]]; then ruff check --fix; else ruff check --output-file .reports/ruff.json --output-format gitlab; fi
     # Type check.
     uv run pyright
 
