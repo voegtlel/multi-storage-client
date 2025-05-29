@@ -16,9 +16,10 @@
 import io
 import os
 import time
-from collections.abc import Callable, Iterator, Sized
+from collections.abc import Callable, Iterator, Sequence, Sized
 from typing import IO, Any, Optional, TypeVar, Union
 
+import opentelemetry.metrics as api_metrics
 from aistore.sdk import Client
 from aistore.sdk.authn import AuthNClient
 from aistore.sdk.errors import AISError
@@ -26,6 +27,8 @@ from aistore.sdk.obj.object_props import ObjectProps
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
+from ..telemetry import Telemetry
+from ..telemetry.attributes.base import AttributesProvider
 from ..types import (
     AWARE_DATETIME_MIN,
     Credentials,
@@ -91,6 +94,10 @@ class StaticAISCredentialProvider(CredentialsProvider):
 
 
 class AIStoreStorageProvider(BaseStorageProvider):
+    """
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with NVIDIA AIStore.
+    """
+
     def __init__(
         self,
         endpoint: str = os.getenv("AIS_ENDPOINT", ""),
@@ -101,6 +108,9 @@ class AIStoreStorageProvider(BaseStorageProvider):
         retry: Optional[dict[str, Any]] = None,
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
+        metric_counters: dict[Telemetry.CounterName, api_metrics.Counter] = {},
+        metric_gauges: dict[Telemetry.GaugeName, api_metrics._Gauge] = {},
+        metric_attributes_providers: Sequence[AttributesProvider] = (),
         **kwargs: Any,
     ) -> None:
         """
@@ -115,8 +125,18 @@ class AIStoreStorageProvider(BaseStorageProvider):
         :param retry: ``urllib3.util.Retry`` parameters.
         :param token: Authorization token. If not provided, the ``AIS_AUTHN_TOKEN`` environment variable will be used.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
+        :param credentials_provider: The provider to retrieve AIStore credentials.
+        :param metric_counters: Metric counters.
+        :param metric_gauges: Metric gauges.
+        :param metric_attributes_providers: Metric attributes providers.
         """
-        super().__init__(base_path=base_path, provider_name=PROVIDER)
+        super().__init__(
+            base_path=base_path,
+            provider_name=PROVIDER,
+            metric_counters=metric_counters,
+            metric_gauges=metric_gauges,
+            metric_attributes_providers=metric_attributes_providers,
+        )
 
         # https://aistore.nvidia.com/docs/python-sdk#client.Client
         client_retry = None if retry is None else Retry(**retry)

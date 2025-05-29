@@ -19,11 +19,15 @@ import os
 import shutil
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sized
+from collections.abc import Callable, Iterator, Sequence, Sized
 from datetime import datetime, timezone
 from io import BytesIO, StringIO
 from typing import IO, Any, Optional, TypeVar, Union
 
+import opentelemetry.metrics as api_metrics
+
+from ..telemetry import Telemetry
+from ..telemetry.attributes.base import AttributesProvider
 from ..types import AWARE_DATETIME_MIN, ObjectMetadata, Range
 from .base import BaseStorageProvider
 
@@ -53,7 +57,25 @@ def atomic_write(source: Union[str, IO], destination: str):
 
 
 class PosixFileStorageProvider(BaseStorageProvider):
-    def __init__(self, base_path: str, **kwargs: Any) -> None:
+    """
+    A concrete implementation of the :py:class:`multistorageclient.types.StorageProvider` for interacting with POSIX file systems.
+    """
+
+    def __init__(
+        self,
+        base_path: str,
+        metric_counters: dict[Telemetry.CounterName, api_metrics.Counter] = {},
+        metric_gauges: dict[Telemetry.GaugeName, api_metrics._Gauge] = {},
+        metric_attributes_providers: Sequence[AttributesProvider] = (),
+        **kwargs: Any,
+    ) -> None:
+        """
+        :param base_path: The root prefix path within the POSIX file system where all operations will be scoped.
+        :param metric_counters: Metric counters.
+        :param metric_gauges: Metric gauges.
+        :param metric_attributes_providers: Metric attributes providers.
+        """
+
         # Validate POSIX path
         if base_path == "":
             base_path = "/"
@@ -61,7 +83,13 @@ class PosixFileStorageProvider(BaseStorageProvider):
         if not base_path.startswith("/"):
             raise ValueError(f"The base_path {base_path} must be an absolute path.")
 
-        super().__init__(base_path=base_path, provider_name=PROVIDER)
+        super().__init__(
+            base_path=base_path,
+            provider_name=PROVIDER,
+            metric_counters=metric_counters,
+            metric_gauges=metric_gauges,
+            metric_attributes_providers=metric_attributes_providers,
+        )
 
     def _collect_metrics(
         self,

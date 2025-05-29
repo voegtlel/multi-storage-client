@@ -17,9 +17,10 @@ import io
 import os
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sized
+from collections.abc import Callable, Iterator, Sequence, Sized
 from typing import IO, Any, Optional, TypeVar, Union
 
+import opentelemetry.metrics as api_metrics
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.auth import identity_pool
 from google.cloud import storage
@@ -27,6 +28,8 @@ from google.cloud.storage import transfer_manager
 from google.cloud.storage.exceptions import InvalidResponse
 from google.oauth2.credentials import Credentials as OAuth2Credentials
 
+from ..telemetry import Telemetry
+from ..telemetry.attributes.base import AttributesProvider
 from ..types import (
     AWARE_DATETIME_MIN,
     Credentials,
@@ -103,6 +106,9 @@ class GoogleStorageProvider(BaseStorageProvider):
         endpoint_url: str = "",
         base_path: str = "",
         credentials_provider: Optional[CredentialsProvider] = None,
+        metric_counters: dict[Telemetry.CounterName, api_metrics.Counter] = {},
+        metric_gauges: dict[Telemetry.GaugeName, api_metrics._Gauge] = {},
+        metric_attributes_providers: Sequence[AttributesProvider] = (),
         **kwargs: Any,
     ):
         """
@@ -112,8 +118,17 @@ class GoogleStorageProvider(BaseStorageProvider):
         :param endpoint_url: The custom endpoint URL for the GCS service.
         :param base_path: The root prefix path within the bucket where all operations will be scoped.
         :param credentials_provider: The provider to retrieve GCS credentials.
+        :param metric_counters: Metric counters.
+        :param metric_gauges: Metric gauges.
+        :param metric_attributes_providers: Metric attributes providers.
         """
-        super().__init__(base_path=base_path, provider_name=PROVIDER)
+        super().__init__(
+            base_path=base_path,
+            provider_name=PROVIDER,
+            metric_counters=metric_counters,
+            metric_gauges=metric_gauges,
+            metric_attributes_providers=metric_attributes_providers,
+        )
 
         self._project_id = project_id
         self._endpoint_url = endpoint_url
