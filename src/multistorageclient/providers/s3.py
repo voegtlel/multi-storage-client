@@ -305,6 +305,8 @@ class S3StorageProvider(BaseStorageProvider):
             request_id = error.response["ResponseMetadata"].get("RequestId")
             host_id = error.response["ResponseMetadata"].get("HostId")
             header = error.response["ResponseMetadata"].get("HTTPHeaders", {})
+            error_code = error.response["Error"]["Code"]
+
             # Ensure header is a dictionary before trying to get from it
             x_trans_id = header.get("x-trans-id") if isinstance(header, dict) else None
 
@@ -318,6 +320,9 @@ class S3StorageProvider(BaseStorageProvider):
                 set_span_attribute("x_trans_id", x_trans_id)
 
             if status_code == 404:
+                if error_code == "NoSuchUpload":
+                    error_message = error.response["Error"]["Message"]
+                    raise RetryableError(f"Multipart upload failed for {bucket}/{key}: {error_message}") from error
                 raise FileNotFoundError(f"Object {bucket}/{key} does not exist. {error_info}")  # pylint: disable=raise-missing-from
             elif status_code == 412:  # Precondition Failed
                 raise PreconditionFailedError(

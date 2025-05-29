@@ -235,7 +235,7 @@ class GoogleStorageProvider(BaseStorageProvider):
             error_details = f"error: {error}, error_response_text: {response_text}"
             # Check for NoSuchUpload within the response text
             if "NoSuchUpload" in response_text:
-                raise RetryableError(f"Multi-part upload failed for {bucket}/{key}, {error_details}") from error
+                raise RetryableError(f"Multipart upload failed for {bucket}/{key}, {error_details}") from error
             else:
                 raise RuntimeError(f"Failed to {operation} object(s) at {bucket}/{key}. {error_details}") from error
         except Exception as error:
