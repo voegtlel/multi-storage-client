@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import fnmatch
 import hashlib
 import importlib
 import multiprocessing
@@ -23,6 +22,8 @@ import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Optional
+
+from wcmatch import glob as wcmatch_glob
 
 from .types import ObjectMetadata
 
@@ -52,14 +53,43 @@ def glob(keys: list[str], pattern: str) -> list[str]:
 
     :return: A list of keys that match the pattern.
     """
-    # Split the pattern into parts
-    if "**" in pattern:
-        # Handle the recursive case with '**'
-        base_pattern = pattern.replace("**/", "")  # Remove the '**/' part for matching
-        return [key for key in keys if fnmatch.fnmatch(key, base_pattern)]
-    else:
-        # Standard fnmatch usage for non-recursive patterns
-        return fnmatch.filter(keys, pattern)
+    return [key for key in keys if wcmatch_glob.globmatch(key, [pattern], flags=wcmatch_glob.GLOBSTAR)]
+
+
+def insert_directories(keys: list[str]) -> list[str]:
+    """
+    Inserts implied directory paths into a list of object keys.
+
+    Object stores typically don't return directory entries, only file/object keys.
+    This function extracts all unique directory paths from the given keys and
+    adds them to create a complete list for glob pattern matching.
+
+    Example:
+        Input: [
+            "folder1/file1.txt",
+            "folder1/subfolder/file2.txt",
+            "folder2/file3.txt"
+        ]
+        Output: [
+            "folder1",
+            "folder1/file1.txt",
+            "folder1/subfolder",
+            "folder1/subfolder/file2.txt",
+            "folder2",
+            "folder2/file3.txt",
+        ]
+
+    :param keys: A list of object keys.
+    :return: A list containing both the original keys and all implied directory paths in ascending order.
+    """
+    expanded_keys = set()
+
+    for key in keys:
+        parts = key.split("/")
+        for i in range(len(parts)):
+            expanded_keys.add("/".join(parts[: i + 1]))
+
+    return sorted(expanded_keys)
 
 
 def import_class(class_name: str, module_name: str, package_name: Optional[str] = None) -> Any:

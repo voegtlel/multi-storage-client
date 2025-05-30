@@ -15,6 +15,7 @@
 
 import os
 import shutil
+import stat
 import tempfile
 import uuid
 from pathlib import Path
@@ -166,6 +167,19 @@ def verify_pathlib(profile: str, prefix: str):
     # glob
     assert len(list(msc.Path(f"msc://{profile}/{prefix}").glob("**/*.bin"))) == 10
     assert len(list(msc.Path(f"msc://{profile}/{prefix}/").iterdir())) == 10
+
+    # match
+    assert msc.Path(f"msc://{profile}/{prefix}/data-0.bin").match("data-*.bin")
+
+    # stat and lstat
+    assert msc.Path(f"msc://{profile}/{prefix}/data-0.bin").stat().st_size == 4 * MB
+    assert msc.Path(f"msc://{profile}/{prefix}/data-0.bin").lstat().st_size == 4 * MB
+    assert msc.Path(f"msc://{profile}/{prefix}/data-0.bin").stat().st_mtime > 0
+    assert (
+        msc.Path(f"msc://{profile}/{prefix}/data-0.bin").stat().st_mtime
+        == msc.Path(f"msc://{profile}/{prefix}/data-0.bin").lstat().st_mtime
+    )
+    assert msc.Path(f"msc://{profile}/{prefix}/data-0.bin").stat().st_mode == stat.S_IFREG | 0o644
 
     # Path operations
     path = msc.Path(f"msc://{profile}/{prefix}/data-0.bin")

@@ -24,6 +24,7 @@ from multistorageclient.utils import (
     expand_env_vars,
     extract_prefix_from_glob,
     glob,
+    insert_directories,
     join_paths,
     merge_dictionaries_no_overwrite,
 )
@@ -204,6 +205,21 @@ def test_merge_dictionaries_no_overwrite_with_conflict():
 
     _, conflicts = merge_dictionaries_no_overwrite(dict_a, dict_b)
     assert "type" in conflicts, "Expected a conflict on 'type' but it wasn't recorded."
+
+
+def test_insert_directories():
+    """Test directory insertion with nested folder structure."""
+    keys = ["folder1/file1.txt", "folder1/subfolder/file2.txt", "folder2/file3.txt"]
+    expected = [
+        "folder1",
+        "folder1/file1.txt",
+        "folder1/subfolder",
+        "folder1/subfolder/file2.txt",
+        "folder2",
+        "folder2/file3.txt",
+    ]
+    result = insert_directories(keys)
+    assert result == expected
 
 
 def test_version():

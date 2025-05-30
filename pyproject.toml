@@ -21,7 +21,8 @@ dependencies = [
     "python-dateutil~=2.8",
     "pyyaml~=6.0.1",
     "opentelemetry-api~=1.24",
-    "xattr~=1.1.4"
+    "xattr~=1.1.4",
+    "wcmatch~=10.0",
 ]
 
 [project.urls]

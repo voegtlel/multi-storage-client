@@ -109,6 +109,8 @@ def test_storage_providers(temp_data_store_type: type[tempdatastore.TemporaryDat
         # Glob the file.
         assert len(storage_client.glob(pattern=f"*{file_extension}-nonexistent")) == 0
         assert len(storage_client.glob(pattern=os.path.join("**", f"*{file_extension}-nonexistent"))) == 0
+        assert storage_client.glob(pattern="*")[0] == file_path_fragments[0], "glob should return the directory"
+        assert len(storage_client.glob(pattern=f"*{file_extension}")) == 0
         assert len(storage_client.glob(pattern=os.path.join("**", f"*{file_extension}"))) == 1
         assert storage_client.glob(pattern=os.path.join("**", f"*{file_extension}"))[0] == file_path
 

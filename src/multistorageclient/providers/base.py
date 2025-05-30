@@ -28,7 +28,7 @@ from ..instrumentation.utils import StorageProviderMetricsHelper, instrumented
 from ..telemetry import Telemetry
 from ..telemetry.attributes.base import AttributesProvider, collect_attributes
 from ..types import ObjectMetadata, Range, StorageProvider
-from ..utils import extract_prefix_from_glob, glob
+from ..utils import extract_prefix_from_glob, glob, insert_directories
 
 _T = TypeVar("_T")
 
@@ -271,12 +271,9 @@ class BaseStorageProvider(StorageProvider):
 
     def glob(self, pattern: str) -> list[str]:
         prefix = extract_prefix_from_glob(pattern)
-        if self._base_path:
-            keys = [object.key for object in self.list_objects(prefix)]
-            return [key for key in glob(keys, pattern)]
-        else:
-            keys = [object.key for object in self.list_objects(prefix)]
-            return [f"{key}" for key in glob(keys, pattern)]
+        keys = [object.key for object in self.list_objects(prefix)]
+        keys = insert_directories(keys)
+        return [key for key in glob(keys, pattern)]
 
     def is_file(self, path: str) -> bool:
         try:

@@ -15,15 +15,57 @@
 
 import logging
 import os
+import stat
 from pathlib import Path, PurePosixPath
 from typing import Union
 
 from .client import StorageClient
 from .shortcuts import resolve_storage_client
-from .types import MSC_PROTOCOL
+from .types import MSC_PROTOCOL, ObjectMetadata
 from .utils import join_paths
 
 logger = logging.Logger(__name__)
+
+
+class StatResult:
+    """
+    A stat-like result object that mimics os.stat_result for remote storage paths.
+
+    This class provides the same interface as os.stat_result but is populated
+    from ObjectMetadata obtained from storage providers.
+    """
+
+    def __init__(self, metadata: ObjectMetadata):
+        """Initialize StatResult from ObjectMetadata."""
+        # File type and mode bits
+        if metadata.type == "directory":
+            # Directory: 0o755 (rwxr-xr-x) + S_IFDIR
+            self.st_mode = stat.S_IFDIR | 0o755
+        else:
+            # Regular file: 0o644 (rw-r--r--) + S_IFREG
+            self.st_mode = stat.S_IFREG | 0o644
+
+        # File size
+        self.st_size = metadata.content_length
+
+        # Timestamps - convert datetime to epoch seconds
+        mtime = metadata.last_modified.timestamp()
+        self.st_mtime = mtime
+        self.st_atime = mtime
+        self.st_ctime = mtime
+
+        # Nanosecond precision timestamps
+        mtime_ns = int(mtime * 1_000_000_000)
+        self.st_mtime_ns = mtime_ns
+        self.st_atime_ns = mtime_ns
+        self.st_ctime_ns = mtime_ns
+
+        # Default values for fields we don't have from storage providers
+        self.st_ino = 0
+        self.st_dev = 0
+        self.st_nlink = 1
+        self.st_uid = os.getuid() if hasattr(os, "getuid") else 0  # User ID
+        self.st_gid = os.getgid() if hasattr(os, "getgid") else 0  # Group ID
 
 
 class MultiStoragePath:
@@ -157,9 +199,7 @@ class MultiStoragePath:
         raise NotImplementedError("MultiStoragePath.is_reserved() is unsupported for remote storage paths")
 
     def match(self, pattern) -> bool:
-        if self._storage_client.is_default_profile():
-            return Path(self._internal_path).match(pattern)
-        raise NotImplementedError("MultiStoragePath.match() is unsupported for remote storage paths")
+        return Path(self._internal_path).match(pattern)
 
     def relative_to(self, other: "MultiStoragePath") -> "MultiStoragePath":
         raise NotImplementedError("MultiStoragePath.relative_to() is unsupported")
@@ -232,12 +272,14 @@ class MultiStoragePath:
     def stat(self):
         if self._storage_client.is_default_profile():
             return Path(self._internal_path).stat()
-        raise NotImplementedError("MultiStoragePath.stat() is unsupported for remote storage paths")
+        info = self._storage_client.info(str(self._internal_path))
+        return StatResult(info)
 
     def lstat(self):
         if self._storage_client.is_default_profile():
             return Path(self._internal_path).lstat()
-        raise NotImplementedError("MultiStoragePath.lstat() is unsupported for remote storage paths")
+        info = self._storage_client.info(str(self._internal_path))
+        return StatResult(info)
 
     def exists(self) -> bool:
         if self._storage_client.is_default_profile():
