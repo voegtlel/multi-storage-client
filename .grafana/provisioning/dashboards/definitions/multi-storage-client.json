@@ -1,0 +1,1055 @@
+{
+    "timezone": "browser",
+    "editable": false,
+    "graphTooltip": 1,
+    "fiscalYearStartMonth": 0,
+    "schemaVersion": 41,
+    "templating": {
+        "list": [
+            {
+                "type": "datasource",
+                "name": "metrics_source",
+                "skipUrlSync": false,
+                "multi": false,
+                "allowCustomValue": false,
+                "includeAll": false,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "label": "Metrics Source",
+                "query": "prometheus"
+            },
+            {
+                "type": "query",
+                "name": "version",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Version",
+                "query": "label_values(multistorageclient_version)",
+                "refresh": 2,
+                "sort": 1
+            },
+            {
+                "type": "query",
+                "name": "provider",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Provider",
+                "query": "label_values(multistorageclient_provider)",
+                "refresh": 2,
+                "sort": 1
+            },
+            {
+                "type": "query",
+                "name": "operation",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Operation",
+                "query": "label_values(multistorageclient_operation)",
+                "refresh": 2,
+                "sort": 1
+            },
+            {
+                "type": "query",
+                "name": "status",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Status",
+                "query": "label_values(multistorageclient_status)",
+                "refresh": 2,
+                "sort": 1
+            },
+            {
+                "type": "query",
+                "name": "cluster",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Cluster",
+                "query": "label_values(cluster)",
+                "refresh": 2,
+                "sort": 1
+            },
+            {
+                "type": "query",
+                "name": "node",
+                "skipUrlSync": false,
+                "multi": true,
+                "allowCustomValue": true,
+                "includeAll": true,
+                "auto": false,
+                "auto_min": "10s",
+                "auto_count": 30,
+                "datasource": {
+                    "type": "datasource",
+                    "uid": "${metrics_source}"
+                },
+                "label": "Node",
+                "query": "label_values(node)",
+                "refresh": 2,
+                "sort": 1
+            }
+        ]
+    },
+    "annotations": {},
+    "title": "Multi-Storage Client",
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "uid": "multi-storage-client",
+    "panels": [
+        {
+            "type": "row",
+            "collapsed": false,
+            "id": 0,
+            "panels": [],
+            "title": "Aggregates",
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "h": 1,
+                "w": 24
+            }
+        },
+        {
+            "type": "text",
+            "transparent": false,
+            "repeatDirection": "h",
+            "options": {
+                "mode": "markdown",
+                "content": "An [aggregate](https://en.wikipedia.org/wiki/Aggregate_function) is a summary of an underlying distribution.\n\nThese preserve global (i.e. aggregate) information at the expense of local (i.e. per-sample) information."
+            },
+            "gridPos": {
+                "h": 3,
+                "w": 24,
+                "x": 0,
+                "y": 1
+            }
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "description": "The request sum by operation for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 0,
+                "y": 4
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation) (increase(multistorageclient_request_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}}"
+                }
+            ],
+            "title": "Request – Sum"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "ops"
+                },
+                "overrides": []
+            },
+            "description": "The request rate by operation for matching samples.\n\nThis is the average (i.e. not instantaneous) request rate for each interval.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 0,
+                "y": 14
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation) (rate(multistorageclient_request_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}}"
+                }
+            ],
+            "title": "Request – Rate"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "description": "The response sum by operation and status for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 8,
+                "y": 4
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation, multistorageclient_status) (increase(multistorageclient_response_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}} – {{multistorageclient_status}}"
+                }
+            ],
+            "title": "Response – Sum"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "ops"
+                },
+                "overrides": []
+            },
+            "description": "The response rate by operation and status for matching samples.\n\nThis is the average (i.e. not instantaneous) response rate for each interval.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 8,
+                "y": 14
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation, multistorageclient_status) (rate(multistorageclient_response_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}} – {{multistorageclient_status}}"
+                }
+            ],
+            "title": "Response – Rate"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "decbytes"
+                },
+                "overrides": []
+            },
+            "description": "The data size sum by operation and status for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 16,
+                "y": 4
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation, multistorageclient_status) (increase(multistorageclient_data_size_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}} – {{multistorageclient_status}}"
+                }
+            ],
+            "title": "Data Size – Sum"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "bars",
+                        "stacking": {
+                            "mode": "normal"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "Bps"
+                },
+                "overrides": []
+            },
+            "description": "The data rate by operation and status for matching samples.\n\nThis is the average (i.e. not instantaneous) data rate for each interval.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 16,
+                "y": 14
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "desc",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "sum by(multistorageclient_operation, multistorageclient_status) (rate(multistorageclient_data_size_sum{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}[$__rate_interval]))",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "{{multistorageclient_operation}} – {{multistorageclient_status}}"
+                }
+            ],
+            "title": "Data Size – Rate"
+        },
+        {
+            "type": "row",
+            "collapsed": false,
+            "id": 0,
+            "panels": [],
+            "title": "Empirical Distributions",
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 24
+            }
+        },
+        {
+            "type": "text",
+            "transparent": false,
+            "repeatDirection": "h",
+            "options": {
+                "mode": "markdown",
+                "content": "An [empirical distribution](https://en.wikipedia.org/wiki/Empirical_distribution_function) is a sampled subset of an underlying distribution. If the sampling rate is high enough, this is equal to the true distribution.\n\nThese preserve local (i.e. per-sample) information at the expense of global (i.e. aggregate) information when the sampling rate is __NOT__ high enough (most deployments)."
+            },
+            "gridPos": {
+                "h": 3,
+                "w": 24,
+                "x": 0,
+                "y": 25
+            }
+        },
+        {
+            "type": "heatmap",
+            "transparent": false,
+            "repeatDirection": "h",
+            "options": {
+                "calculate": true,
+                "color": {
+                    "scheme": "Magma",
+                    "fill": "",
+                    "exponent": 0,
+                    "steps": 64,
+                    "reverse": false
+                },
+                "filterValues": {
+                    "le": 1E-9
+                },
+                "showValue": "auto",
+                "cellGap": 1,
+                "yAxis": {
+                    "min": 0,
+                    "unit": "decbytes"
+                },
+                "legend": {
+                    "show": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "showColorScale": true,
+                    "yHistogram": true
+                },
+                "exemplars": {
+                    "color": "rgba(255,0,255,0.7)"
+                },
+                "selectionMode": "x",
+                "calculation": {
+                    "xBuckets": {
+                        "mode": "count"
+                    },
+                    "yBuckets": {
+                        "mode": "count",
+                        "value": "100"
+                    }
+                }
+            },
+            "description": "The data size empirical distribution for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 0,
+                "y": 28
+            },
+            "targets": [
+                {
+                    "expr": "multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series"
+                }
+            ],
+            "title": "Data Size – Empirical Distribution"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "stacking": {
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "decbytes"
+                },
+                "overrides": []
+            },
+            "description": "The data size empirical distribution percentiles for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 0,
+                "y": 38
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "quantile(1, multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p100"
+                },
+                {
+                    "expr": "quantile(0.999, multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99.9"
+                },
+                {
+                    "expr": "quantile(0.99, multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99"
+                },
+                {
+                    "expr": "quantile(0.9, multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p90"
+                },
+                {
+                    "expr": "quantile(0.5, multistorageclient_data_size{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p50"
+                }
+            ],
+            "title": "Data Size – Empirical Distribution Percentiles"
+        },
+        {
+            "type": "heatmap",
+            "transparent": false,
+            "repeatDirection": "h",
+            "options": {
+                "calculate": true,
+                "color": {
+                    "scheme": "Magma",
+                    "fill": "",
+                    "exponent": 0,
+                    "steps": 64,
+                    "reverse": false
+                },
+                "filterValues": {
+                    "le": 1E-9
+                },
+                "showValue": "auto",
+                "cellGap": 1,
+                "yAxis": {
+                    "min": 0,
+                    "unit": "s"
+                },
+                "legend": {
+                    "show": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "showColorScale": true,
+                    "yHistogram": true
+                },
+                "exemplars": {
+                    "color": "rgba(255,0,255,0.7)"
+                },
+                "selectionMode": "x",
+                "calculation": {
+                    "xBuckets": {
+                        "mode": "count"
+                    },
+                    "yBuckets": {
+                        "mode": "count",
+                        "value": "100"
+                    }
+                }
+            },
+            "description": "The latency empirical distribution for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 8,
+                "y": 28
+            },
+            "targets": [
+                {
+                    "expr": "multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series"
+                }
+            ],
+            "title": "Latency – Empirical Distribution"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "stacking": {
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "s"
+                },
+                "overrides": []
+            },
+            "description": "The latency empirical distribution percentiles for matching samples.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 8,
+                "y": 38
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "quantile(1, multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p100"
+                },
+                {
+                    "expr": "quantile(0.999, multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99.9"
+                },
+                {
+                    "expr": "quantile(0.99, multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99"
+                },
+                {
+                    "expr": "quantile(0.9, multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p90"
+                },
+                {
+                    "expr": "quantile(0.5, multistorageclient_latency{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p50"
+                }
+            ],
+            "title": "Latency – Empirical Distribution Percentiles"
+        },
+        {
+            "type": "heatmap",
+            "transparent": false,
+            "repeatDirection": "h",
+            "options": {
+                "calculate": true,
+                "color": {
+                    "scheme": "Magma",
+                    "fill": "",
+                    "exponent": 0,
+                    "steps": 64,
+                    "reverse": false
+                },
+                "filterValues": {
+                    "le": 1E-9
+                },
+                "showValue": "auto",
+                "cellGap": 1,
+                "yAxis": {
+                    "min": 0,
+                    "unit": "Bps"
+                },
+                "legend": {
+                    "show": true
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "showColorScale": true,
+                    "yHistogram": true
+                },
+                "exemplars": {
+                    "color": "rgba(255,0,255,0.7)"
+                },
+                "selectionMode": "x",
+                "calculation": {
+                    "xBuckets": {
+                        "mode": "count"
+                    },
+                    "yBuckets": {
+                        "mode": "count",
+                        "value": "100"
+                    }
+                }
+            },
+            "description": "The data rate empirical distribution for matching samples.\n\nThis is the average (i.e. not instantaneous) data rate for each sample.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 16,
+                "y": 28
+            },
+            "targets": [
+                {
+                    "expr": "multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"}",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series"
+                }
+            ],
+            "title": "Data Rate – Empirical Distribution"
+        },
+        {
+            "type": "timeseries",
+            "transparent": false,
+            "repeatDirection": "h",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "smooth",
+                        "stacking": {
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "min": 0,
+                    "unit": "Bps"
+                },
+                "overrides": []
+            },
+            "description": "The data rate empirical distribution percentiles for matching samples.\n\nThis is the average (i.e. not instantaneous) data rate for each sample.",
+            "gridPos": {
+                "h": 10,
+                "w": 8,
+                "x": 16,
+                "y": 38
+            },
+            "options": {
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true,
+                    "calcs": []
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none",
+                    "hideZeros": false
+                }
+            },
+            "targets": [
+                {
+                    "expr": "quantile(1, multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p100"
+                },
+                {
+                    "expr": "quantile(0.999, multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99.9"
+                },
+                {
+                    "expr": "quantile(0.99, multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p99"
+                },
+                {
+                    "expr": "quantile(0.9, multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p90"
+                },
+                {
+                    "expr": "quantile(0.5, multistorageclient_data_rate{multistorageclient_version=~\"${version}\", multistorageclient_provider=~\"${provider}\", multistorageclient_operation=~\"${operation}\", multistorageclient_status=~\"${status}\", cluster=~\"${cluster}\", node=~\"${node}\"})",
+                    "refId": "",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "${metrics_source}"
+                    },
+                    "editorMode": "builder",
+                    "format": "time_series",
+                    "legendFormat": "p50"
+                }
+            ],
+            "title": "Data Rate – Empirical Distribution Percentiles"
+        }
+    ]
+}

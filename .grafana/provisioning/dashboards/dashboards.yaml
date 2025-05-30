@@ -4,3 +4,9 @@
 # https://grafana.com/docs/grafana/latest/administration/provisioning#dashboards
 #
 apiVersion: 1
+providers:
+  - name: dashboards
+    type: file
+    options:
+      path: ../provisioning/dashboards/definitions
+      foldersFromFilesStructure: true
