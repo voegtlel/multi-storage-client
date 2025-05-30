@@ -25,6 +25,20 @@ profiles:
         multipart_threshold: 16777216 # 16MB
         multipart_chunksize: 4194304 # 4MB
         io_chunk_size: 4194304 # 4MB
+  test-gcs-hmac:
+    credentials_provider:
+      type: S3Credentials
+      options:
+        access_key: "*****"
+        secret_key: "*****"
+    storage_provider:
+      type: s8k # Required instead of s3 since GCS Supports Only Signature Version 2, not Signature Version 4 (s3v4) (AWS current version)
+      options:
+        base_path: nvdataplatformdev/msc-test
+        endpoint_url: https://storage.googleapis.com
+        multipart_threshold: 16777216 # 16MB
+        multipart_chunksize: 4194304 # 4MB
+        io_chunksize: 4194304 # 4MB
   test-oci:
     storage_provider:
       type: oci

@@ -50,3 +50,17 @@ def test_gcs_conditional_put(profile_name):
         if_none_match_specific_error_type=NotModifiedError,  # if-none-match = ETag
         supports_if_none_match_star=False,
     )
+
+
+@pytest.mark.parametrize("profile_name", ["test-gcs-hmac"])
+@pytest.mark.parametrize("config_suffix", [""])
+def test_gcs_hmac_shortcuts(profile_name, config_suffix):
+    profile = profile_name + config_suffix
+    common.test_shortcuts(profile)
+
+
+@pytest.mark.parametrize("profile_name", ["test-gcs-hmac"])
+@pytest.mark.parametrize("config_suffix", [""])
+def test_gcs_hmac_storage_client(profile_name, config_suffix):
+    profile = profile_name + config_suffix
+    common.test_storage_client(profile)
