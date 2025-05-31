@@ -187,3 +187,55 @@ def test_sync_function(
             msc.delete(os.path.join(source_msc_url, key))
         msc.sync(source_url=source_msc_url, target_url=target_msc_url, delete_unmatched_files=True)
         verify_sync_and_contents(target_url=target_msc_url, expected_files={})
+
+
+@pytest.mark.parametrize(
+    argnames=["temp_data_store_type"],
+    argvalues=[[tempdatastore.TemporaryAWSS3Bucket]],
+)
+def test_sync_from(temp_data_store_type: type[tempdatastore.TemporaryDataStore]):
+    msc.shortcuts._STORAGE_CLIENT_CACHE.clear()
+
+    obj_profile = "s3-sync"
+    local_profile = "local"
+    with (
+        tempdatastore.TemporaryPOSIXDirectory() as temp_source_data_store,
+        temp_data_store_type() as temp_data_store,
+    ):
+        config.setup_msc_config(
+            config_dict={
+                "profiles": {
+                    obj_profile: temp_data_store.profile_config_dict(),
+                    local_profile: temp_source_data_store.profile_config_dict(),
+                }
+            }
+        )
+
+        source_msc_url = f"msc://{local_profile}/folder"
+        target_msc_url = f"msc://{obj_profile}/synced-files"
+
+        # Create local dataset
+        expected_files = {
+            "dir1/file0.txt": "a" * 150,
+            "dir1/file1.txt": "b" * 200,
+            "dir1/file2.txt": "c" * 1000,
+            "dir2/file0.txt": "d" * 1,
+            "dir2/file1.txt": "e" * 5,
+            "dir2/file2.txt": "f" * (MEMORY_LOAD_LIMIT + 1024),  # One large file
+            "dir3/file0.txt": "g" * 10000,
+            "dir3/file1.txt": "h" * 800,
+            "dir3/file2.txt": "i" * 512,
+        }
+        create_local_test_dataset(source_msc_url, expected_files)
+        # Insert a delay before sync'ing so that timestamps will be clearer.
+        time.sleep(1)
+
+        print(f"First sync from {source_msc_url} to {target_msc_url}")
+        source_client, source_path = msc.resolve_storage_client(source_msc_url)
+        target_client, target_path = msc.resolve_storage_client(target_msc_url)
+
+        # The leading "/" is implied, but a rendundant one should be handled okay.
+        target_client.sync_from(source_client, "/folder/", "/synced-files/")
+
+        # Verify contents on target match expectation.
+        verify_sync_and_contents(target_url=target_msc_url, expected_files=expected_files)

@@ -446,6 +446,9 @@ class StorageClient:
         :param delete_unmatched_files: Whether to delete files at the target that are not present at the source.
         :param num_worker_processes: The number of worker processes to use.
         """
+        source_path = source_path.lstrip("/")
+        target_path = target_path.lstrip("/")
+
         if source_client == self and (source_path.startswith(target_path) or target_path.startswith(source_path)):
             raise ValueError("Source and target paths cannot overlap on same StorageClient.")
 
