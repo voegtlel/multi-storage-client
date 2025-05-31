@@ -114,12 +114,7 @@ run-unit-tests: prepare-virtual-environment start-storage-systems && stop-storag
     # Unit test.
     #
     # The CI/CD runner setup only allows 4 cores per job, so using 1 parent + 3 child processes.
-    if [[ -z "${CI:-}" ]]; then \
-        NUMPROCESSES=auto; \
-    else \
-        NUMPROCESSES=2; \
-    fi; \
-    uv run pytest --cov --cov-report term --cov-report html --cov-report xml --durations 0 --durations-min 10 --junit-xml .reports/unit/pytest.xml --numprocesses $NUMPROCESSES
+    uv run pytest --cov --cov-report term --cov-report html --cov-report xml --durations 0 --durations-min 10 --junit-xml .reports/unit/pytest.xml
 
 # Run load tests. For dummy load generation when experimenting with telemetry.
 run-load-tests: prepare-virtual-environment start-storage-systems && stop-storage-systems
