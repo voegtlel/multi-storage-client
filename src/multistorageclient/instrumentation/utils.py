@@ -19,7 +19,7 @@ import os
 import time
 from collections.abc import Callable, Mapping, MutableMapping
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any, Optional, TypeVar, Union
 
 from opentelemetry import metrics, trace
 from opentelemetry.metrics import get_meter_provider
@@ -466,7 +466,10 @@ def _generic_tracer(func: Callable, class_name: str) -> Callable:
     return wrapper
 
 
-def instrumented(cls: Any) -> Any:
+T = TypeVar("T")
+
+
+def instrumented(cls: T) -> T:
     """
     A class decorator that automatically instruments all callable attributes
     of the class with the generic tracer.
