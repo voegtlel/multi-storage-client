@@ -19,6 +19,8 @@ from collections.abc import Iterator
 from typing import Any, Optional, Union
 from urllib.parse import ParseResult, urlparse
 
+from multistorageclient.rclone import read_rclone_config
+
 from .client import StorageClient
 from .config import DEFAULT_POSIX_PROFILE_NAME, SUPPORTED_IMPLICIT_PROFILE_PROTOCOLS, StorageClientConfig
 from .file import ObjectFile, PosixFile
@@ -368,3 +370,16 @@ def commit_metadata(url: str) -> None:
     """
     client, path = resolve_storage_client(url)
     client.commit_metadata(prefix=path)
+
+
+def clear_cache() -> None:
+    """
+    Clears the storage client cache. Typically used for testing purposes.
+    """
+    global _STORAGE_CLIENT_CACHE
+    global _STORAGE_CLIENT_CACHE_LOCK
+
+    with _STORAGE_CLIENT_CACHE_LOCK:
+        _STORAGE_CLIENT_CACHE.clear()
+
+    read_rclone_config.cache_clear()

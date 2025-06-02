@@ -20,6 +20,7 @@ from .cache import CacheConfig
 from .client import StorageClient, StorageClientConfig
 from .pathlib import MultiStoragePath as Path
 from .shortcuts import (
+    clear_cache,
     commit_metadata,
     delete,
     download_file,
@@ -59,6 +60,7 @@ __all__ = [
     "list",
     "write",
     "delete",
+    "clear_cache",
 ]
 
 
